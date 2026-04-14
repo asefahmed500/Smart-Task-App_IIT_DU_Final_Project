@@ -47,16 +47,16 @@ export default function MetricsDashboard({ boardId }: MetricsDashboardProps) {
           <h3 className="text-body font-medium mb-6">Aggregate Cycle & Lead Times</h3>
           <div className="w-full flex-1 flex flex-row items-center gap-12 w-full justify-center opacity-90 hover:opacity-100 transition-opacity">
             <div className="flex flex-col items-center">
-               <span className="text-4xl font-light font-waldenburg tracking-tight">{metrics.avgLeadTimeHours}</span>
-               <span className="text-caption text-muted-foreground mt-2 uppercase tracking-wide font-medium">Avg Lead Time (Hrs)</span>
+               <span className="text-4xl font-light font-waldenburg tracking-tight">{metrics.leadTime?.avg ?? 0}</span>
+               <span className="text-caption text-muted-foreground mt-2 uppercase tracking-wide font-medium">Avg Lead Time (Days)</span>
                <span className="text-xs text-muted-foreground/60 w-32 text-center mt-2 leading-tight">Creation to Done</span>
             </div>
             
             <div className="h-16 w-px bg-border/50 hidden md:block" />
 
             <div className="flex flex-col items-center">
-               <span className="text-4xl font-light font-waldenburg tracking-tight text-blue-600">{metrics.avgCycleTimeHours}</span>
-               <span className="text-caption text-muted-foreground mt-2 uppercase tracking-wide font-medium">Avg Cycle Time (Hrs)</span>
+               <span className="text-4xl font-light font-waldenburg tracking-tight text-blue-600">{metrics.cycleTime?.avg ?? 0}</span>
+               <span className="text-caption text-muted-foreground mt-2 uppercase tracking-wide font-medium">Avg Cycle Time (Days)</span>
                <span className="text-xs text-muted-foreground/60 w-32 text-center mt-2 leading-tight">In Progress to Done</span>
             </div>
             

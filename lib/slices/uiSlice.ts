@@ -8,7 +8,7 @@ interface UIState {
   viewMode: ViewMode
   sidebarOpen: boolean
   rightSidebarOpen: boolean
-  rightSidebarTab: 'overview' | 'comments' | 'dependencies' | 'activity'
+  rightSidebarTab: 'overview' | 'comments' | 'dependencies' | 'attachments' | 'activity'
   selectedTaskId: string | null
   commandPaletteOpen: boolean
   theme: 'light' | 'dark' | 'system'
@@ -60,7 +60,7 @@ const uiSlice = createSlice({
     setRightSidebarOpen: (state, action: PayloadAction<boolean>) => {
       state.rightSidebarOpen = action.payload
     },
-    setRightSidebarTab: (state, action: PayloadAction<UIState['rightSidebarTab']>) => {
+    setRightSidebarTab: (state, action: PayloadAction<'overview' | 'comments' | 'dependencies' | 'attachments' | 'activity'>) => {
       state.rightSidebarTab = action.payload
     },
     setSelectedTask: (state, action: PayloadAction<string | null>) => {

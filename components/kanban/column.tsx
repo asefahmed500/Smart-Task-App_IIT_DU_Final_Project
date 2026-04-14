@@ -51,7 +51,7 @@ export default function Column({ column, boardId, tasks, focusMode, filterAssign
 
   const { data: session } = useGetSessionQuery()
   const userRole = session?.role
-  const canManageColumn = userRole === 'ADMIN' || userRole === 'MANAGER'
+  const canManageColumn = userRole === 'MANAGER'
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   })
@@ -197,16 +197,18 @@ export default function Column({ column, boardId, tasks, focusMode, filterAssign
           </ScrollArea>
         </CardContent>
 
-        <div className="p-3 pt-0">
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-muted-foreground hover:text-black hover:bg-[rgba(0,0,0,0.04)] h-8 text-xs font-medium"
-            onClick={() => setCreateTaskOpen(true)}
-          >
-            <Plus className="mr-2 h-3.5 w-3.5" />
-            Add Task
-          </Button>
-        </div>
+        {userRole !== 'ADMIN' && (
+          <div className="p-3 pt-0">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-muted-foreground hover:text-black hover:bg-[rgba(0,0,0,0.04)] h-8 text-xs font-medium"
+              onClick={() => setCreateTaskOpen(true)}
+            >
+              <Plus className="mr-2 h-3.5 w-3.5" />
+              Add Task
+            </Button>
+          </div>
+        )}
       </Card>
 
       <CreateTaskDialog

@@ -13,6 +13,8 @@ import PresenceStack from './presence-stack'
 import { useAppSelector } from '@/lib/hooks'
 import type { EditingUser } from '@/lib/slices/presenceSlice'
 
+import { useGetSessionQuery } from '@/lib/slices/authApi'
+
 interface TaskCardProps {
   id: string
   title: string
@@ -31,6 +33,7 @@ interface TaskCardProps {
   focusMode?: boolean
   filterAssignee?: string | null
   isDragging?: boolean
+  role?: string // Alternative to session query inside for performance if passed down
   onClick?: () => void
 }
 
@@ -56,6 +59,9 @@ export default function TaskCard({
   isDragging,
   onClick,
 }: TaskCardProps) {
+  const { data: session } = useGetSessionQuery()
+  const isAdmin = session?.role === 'ADMIN'
+
   const [currentTime, setCurrentTime] = useState(new Date())
   const editingUsers = useAppSelector((state) =>
     state.presence.usersEditing.filter((u: EditingUser) => u.taskId === id)
@@ -128,7 +134,9 @@ export default function TaskCard({
           <Badge variant="outline" className={cn('text-xs', priorityColors[priority])}>
             {priority}
           </Badge>
-          <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          {!isAdmin && (
+            <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
         </div>
 
         {/* Title */}

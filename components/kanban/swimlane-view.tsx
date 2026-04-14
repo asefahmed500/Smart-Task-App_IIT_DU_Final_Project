@@ -59,37 +59,59 @@ export default function SwimlaneView({ tasks, columns, groupBy, renderTaskCard }
   }
 
   return (
-    <div className="space-y-4">
-      {groupedData.map(({ key, tasks }) => (
-        <Card key={key} className="p-4">
-          {/* Swimlane Header */}
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[rgba(0,0,0,0.08)]">
-            {getGroupIcon(key)}
-            <h3 className="text-body font-medium">{key}</h3>
-            <span className="text-caption text-[#777169]">({tasks.length} tasks)</span>
-          </div>
+    <div className="flex-1 overflow-x-auto">
+      <div className="min-w-max flex flex-col gap-6 pb-6 pr-6">
+        {/* Unified Column Headers */}
+        <div className="flex gap-4 h-8 items-center px-4">
+          <div className="w-48 flex-shrink-0" /> {/* Spacer for the lane title column */}
+          {columns.map((column) => (
+            <div key={column.id} className="w-80 flex-shrink-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
+              {column.name}
+            </div>
+          ))}
+        </div>
 
-          {/* Columns within swimlane */}
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {columns.map((column) => {
-              const columnTasks = tasks.filter((t) => t.columnId === column.id)
-              return (
-                <div key={column.id} className="flex-shrink-0 w-72">
-                  <div className="text-body-medium mb-2 px-2">{column.name}</div>
-                  <div className="space-y-2 min-h-[100px] bg-[#f5f5f5] rounded-lg p-2">
+        {/* Lanes */}
+        <div className="space-y-6">
+          {groupedData.map(({ key, tasks }) => (
+            <div key={key} className="flex gap-4 group">
+              {/* Lane Info Column - Sticky Left */}
+              <div className="w-48 flex-shrink-0 sticky left-0 z-10 bg-[rgba(255,255,255,0.8)] backdrop-blur-md p-4 rounded-xl border border-[rgba(0,0,0,0.08)] shadow-sm self-start">
+                <div className="flex items-center gap-2 mb-2">
+                  {getGroupIcon(key)}
+                  <h3 className="text-sm font-semibold truncate">{key}</h3>
+                </div>
+                <Badge variant="secondary" className="text-[10px] font-medium px-1.5 py-0 h-4 min-w-[32px] justify-center">
+                  {tasks.length}
+                </Badge>
+              </div>
+
+              {/* Lane Columns */}
+              {columns.map((column) => {
+                const columnTasks = tasks.filter((t) => t.columnId === column.id)
+                return (
+                  <div 
+                    key={column.id} 
+                    className={cn(
+                      "w-80 flex-shrink-0 space-y-3 p-3 rounded-xl transition-colors min-h-[120px]",
+                      "bg-[rgba(0,0,0,0.02)] border border-dashed border-transparent group-hover:border-[rgba(0,0,0,0.06)]"
+                    )}
+                  >
                     {columnTasks.map((task) => (
                       <div key={task.id}>{renderTaskCard(task)}</div>
                     ))}
                     {columnTasks.length === 0 && (
-                      <div className="text-center text-caption text-[#777169] py-4">No tasks</div>
+                      <div className="h-full flex items-center justify-center">
+                        <span className="text-[10px] text-muted-foreground/50 font-medium">EMPTY</span>
+                      </div>
                     )}
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        </Card>
-      ))}
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

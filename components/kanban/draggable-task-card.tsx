@@ -4,6 +4,8 @@ import { useDraggable } from '@dnd-kit/core'
 import TaskCard from './task-card'
 import { Task } from '@/lib/slices/boardsApi'
 
+import { useGetSessionQuery } from '@/lib/slices/authApi'
+
 interface DraggableTaskCardProps {
   task: Task
   focusMode?: boolean
@@ -19,9 +21,13 @@ export default function DraggableTaskCard({
   isDragging: externalIsDragging,
   onClick,
 }: DraggableTaskCardProps) {
+  const { data: session } = useGetSessionQuery()
+  const isAdmin = session?.role === 'ADMIN'
+
   const { attributes, listeners, setNodeRef, transform, isDragging: internalIsDragging } = useDraggable({
     id: task.id,
     data: task,
+    disabled: isAdmin,
   })
 
   const isDragging = externalIsDragging ?? internalIsDragging

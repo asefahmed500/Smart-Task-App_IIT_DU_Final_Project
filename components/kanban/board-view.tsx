@@ -4,7 +4,7 @@ import { useAppSelector } from '@/lib/hooks'
 import { useGetBoardQuery, useGetBoardColumnsQuery } from '@/lib/slices/boardsApi'
 import { useGetTasksQuery } from '@/lib/slices/tasksApi'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import Column from './column'
 import SwimlaneView from './swimlane-view'
@@ -22,6 +22,9 @@ import { LayoutGrid, Users, BarChart3, Settings, Filter, Layers } from 'lucide-r
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { emitCursorMove } from '@/lib/socket'
+import { BoardCursors } from './board-cursors'
+import { useRef } from 'react'
 
 interface BoardViewProps {
   boardId: string
@@ -46,6 +49,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [pendingMove, setPendingMove] = useState<{ taskId: string, targetColumnId: string, version: number } | null>(null)
   const [swimlaneGroupBy, setSwimlaneGroupBy] = useState<'assignee' | 'priority' | 'label'>('assignee')
+  const lastMouseMove = useRef(0)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -67,7 +71,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
     const { active, over } = event
     setActiveId(null)
 
-    if (!over) return
+    if (!over || session?.role === 'ADMIN') return
 
     const taskId = active.id as string
     const targetColumnId = over.id as string
@@ -230,8 +234,21 @@ export default function BoardView({ boardId }: BoardViewProps) {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <ScrollArea className="flex-1">
-            <div className="flex gap-4 pb-4 h-full min-w-max">
+          <div 
+            className="flex-1 overflow-x-auto overflow-y-hidden p-6 relative"
+            onMouseMove={(e) => {
+              const now = Date.now()
+              if (now - lastMouseMove.current < 50) return
+              lastMouseMove.current = now
+              
+              const rect = e.currentTarget.getBoundingClientRect()
+              const x = ((e.clientX - rect.left) / rect.width) * 100
+              const y = ((e.clientY - rect.top) / rect.height) * 100
+              emitCursorMove({ boardId, cursor: { x, y } })
+            }}
+          >
+            <BoardCursors />
+            <div className="flex gap-4 pb-6 h-full w-max">
               {columns.map((column) => (
                 <Column
                   key={column.id}
@@ -244,7 +261,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
                 />
               ))}
             </div>
-          </ScrollArea>
+          </div>
         </DndContext>
       )}
 

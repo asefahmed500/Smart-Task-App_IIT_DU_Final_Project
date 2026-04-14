@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,7 +13,8 @@ import {
   Users, 
   Zap, 
   Loader2, 
-  AlertTriangle 
+  AlertTriangle,
+  History 
 } from 'lucide-react'
 import { 
   useUpdateBoardMutation, 
@@ -27,6 +29,7 @@ import { useRouter } from 'next/navigation'
 import AutomationBuilder from './automation-builder'
 import MembersList from './members-list'
 import MemberInviteDialog from './member-invite-dialog'
+import BoardActivityFeed from './board-activity-feed'
 
 interface BoardSettingsDialogProps {
   board: Board
@@ -81,8 +84,12 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl rounded-[24px] overflow-hidden p-0 gap-0">
-        <div className="flex h-[600px]">
+      <DialogContent className="max-w-4xl h-[85vh] md:max-h-[700px] rounded-[24px] overflow-hidden p-0 gap-0">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Board Settings - {board.name}</DialogTitle>
+          <DialogDescription>Configure board general settings, members, and automations.</DialogDescription>
+        </DialogHeader>
+        <div className="flex h-full">
           {/* Sidebar Tabs */}
           <div className="w-64 bg-[rgba(0,0,0,0.02)] border-r p-4 flex flex-col gap-2">
             <h2 className="text-body-medium font-medium px-2 py-4 flex items-center gap-2">
@@ -112,13 +119,22 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
                   <Zap className="h-4 w-4 mr-2" />
                   Automations
                 </TabsTrigger>
+                <TabsTrigger 
+                  value="activity" 
+                  className="justify-start px-3 h-10 data-[state=active]:bg-white data-[state=active]:shadow-sm border-none"
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  Activity
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 p-8 overflow-y-auto">
-            <Tabs value={activeTab}>
+          <div className="flex-1 flex flex-col min-w-0 bg-white">
+            <ScrollArea className="flex-1">
+              <div className="p-8">
+                <Tabs value={activeTab}>
               <TabsContent value="general" className="m-0 space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -218,7 +234,17 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
                   members={board.members}
                 />
               </TabsContent>
-            </Tabs>
+
+              <TabsContent value="activity" className="m-0 space-y-6">
+                <div className="space-y-1 mb-4">
+                  <h3 className="text-body-medium font-medium">Board Activity</h3>
+                  <p className="text-caption text-muted-foreground">Recent changes and events on this board</p>
+                </div>
+                <BoardActivityFeed boardId={board.id} />
+              </TabsContent>
+                </Tabs>
+              </div>
+            </ScrollArea>
           </div>
         </div>
       </DialogContent>
