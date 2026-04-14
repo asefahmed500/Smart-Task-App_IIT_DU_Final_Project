@@ -18,10 +18,11 @@ import { Separator } from '@/components/ui/separator'
 import { X, Save, MessageSquare, Link2, Activity, Clock, UserIcon, Tag, AlertCircle, CheckCircle2, Trash2, Paperclip, Download, FileText, Copy, Edit, Plus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { setSelectedTask, setRightSidebarOpen } from '@/lib/slices/uiSlice'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import DependencySelectDialog from './dependency-select'
+import DueTimeline from '@/components/kanban/due-timeline'
 
 interface TaskDetailSidebarProps {
   taskId: string
@@ -70,6 +71,12 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
   const [addAttachment] = useAddAttachmentMutation()
   const [deleteAttachment] = useDeleteAttachmentMutation()
   const [isUploading, setIsUploading] = useState(false)
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 60000)
+    return () => clearInterval(interval)
+  }, [])
   
   const isManager = session?.role === 'MANAGER' || session?.role === 'ADMIN'
 
@@ -251,10 +258,17 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                   {task.dueDate && (
                     <div className="space-y-2">
                       <Label className="text-caption text-[#777169]">Due Date</Label>
-                      <span className="text-body-standard flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(task.dueDate).toLocaleDateString()}
-                      </span>
+                      <div className="flex flex-col gap-2">
+                         <span className="text-body-standard flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(task.dueDate).toLocaleDateString()}
+                         </span>
+                         <DueTimeline 
+                            dueDate={task.dueDate} 
+                            currentTime={currentTime} 
+                            createdAt={task.createdAt} 
+                         />
+                      </div>
                     </div>
                   )}
 

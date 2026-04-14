@@ -22,6 +22,7 @@ interface TaskCardProps {
   priority: Priority
   labels: string[]
   dueDate: string | null
+  createdAt: string
   assignee?: {
     id: string
     name: string | null
@@ -51,6 +52,7 @@ export default function TaskCard({
   priority,
   labels,
   dueDate,
+  createdAt,
   assignee,
   isBlocked,
   lastMovedAt,
@@ -188,7 +190,7 @@ export default function TaskCard({
           )}
 
           {/* Due Timeline */}
-          {dueDate && <DueTimeline dueDate={dueDate} currentTime={currentTime} />}
+          {dueDate && <DueTimeline dueDate={dueDate} currentTime={currentTime} createdAt={createdAt} />}
         </div>
 
         {/* Presence Stack */}

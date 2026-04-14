@@ -21,6 +21,7 @@ export interface Column {
   name: string
   position: number
   wipLimit: number | null
+  isTerminal: boolean
   _count?: {
     tasks: number
   }

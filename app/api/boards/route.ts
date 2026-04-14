@@ -31,6 +31,19 @@ export async function GET(req: NextRequest) {
         _count: {
           select: { members: true, tasks: true },
         },
+        tasks: {
+          where: {
+            dueDate: { not: null },
+            completedAt: null, // Only fetch uncompleted tasks for counts
+          },
+          select: {
+            id: true,
+            dueDate: true,
+            column: {
+              select: { name: true }
+            }
+          }
+        }
       },
       orderBy: { updatedAt: 'desc' },
     })

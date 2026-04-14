@@ -51,7 +51,7 @@ export const tasksApi = createApi({
     baseUrl: '/api',
     credentials: 'include',
   }),
-  tagTypes: ['Task'],
+  tagTypes: ['Task', 'Board'],
   endpoints: (builder) => ({
     getTasks: builder.query<Task[], string>({
       query: (boardId) => `/boards/${boardId}/tasks`,
@@ -73,7 +73,7 @@ export const tasksApi = createApi({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: ['Task'],
+      invalidatesTags: ['Task', 'Board'],
     }),
     updateTask: builder.mutation<Task, { id: string; data: UpdateTaskRequest }>({
       query: ({ id, data }) => ({
@@ -81,7 +81,7 @@ export const tasksApi = createApi({
         method: 'PATCH',
         body: data,
       }),
-      invalidatesTags: (result) => [{ type: 'Task', id: result?.id }],
+      invalidatesTags: (result) => [{ type: 'Task', id: result?.id }, 'Board'],
     }),
     moveTask: builder.mutation<Task, MoveTaskRequest>({
       query: ({ taskId, ...data }) => ({
@@ -89,7 +89,7 @@ export const tasksApi = createApi({
         method: 'PATCH',
         body: data,
       }),
-      invalidatesTags: (result) => [{ type: 'Task', id: result?.id }],
+      invalidatesTags: (result) => [{ type: 'Task', id: result?.id }, 'Board'],
     }),
     assignTask: builder.mutation<Task, { id: string; assigneeId: string | null }>({
       query: ({ id, assigneeId }) => ({
@@ -97,14 +97,14 @@ export const tasksApi = createApi({
         method: 'PATCH',
         body: { assigneeId },
       }),
-      invalidatesTags: (result) => [{ type: 'Task', id: result?.id }],
+      invalidatesTags: (result) => [{ type: 'Task', id: result?.id }, 'Board'],
     }),
     deleteTask: builder.mutation<void, string>({
       query: (id) => ({
         url: `/tasks/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Task'],
+      invalidatesTags: ['Task', 'Board'],
     }),
     getTaskAudit: builder.query<any[], string>({
       query: (taskId) => `/tasks/${taskId}/audit`,

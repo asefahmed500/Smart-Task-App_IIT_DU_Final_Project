@@ -13,7 +13,7 @@ import MetricsDashboard from './metrics-dashboard'
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import { useMoveTaskMutation } from '@/lib/slices/tasksApi'
 import { toast } from 'sonner'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useDispatch } from 'react-redux'
 import { setSelectedTask, setViewMode } from '@/lib/slices/uiSlice'
 import { ConflictResolutionDialog } from './conflict-resolution-dialog'
@@ -35,14 +35,43 @@ export default function BoardView({ boardId }: BoardViewProps) {
 
   const { data: board, isLoading: boardLoading } = useGetBoardQuery(boardId)
   const { data: columns, isLoading: columnsLoading } = useGetBoardColumnsQuery(boardId)
-  const { data: tasks, isLoading: tasksLoading } = useGetTasksQuery(boardId)
+  const { data: rawTasks, isLoading: tasksLoading } = useGetTasksQuery(boardId)
   const [moveTask] = useMoveTaskMutation()
 
   const viewMode = useAppSelector((state) => state.ui.viewMode)
   const focusMode = useAppSelector((state) => state.ui.focusMode)
+  const filterDue = useAppSelector((state) => state.ui.filterDue)
   const filterAssignee = useAppSelector((state) => state.ui.filterAssignee)
   const { data: session } = useGetSessionQuery()
   const [activeId, setActiveId] = useState<string | null>(null)
+
+  // Filter tasks based on due date
+  const tasks = useMemo(() => {
+    if (!rawTasks) return []
+    
+    return rawTasks.filter((task: any) => {
+        // Base filtering already handles assignee if focusMode is on? 
+        // No, focusMode just blurs. But filterDue should strictly hide.
+        if (filterDue === 'all') return true
+        
+        if (!task.dueDate) return false
+        
+        const due = new Date(task.dueDate)
+        const now = new Date()
+        const startOfNow = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+        const startOfDue = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime()
+        
+        if (filterDue === 'today') {
+            return startOfDue === startOfNow
+        }
+        
+        if (filterDue === 'overdue') {
+            return due.getTime() < now.getTime() && task.column?.name?.toLowerCase() !== 'done'
+        }
+        
+        return true
+    })
+  }, [rawTasks, filterDue])
   
   // State
   const [conflictOpen, setConflictOpen] = useState(false)

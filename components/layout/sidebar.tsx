@@ -40,11 +40,11 @@ export default function Sidebar() {
 
     boards?.forEach((board) => {
       if (board.tasks) {
-        board.tasks.forEach((task: { dueDate?: string | null; columnId?: string; column?: { name?: string } }) => {
+        board.tasks.forEach((task: { dueDate?: string | null; columnId?: string; column?: { name?: string; isTerminal?: boolean } }) => {
           if (task.dueDate) {
             const dueDate = new Date(task.dueDate)
             dueDate.setHours(0, 0, 0, 0)
-            const isDone = task.column?.name?.toLowerCase() === 'done'
+            const isDone = task.column?.isTerminal === true
             if (!isDone) {
               if (dueDate.getTime() === today.getTime()) dueToday++
               else if (dueDate.getTime() < today.getTime()) overdue++

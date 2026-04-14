@@ -52,6 +52,7 @@ export default function DraggableTaskCard({
         priority={task.priority}
         labels={task.labels}
         dueDate={task.dueDate}
+        createdAt={task.createdAt}
         assignee={task.assignee}
         position={task.position}
         isBlocked={task.isBlocked}

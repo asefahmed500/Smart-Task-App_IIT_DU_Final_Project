@@ -37,10 +37,13 @@ export function useDashboardStats(
       : tasks
 
     tasksToProcess.forEach((task) => {
+      const isCompleted = task.completedAt !== null || task.column?.isTerminal === true
+      const isInProgress = task.inProgressAt !== null && !isCompleted
+
       // Count tasks by status
-      if (task.status === 'done') {
+      if (isCompleted) {
         completedTasks++
-      } else if (task.status === 'in_progress') {
+      } else if (isInProgress) {
         inProgressTasks++
       }
 
@@ -48,8 +51,8 @@ export function useDashboardStats(
         blockedTasks++
       }
 
-      // Count due today
-      if (task.dueDate && task.status !== 'done') {
+      // Count due today (only for non-completed tasks)
+      if (task.dueDate && !isCompleted) {
         const dueDate = new Date(task.dueDate)
         dueDate.setHours(0, 0, 0, 0)
         if (dueDate.getTime() === today.getTime()) {
