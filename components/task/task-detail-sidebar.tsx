@@ -1,8 +1,9 @@
 'use client'
 
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
-import { useGetTaskQuery, useGetTaskAuditQuery, useUpdateTaskMutation, useGetTaskCommentsQuery, useAddCommentMutation, useAddTaskDependencyMutation } from '@/lib/slices/tasksApi'
+import { useGetTaskQuery, useGetTaskAuditQuery, useUpdateTaskMutation, useGetTaskCommentsQuery, useAddCommentMutation, useDeleteCommentMutation, useUpdateCommentMutation, useAddTaskDependencyMutation, useRemoveTaskDependencyMutation, useDeleteTaskMutation, useAddAttachmentMutation, useDeleteAttachmentMutation } from '@/lib/slices/tasksApi'
 import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
+import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -14,10 +15,12 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
-import { X, Save, MessageSquare, Link2, Activity, Clock, UserIcon, Tag, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { X, Save, MessageSquare, Link2, Activity, Clock, UserIcon, Tag, AlertCircle, CheckCircle2, Trash2, Paperclip, Download, FileText, Copy, Edit, Plus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { setRightSidebarOpen, setSelectedTask } from '@/lib/slices/uiSlice'
+import { setSelectedTask, setRightSidebarOpen } from '@/lib/slices/uiSlice'
 import { useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 import DependencySelectDialog from './dependency-select'
 
 interface TaskDetailSidebarProps {
@@ -50,11 +53,25 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
 
   const { data: comments, isLoading: commentsLoading } = useGetTaskCommentsQuery(taskId)
   const [addComment] = useAddCommentMutation()
+  const [deleteComment] = useDeleteCommentMutation()
   const [newComment, setNewComment] = useState('')
   
   const [addDependency] = useAddTaskDependencyMutation()
+  const [removeDependency] = useRemoveTaskDependencyMutation()
   const { data: boards } = useGetBoardsQuery()
+  const { data: session } = useGetSessionQuery()
   const [isDepDialogOpen, setIsDepDialogOpen] = useState(false)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editingText, setEditingText] = useState('')
+  const [updateComment] = useUpdateCommentMutation()
+  const [deleteTask] = useDeleteTaskMutation()
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [addAttachment] = useAddAttachmentMutation()
+  const [deleteAttachment] = useDeleteAttachmentMutation()
+  const [isUploading, setIsUploading] = useState(false)
+  
+  const isManager = session?.role === 'MANAGER' || session?.role === 'ADMIN'
 
   // Find available tasks across board for deps
   const activeBoard = boards?.find(b => b.id === task?.boardId)
@@ -99,6 +116,21 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
     setIsEditing(true)
   }
 
+  const handleCancel = () => {
+    setIsEditing(false)
+  }
+
+  const handleDeleteTask = async () => {
+    try {
+      await deleteTask(taskId).unwrap()
+      toast.success('Task deleted')
+      dispatch(setSelectedTask(null))
+      dispatch(setRightSidebarOpen(false))
+    } catch (error: any) {
+      toast.error(error.data?.error || 'Failed to delete task')
+    }
+  }
+
   return (
     <div className="w-[320px] border-l border-[rgba(0,0,0,0.05)] bg-white h-full flex flex-col">
       <div className="h-14 border-b border-[rgba(0,0,0,0.05)] flex items-center justify-between px-4">
@@ -111,19 +143,23 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
       <ScrollArea className="flex-1">
         <div className="p-4">
           <Tabs defaultValue={rightSidebarTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 h-auto p-0 mb-4 bg-[#f5f5f5] rounded-[8px]">
-              <TabsTrigger value="overview" className="text-caption rounded-[8px]" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'overview' })}>Overview</TabsTrigger>
-              <TabsTrigger value="comments" className="text-caption rounded-[8px]" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'comments' })}>
-                <MessageSquare className="h-3 w-3 mr-1" />
-                Comments
+            <TabsList className="grid w-full grid-cols-5 h-auto p-0 mb-4 bg-[#f5f5f5] rounded-[8px]">
+              <TabsTrigger value="overview" className="text-[10px] sm:text-caption rounded-[8px] px-1" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'overview' })}>Overview</TabsTrigger>
+              <TabsTrigger value="comments" className="text-[10px] sm:text-caption rounded-[8px] px-1" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'comments' })}>
+                <MessageSquare className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">Comments</span>
               </TabsTrigger>
-              <TabsTrigger value="dependencies" className="text-caption rounded-[8px]" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'dependencies' })}>
-                <Link2 className="h-3 w-3 mr-1" />
-                Deps
+              <TabsTrigger value="dependencies" className="text-[10px] sm:text-caption rounded-[8px] px-1" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'dependencies' })}>
+                <Link2 className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">Deps</span>
               </TabsTrigger>
-              <TabsTrigger value="activity" className="text-caption rounded-[8px]" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'activity' })}>
-                <Activity className="h-3 w-3 mr-1" />
-                Activity
+              <TabsTrigger value="attachments" className="text-[10px] sm:text-caption rounded-[8px] px-1" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'attachments' })}>
+                <Paperclip className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">Files</span>
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="text-[10px] sm:text-caption rounded-[8px] px-1" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'activity' })}>
+                <Activity className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">Activity</span>
               </TabsTrigger>
             </TabsList>
 
@@ -143,21 +179,40 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                       <Save className="h-3 w-3 mr-1" />
                       Save
                     </Button>
-                    <Button variant="outline" onClick={() => setIsEditing(false)} size="sm" className="text-caption">Cancel</Button>
+                    <Button variant="outline" onClick={handleCancel} size="sm" className="text-caption">Cancel</Button>
                   </div>
                 </div>
               ) : (
                 <>
                   <div className="space-y-3">
-                    <div className="flex items-start justify-between">
-                      <h3 className="text-body font-medium">{task.title}</h3>
-                      <Button variant="ghost" size="sm" onClick={handleStartEdit} className="text-caption h-7 px-2">
-                        Edit
-                      </Button>
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-section-heading font-waldenburg font-light">
+                        Task Details
+                      </h2>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={handleStartEdit}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Details
+                        </Button>
+                        {isManager && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setDeleteDialogOpen(true)}
+                            title="Delete Task (Manager only)"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    {task.description && (
-                      <p className="text-body-standard text-[#4e4e4e] whitespace-pre-wrap">{task.description}</p>
-                    )}
+                    <div className="space-y-1">
+                      <h3 className="text-body font-medium">{task.title}</h3>
+                      {task.description && (
+                        <p className="text-body-standard text-[#4e4e4e] whitespace-pre-wrap">{task.description}</p>
+                      )}
+                    </div>
                   </div>
 
                   <Separator className="bg-[rgba(0,0,0,0.05)]" />
@@ -215,6 +270,52 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                       <span className="text-small text-red-600">This task is blocked</span>
                     </div>
                   )}
+
+                  <Separator className="bg-[rgba(0,0,0,0.05)]" />
+                  
+                  <div className="space-y-4 pt-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                         <Label className="text-micro text-[#777169] uppercase tracking-wider">Task ID</Label>
+                         <div className="flex items-center gap-1 group">
+                            <code className="text-[10px] bg-slate-100 p-1 rounded truncate max-w-[100px]">{task.id}</code>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100" onClick={() => {
+                               navigator.clipboard.writeText(task.id)
+                               toast.success('Task ID copied')
+                            }}>
+                               <Copy className="h-3 w-3" />
+                            </Button>
+                         </div>
+                      </div>
+                      <div className="space-y-1">
+                         <Label className="text-micro text-[#777169] uppercase tracking-wider">Version</Label>
+                         <p className="text-body-standard font-mono">v{task.version}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                       <Label className="text-micro text-[#777169] uppercase tracking-wider">Created</Label>
+                       <p className="text-body-standard text-[#4e4e4e]">{new Date(task.createdAt).toLocaleString()}</p>
+                    </div>
+
+                    <div className="space-y-1">
+                       <Label className="text-micro text-[#777169] uppercase tracking-wider">Last Updated</Label>
+                       <p className="text-body-standard text-[#4e4e4e]">{new Date(task.updatedAt).toLocaleString()}</p>
+                    </div>
+
+                    {isManager && (
+                      <div className="pt-2 border-t mt-4">
+                         <Button 
+                           variant="outline" 
+                           size="sm" 
+                           className="w-full text-caption"
+                           onClick={() => updateTask({ id: taskId, data: { isBlocked: !task.isBlocked } })}
+                         >
+                           {task.isBlocked ? 'Mark as Unblocked' : 'Mark as Blocked'}
+                         </Button>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
             </TabsContent>
@@ -231,12 +332,60 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                           <AvatarImage src={comment.user.avatar || undefined} />
                           <AvatarFallback>{comment.user.name?.[0] || 'U'}</AvatarFallback>
                         </Avatar>
-                        <div className="space-y-1">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-body-standard font-medium">{comment.user.name}</span>
-                            <span className="text-micro text-muted-foreground">{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-baseline justify-between gap-2">
+                             <div className="flex items-baseline gap-2">
+                                <span className="text-body-standard font-medium">{comment.user.name}</span>
+                                <span className="text-micro text-muted-foreground">{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
+                             </div>
+                             {(comment.userId === session?.id || session?.role === 'ADMIN') && (
+                               <div className="flex gap-1">
+                                 <Button 
+                                   variant="ghost" 
+                                   size="icon" 
+                                   className="h-4 w-4 text-muted-foreground hover:text-primary"
+                                   onClick={() => {
+                                      setEditingCommentId(comment.id)
+                                      setEditingText(comment.text)
+                                   }}
+                                 >
+                                   <X className="h-3 w-3" /> {/* Using X as an 'edit' icon or similar for now or Pen */}
+                                   <span className="sr-only">Edit</span>
+                                 </Button>
+                                 <Button 
+                                   variant="ghost" 
+                                   size="icon" 
+                                   className="h-4 w-4 text-muted-foreground hover:text-destructive"
+                                   onClick={() => deleteComment(comment.id)}
+                                 >
+                                   <Trash2 className="h-3 w-3" />
+                                 </Button>
+                               </div>
+                             )}
                           </div>
-                          <p className="text-body-standard bg-[#f5f5f5] p-2 rounded-lg rounded-tl-none">{comment.text}</p>
+                          {editingCommentId === comment.id ? (
+                            <div className="space-y-2 mt-1">
+                               <Input 
+                                 value={editingText} 
+                                 onChange={(e) => setEditingText(e.target.value)}
+                                 onKeyDown={(e) => {
+                                    if(e.key === 'Enter' && editingText.trim()) {
+                                       updateComment({ id: comment.id, text: editingText })
+                                       setEditingCommentId(null)
+                                    }
+                                 }}
+                               />
+                               <div className="flex gap-1">
+                                  <Button size="sm" className="h-7 text-[10px]" onClick={() => {
+                                     updateComment({ id: comment.id, text: editingText })
+                                     setEditingCommentId(null)
+                                  }}>Save</Button>
+                                  <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => setEditingCommentId(null)}>Cancel</Button>
+                               </div>
+                            </div>
+                          ) : (
+                            <p className="text-body-standard bg-[#f5f5f5] p-2 rounded-lg rounded-tl-none">{comment.text}</p>
+                          )}
                         </div>
                       </div>
                     ))
@@ -288,11 +437,21 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                   <div className="space-y-2">
                     <Label className="text-caption text-[#777169] uppercase tracking-wider font-semibold">Blocked by ({task.blockers.length})</Label>
                     {task.blockers.filter((b: any) => b.blocker).map(({ blocker }: any) => (
-                      <div key={blocker.id} className="p-3 bg-red-50 border border-red-100 rounded-[8px] flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
-                        <div>
-                          <p className="text-body-standard font-medium text-red-900 line-clamp-1">{blocker.title}</p>
+                      <div key={blocker.id} className="p-3 bg-red-50 border border-red-100 rounded-[8px] flex items-center justify-between gap-2 group">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                          <div>
+                            <p className="text-body-standard font-medium text-red-900 line-clamp-1">{blocker.title}</p>
+                          </div>
                         </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removeDependency({ taskId: task.id, linkedTaskId: blocker.id, type: 'IS_BLOCKED_BY' })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -329,6 +488,89 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
               />
             </TabsContent>
 
+            <TabsContent value="attachments" className="mt-0 space-y-4 h-[calc(100vh-140px)] flex flex-col">
+              <div className="flex items-center justify-between">
+                <h3 className="text-caption font-semibold text-[#777169] uppercase tracking-wider">Files & Attachments</h3>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={async () => {
+                    // Simulate file upload
+                    const fileName = prompt('Enter a demo filename:', 'Project Specification.pdf')
+                    if (!fileName) return
+                    
+                    setIsUploading(true)
+                    try {
+                      await addAttachment({
+                        taskId: task.id,
+                        name: fileName,
+                        url: '#', // In a real app, this would be the uploaded S3/local path
+                        type: fileName.endsWith('.pdf') ? 'application/pdf' : 'image/png',
+                        size: Math.floor(Math.random() * 5000000)
+                      }).unwrap()
+                      toast.success('File attached successfully')
+                    } catch (err: any) {
+                      toast.error('Failed to attach file')
+                    } finally {
+                      setIsUploading(false)
+                    }
+                  }}
+                  disabled={isUploading}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Upload
+                </Button>
+              </div>
+
+              <ScrollArea className="flex-1">
+                <div className="space-y-2">
+                  {task.attachments && task.attachments.length > 0 ? (
+                    task.attachments.map((file) => (
+                      <div key={file.id} className="p-3 bg-white border border-[rgba(0,0,0,0.05)] rounded-[12px] group hover:border-primary/20 transition-all shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-[8px] bg-slate-100 flex items-center justify-center text-slate-500">
+                             {file.type.includes('image') ? (
+                               <Activity className="h-5 w-5" /> // Simplified for demo
+                             ) : (
+                               <FileText className="h-5 w-5" />
+                             )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-body-standard font-medium truncate">{file.name}</p>
+                            <p className="text-micro text-[#777169]">
+                              {(file.size / (1024 * 1024)).toFixed(2)} MB • {formatDistanceToNow(new Date(file.createdAt), { addSuffix: true })}
+                            </p>
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <Button variant="ghost" size="icon" className="h-8 w-8 text-[#777169]" asChild>
+                               <a href={file.url} download>
+                                 <Download className="h-4 w-4" />
+                               </a>
+                             </Button>
+                             {(file.userId === session?.id || isManager) && (
+                               <Button 
+                                 variant="ghost" 
+                                 size="icon" 
+                                 className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                 onClick={() => deleteAttachment(file.id)}
+                               >
+                                 <Trash2 className="h-4 w-4" />
+                               </Button>
+                             )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-10 opacity-30">
+                       <Paperclip className="h-10 w-10 mx-auto mb-2" />
+                       <p className="text-body-standard font-waldenburg">No attachments yet</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
             <TabsContent value="activity" className="mt-0">
               {auditLog && auditLog.length > 0 ? (
                 <div className="space-y-4 pt-2">
@@ -339,6 +581,9 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                       'TASK_ASSIGNED': log.targetId === log.actorId ? 'self-assigned this task' : `assigned task to ${log.target?.name || 'someone'}`,
                       'TASK_UPDATED': 'updated task details',
                       'COMMENT_ADDED': 'commented on this task',
+                      'COMMENT_DELETED': 'deleted a comment',
+                      'DEPENDENCY_ADDED': `linked a dependency: ${log.changes?.type === 'BLOCKS' ? 'Blocks' : 'Is blocked by'}`,
+                      'DEPENDENCY_REMOVED': 'removed a task dependency',
                     }
 
                     return (
@@ -370,6 +615,24 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
           </Tabs>
         </div>
       </ScrollArea>
+
+      {/* Delete Task Confirmation */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="rounded-[20px]">
+          <DialogHeader>
+            <DialogTitle className="text-section-heading font-waldenburg font-light">Delete Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-body-standard">
+              Are you sure you want to delete <strong>{task.title}</strong>? This action cannot be undone.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleDeleteTask}>Delete Task</Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
