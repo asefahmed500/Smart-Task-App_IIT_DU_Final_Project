@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
+import { createNotification } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -82,6 +83,17 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     // Broadcast update via socket
     const { broadcastTaskUpdate } = await import('@/lib/socket-server')
     broadcastTaskUpdate(existingTask.boardId, updated)
+
+    // Notify the new assignee
+    if (finalAssigneeId && finalAssigneeId !== userId) {
+      await createNotification(
+        finalAssigneeId,
+        'TASK_ASSIGNED',
+        'New Task Assigned',
+        `${session.user.name} assigned you to "${updated.title}"`,
+        `/board/${existingTask.boardId}?task=${id}`
+      )
+    }
 
     return NextResponse.json(updated)
   } catch (error) {

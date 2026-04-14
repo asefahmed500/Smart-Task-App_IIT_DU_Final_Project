@@ -127,13 +127,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           position: newPosition,
           version: { increment: 1 },
           lastMovedAt: new Date(),
-          // Set timestamps based on column
-          ...(targetColumn?.isTerminal && {
-            completedAt: new Date(),
-          }),
-          ...( !targetColumn?.isTerminal && !existingTask.inProgressAt && {
-            inProgressAt: new Date(),
-          }),
+          // Status orchestration based on column type
+          completedAt: targetColumn?.isTerminal ? new Date() : null,
+          inProgressAt: (!targetColumn?.isTerminal && !existingTask.inProgressAt) ? new Date() : existingTask.inProgressAt,
         },
         include: {
           assignee: {

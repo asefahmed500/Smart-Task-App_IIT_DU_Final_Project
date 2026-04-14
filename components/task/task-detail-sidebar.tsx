@@ -515,35 +515,46 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
             <TabsContent value="attachments" className="mt-0 space-y-4 h-[calc(100vh-140px)] flex flex-col">
               <div className="flex items-center justify-between">
                 <h3 className="text-caption font-semibold text-[#777169] uppercase tracking-wider">Files & Attachments</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={async () => {
-                    // Simulate file upload
-                    const fileName = prompt('Enter a demo filename:', 'Project Specification.pdf')
-                    if (!fileName) return
-                    
-                    setIsUploading(true)
-                    try {
-                      await addAttachment({
-                        taskId: task.id,
-                        name: fileName,
-                        url: '#', // In a real app, this would be the uploaded S3/local path
-                        type: fileName.endsWith('.pdf') ? 'application/pdf' : 'image/png',
-                        size: Math.floor(Math.random() * 5000000)
-                      }).unwrap()
-                      toast.success('File attached successfully')
-                    } catch (err: any) {
-                      toast.error('Failed to attach file')
-                    } finally {
-                      setIsUploading(false)
-                    }
-                  }}
-                  disabled={isUploading}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Upload
-                </Button>
+                <div>
+                  <input
+                    type="file"
+                    id="file-upload"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      
+                      setIsUploading(true)
+                      try {
+                        const reader = new FileReader()
+                        reader.onloadend = async () => {
+                          await addAttachment({
+                            taskId: task.id,
+                            name: file.name,
+                            url: reader.result as string,
+                            type: file.type,
+                            size: file.size
+                          }).unwrap()
+                          setIsUploading(false)
+                          toast.success('File uploaded successfully')
+                        }
+                        reader.readAsDataURL(file)
+                      } catch (err) {
+                        toast.error('Failed to upload file')
+                        setIsUploading(false)
+                      }
+                    }}
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    disabled={isUploading}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    {isUploading ? 'Uploading...' : 'Upload'}
+                  </Button>
+                </div>
               </div>
 
               <ScrollArea className="flex-1">

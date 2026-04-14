@@ -13,9 +13,10 @@ import MetricsDashboard from './metrics-dashboard'
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import { useMoveTaskMutation } from '@/lib/slices/tasksApi'
 import { toast } from 'sonner'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useDispatch } from 'react-redux'
 import { setSelectedTask, setViewMode } from '@/lib/slices/uiSlice'
+import { setCurrentBoard } from '@/lib/slices/presenceSlice'
 import { ConflictResolutionDialog } from './conflict-resolution-dialog'
 import BoardSettingsDialog from '../board/board-settings-dialog'
 import { LayoutGrid, Users, BarChart3, Settings, Filter, Layers } from 'lucide-react'
@@ -24,7 +25,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { emitCursorMove } from '@/lib/socket'
 import { BoardCursors } from './board-cursors'
-import { useRef } from 'react'
 
 interface BoardViewProps {
   boardId: string
@@ -79,6 +79,13 @@ export default function BoardView({ boardId }: BoardViewProps) {
   const [pendingMove, setPendingMove] = useState<{ taskId: string, targetColumnId: string, version: number, newPosition: number } | null>(null)
   const [swimlaneGroupBy, setSwimlaneGroupBy] = useState<'assignee' | 'priority' | 'label'>('assignee')
   const lastMouseMove = useRef(0)
+
+  useEffect(() => {
+    dispatch(setCurrentBoard(boardId))
+    return () => {
+      dispatch(setCurrentBoard(null))
+    }
+  }, [boardId, dispatch])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
