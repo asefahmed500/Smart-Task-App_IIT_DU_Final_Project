@@ -4,12 +4,16 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card } from '@/components/ui/card'
-import { Bell, X, Check, Trash2 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
-import { useGetNotificationsQuery, useMarkAsReadMutation, useDeleteNotificationMutation, useMarkAllAsReadMutation } from '@/lib/slices/notificationsApi'
 import { cn } from '@/lib/utils'
+import { useRouter } from 'next/navigation'
+import { 
+  Bell, X, Check, Trash2, 
+  UserPlus, UserMinus, MessageSquare, 
+  Lock, Unlock, ArrowRight, Zap 
+} from 'lucide-react'
 
 export default function NotificationCenter() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const { data: notifications, isLoading } = useGetNotificationsQuery()
   const [markAsRead] = useMarkAsReadMutation()
@@ -84,20 +88,42 @@ export default function NotificationCenter() {
                   No notifications yet
                 </div>
               ) : (
-                <div className="divide-y">
-                  {notifications.map((notification: any) => (
-                    <div
-                      key={notification.id}
-                      className={cn(
-                        'p-4 hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer',
-                        !notification.read && 'bg-blue-50/50'
-                      )}
-                      onClick={() => {
-                        if (!notification.read) handleMarkAsRead(notification.id)
-                        if (notification.link) window.location.href = notification.link
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
+                <div className="divide-y divide-[rgba(0,0,0,0.05)]">
+                  {notifications.map((notification: any) => {
+                    const getIcon = () => {
+                      switch (notification.type) {
+                        case 'TASK_ASSIGNED': return <UserPlus className="h-4 w-4 text-blue-500" />
+                        case 'TASK_UNASSIGNED': return <UserMinus className="h-4 w-4 text-slate-500" />
+                        case 'COMMENT_ADDED': return <MessageSquare className="h-4 w-4 text-purple-500" />
+                        case 'TASK_BLOCKED': return <Lock className="h-4 w-4 text-red-500" />
+                        case 'TASK_UNBLOCKED': return <Unlock className="h-4 w-4 text-green-500" />
+                        case 'TASK_MOVED': return <ArrowRight className="h-4 w-4 text-orange-500" />
+                        default: return <Zap className="h-4 w-4 text-amber-500" />
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={notification.id}
+                        className={cn(
+                          'p-4 hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer group',
+                          !notification.read && 'bg-blue-50/30'
+                        )}
+                        onClick={() => {
+                          if (!notification.read) handleMarkAsRead(notification.id)
+                          if (notification.link) {
+                             router.push(notification.link)
+                             setOpen(false)
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                            !notification.read ? "bg-white shadow-sm" : "bg-slate-50"
+                          )}>
+                            {getIcon()}
+                          </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-body font-medium">{notification.title}</p>
                           <p className="text-caption text-[#777169] mt-1">{notification.message}</p>

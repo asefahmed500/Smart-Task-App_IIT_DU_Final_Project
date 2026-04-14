@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
 import { evaluateAutomations } from '@/lib/automation/engine'
+import { createNotification } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -42,6 +43,12 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
             blocking: { select: { id: true, title: true, columnId: true } }
           }
         },
+        attachments: {
+          include: {
+            user: { select: { id: true, name: true, avatar: true } }
+          },
+          orderBy: { createdAt: 'desc' }
+        }
       },
     })
 
@@ -144,6 +151,31 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     // Evaluate automation rules for priority changes
     if (priority && priority !== existingTask.priority) {
       await evaluateAutomations(existingTask.boardId, 'PRIORITY_CHANGED', updated, userId)
+    }
+
+    // Trigger notification for assignment changes
+    if (finalAssigneeId !== undefined && finalAssigneeId !== existingTask.assigneeId && finalAssigneeId !== null) {
+      // If the actor is NOT the new assignee, notify them
+      if (finalAssigneeId !== userId) {
+        await createNotification(
+          finalAssigneeId,
+          'TASK_ASSIGNED',
+          'New Task Assigned',
+          `You have been assigned to: "${updated.title}"`,
+          `/board/${existingTask.boardId}?task=${id}`
+        )
+      }
+    } else if (finalAssigneeId === null && existingTask.assigneeId) {
+      // Notify the previous assignee that they've been unassigned
+      if (existingTask.assigneeId !== userId) {
+        await createNotification(
+          existingTask.assigneeId,
+          'TASK_UNASSIGNED',
+          'Task Unassigned',
+          `You are no longer assigned to: "${updated.title}"`,
+          `/board/${existingTask.boardId}?task=${id}`
+        )
+      }
     }
 
     return NextResponse.json(updated)

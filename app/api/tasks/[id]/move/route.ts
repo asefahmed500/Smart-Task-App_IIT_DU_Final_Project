@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
 import { evaluateAutomations } from '@/lib/automation/engine'
+import { notifyTaskParticipants } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -93,6 +94,27 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         }
       }
     }
+    
+    // Check Dependencies: Cannot move a blocked task to 'Done' or 'Review'
+    const terminalColumns = ['done', 'review', 'completed']
+    if (targetColumn && terminalColumns.includes(targetColumn.name.toLowerCase())) {
+        const blockers = await prisma.taskBlock.findMany({
+            where: { blockingId: id },
+            include: { blocker: { include: { column: true } } }
+        })
+        
+        const incompleteBlockers = blockers.filter(b => b.blocker.column.name.toLowerCase() !== 'done')
+        
+        if (incompleteBlockers.length > 0) {
+            return NextResponse.json(
+                { 
+                  error: 'Task is blocked', 
+                  message: `Cannot finish task while it is blocked by: ${incompleteBlockers.map(b => b.blocker.title).join(', ')}`
+                },
+                { status: 409 }
+            )
+        }
+    }
 
     // Update task position and column in transaction
     const updated = await prisma.$transaction(async (tx) => {
@@ -130,7 +152,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           boardId: existingTask.boardId,
           changes: {
             fromColumnId: existingTask.columnId,
+            fromColumnName: existingTask.board.columns.find(c => c.id === existingTask.columnId)?.name,
             toColumnId: targetColumnId,
+            toColumnName: targetColumn?.name,
             newPosition,
           },
         },
@@ -141,6 +165,18 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     // Evaluate automation rules after successful move
     await evaluateAutomations(existingTask.boardId, 'TASK_MOVED', updated, userId)
+
+    // Notify participants for important stage changes
+    if (updated.column?.name.toLowerCase() === 'done' || updated.column?.name.toLowerCase() === 'review') {
+      await notifyTaskParticipants(
+        id,
+        userId,
+        'TASK_MOVED',
+        'Task Status Update',
+        `Task "${updated.title}" moved to ${updated.column.name}`,
+        `/board/${existingTask.boardId}?task=${id}`
+      )
+    }
 
     return NextResponse.json(updated)
   } catch (error) {
