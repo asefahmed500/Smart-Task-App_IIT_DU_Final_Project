@@ -5,6 +5,8 @@ let socket: Socket | null = null
 export const initSocket = () => {
   if (!socket) {
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
+      path: '/api/socket',
+      addTrailingSlash: false,
       transports: ['websocket', 'polling'],
     })
 

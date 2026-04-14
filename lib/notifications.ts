@@ -27,10 +27,28 @@ export async function createNotification(
         title,
         message,
         link,
+        status: 'SENT',
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create notification:', error)
+    
+    // Save as FAILED if possible, for future retry
+    try {
+      await prisma.notification.create({
+        data: {
+          userId,
+          type,
+          title,
+          message,
+          link,
+          status: 'FAILED',
+          lastError: error.message || String(error),
+        }
+      })
+    } catch (e) {
+      console.error('Record failed notification error:', e)
+    }
     // We don't throw here to avoid breaking the main request flow
   }
 }

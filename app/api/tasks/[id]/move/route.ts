@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
 import { evaluateAutomations } from '@/lib/automation/engine'
 import { notifyTaskParticipants } from '@/lib/notifications'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -69,7 +70,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     // Check WIP limit
     const targetColumn = existingTask.board.columns.find((c: { id: string }) => c.id === targetColumnId)
-    const isManagerOrAdmin = session.user.role === 'MANAGER' || session.user.role === 'ADMIN'
+    const effectiveRole = await getEffectiveBoardRole(session, existingTask.boardId)
+    const isManagerOrAdmin = effectiveRole === 'MANAGER' || effectiveRole === 'ADMIN'
 
     if (targetColumn && 'wipLimit' in targetColumn && targetColumn.wipLimit) {
       const taskCount = await prisma.task.count({
@@ -95,15 +97,14 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       }
     }
     
-    // Check Dependencies: Cannot move a blocked task to 'Done' or 'Review'
-    const terminalColumns = ['done', 'review', 'completed']
-    if (targetColumn && terminalColumns.includes(targetColumn.name.toLowerCase())) {
+    // Check Dependencies: Cannot move a blocked task to a terminal column
+    if (targetColumn?.isTerminal) {
         const blockers = await prisma.taskBlock.findMany({
             where: { blockingId: id },
             include: { blocker: { include: { column: true } } }
         })
         
-        const incompleteBlockers = blockers.filter(b => b.blocker.column.name.toLowerCase() !== 'done')
+        const incompleteBlockers = blockers.filter(b => !b.blocker.column.isTerminal)
         
         if (incompleteBlockers.length > 0) {
             return NextResponse.json(
@@ -127,11 +128,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           version: { increment: 1 },
           lastMovedAt: new Date(),
           // Set timestamps based on column
-          ...(targetColumn?.name.toLowerCase() === 'in progress' && {
-            inProgressAt: new Date(),
-          }),
-          ...(targetColumn?.name.toLowerCase() === 'done' && {
+          ...(targetColumn?.isTerminal && {
             completedAt: new Date(),
+          }),
+          ...( !targetColumn?.isTerminal && !existingTask.inProgressAt && {
+            inProgressAt: new Date(),
           }),
         },
         include: {
@@ -165,6 +166,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     // Evaluate automation rules after successful move
     await evaluateAutomations(existingTask.boardId, 'TASK_MOVED', updated, userId)
+
+    // Broadcast update via socket
+    const { broadcastTaskUpdate } = await import('@/lib/socket-server')
+    broadcastTaskUpdate(existingTask.boardId, updated)
 
     // Notify participants for important stage changes
     if (updated.column?.name.toLowerCase() === 'done' || updated.column?.name.toLowerCase() === 'review') {

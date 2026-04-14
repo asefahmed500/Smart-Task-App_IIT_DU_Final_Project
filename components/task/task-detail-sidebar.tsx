@@ -79,28 +79,23 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
 
   if (isLoading) {
     return (
-      <div className="w-[320px] border-l border-[rgba(0,0,0,0.05)] bg-white h-full flex flex-col">
-        <div className="h-14 border-b border-[rgba(0,0,0,0.05)] flex items-center justify-between px-4">
-          <h2 className="text-nav font-medium">Task Details</h2>
-          <Button variant="ghost" size="icon" onClick={() => { dispatch(setSelectedTask(null)); dispatch(setRightSidebarOpen(false)) }}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="p-4 text-center text-body-standard text-[#777169]">Loading...</div>
+      <div className="p-8 flex flex-col items-center justify-center text-center space-y-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="text-sm text-muted-foreground animate-pulse">Loading task details...</p>
       </div>
     )
   }
 
   if (!task) {
     return (
-      <div className="w-[320px] border-l border-[rgba(0,0,0,0.05)] bg-white h-full flex flex-col">
-        <div className="h-14 border-b border-[rgba(0,0,0,0.05)] flex items-center justify-between px-4">
-          <h2 className="text-nav font-medium">Task Details</h2>
-          <Button variant="ghost" size="icon" onClick={() => { dispatch(setSelectedTask(null)); dispatch(setRightSidebarOpen(false)) }}>
-            <X className="h-4 w-4" />
-          </Button>
+      <div className="p-8 text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+          <AlertCircle className="h-6 w-6 text-destructive" />
         </div>
-        <div className="p-4 text-center text-body-standard text-[#777169]">Task not found</div>
+        <p className="text-sm font-medium">Task not found</p>
+        <Button variant="outline" size="sm" onClick={() => { dispatch(setSelectedTask(null)); dispatch(setRightSidebarOpen(false)) }}>
+          Close Sidebar
+        </Button>
       </div>
     )
   }
@@ -132,85 +127,98 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
   }
 
   return (
-    <div className="w-[320px] border-l border-[rgba(0,0,0,0.05)] bg-white h-full flex flex-col">
-      <div className="h-14 border-b border-[rgba(0,0,0,0.05)] flex items-center justify-between px-4">
-        <h2 className="text-nav font-medium">Task Details</h2>
-        <Button variant="ghost" size="icon" onClick={() => { dispatch(setSelectedTask(null)); dispatch(setRightSidebarOpen(false)) }}>
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+    <div className="flex flex-col h-full bg-white">
+      <div className="p-4 pb-0">
+        <Tabs defaultValue={rightSidebarTab} className="w-full flex-1 flex flex-col">
+          <TabsList className="flex w-[calc(100%-1rem)] mx-auto h-auto p-1 mb-6 bg-[#f8f9fa] rounded-[16px] border border-[rgba(0,0,0,0.05)] shadow-sm">
+            <TabsTrigger 
+              value="overview" 
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium rounded-[12px] py-2 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md transition-all duration-200" 
+              onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'overview' })}
+            >
+              Overview
+            </TabsTrigger>
+            <TabsTrigger 
+              value="comments" 
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium rounded-[12px] py-2 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md transition-all duration-200" 
+              onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'comments' })}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="hidden xl:inline">Comments</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="dependencies" 
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium rounded-[12px] py-2 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md transition-all duration-200" 
+              onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'dependencies' })}
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              <span className="hidden xl:inline">Deps</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="attachments" 
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium rounded-[12px] py-2 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md transition-all duration-200" 
+              onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'attachments' })}
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              <span className="hidden xl:inline">Files</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="activity" 
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium rounded-[12px] py-2 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md transition-all duration-200" 
+              onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'activity' })}
+            >
+              <Activity className="h-3.5 w-3.5" />
+              <span className="hidden xl:inline">Activity</span>
+            </TabsTrigger>
+          </TabsList>
 
-      <ScrollArea className="flex-1">
-        <div className="p-4">
-          <Tabs defaultValue={rightSidebarTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 h-auto p-0 mb-4 bg-[#f5f5f5] rounded-[8px]">
-              <TabsTrigger value="overview" className="text-[10px] sm:text-caption rounded-[8px] px-1" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'overview' })}>Overview</TabsTrigger>
-              <TabsTrigger value="comments" className="text-[10px] sm:text-caption rounded-[8px] px-1" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'comments' })}>
-                <MessageSquare className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">Comments</span>
-              </TabsTrigger>
-              <TabsTrigger value="dependencies" className="text-[10px] sm:text-caption rounded-[8px] px-1" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'dependencies' })}>
-                <Link2 className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">Deps</span>
-              </TabsTrigger>
-              <TabsTrigger value="attachments" className="text-[10px] sm:text-caption rounded-[8px] px-1" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'attachments' })}>
-                <Paperclip className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">Files</span>
-              </TabsTrigger>
-              <TabsTrigger value="activity" className="text-[10px] sm:text-caption rounded-[8px] px-1" onClick={() => dispatch({ type: 'ui/setRightSidebarTab', payload: 'activity' })}>
-                <Activity className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">Activity</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview" className="mt-0 space-y-4">
+            <TabsContent value="overview" className="mt-0 outline-none flex-1 overflow-hidden">
+               <ScrollArea className="h-[calc(100vh-140px)] px-4 pb-8">
+                  <div className="space-y-6 animate-in fade-in duration-500">
               {isEditing ? (
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-caption">Title</Label>
-                    <Input value={editedTitle} onChange={(e) => setEditedTitle(e.target.value)} className="mt-1" />
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-slate-700">Title</Label>
+                    <Input value={editedTitle} onChange={(e) => setEditedTitle(e.target.value)} className="rounded-[8px] border-slate-200 focus:ring-primary/20" />
                   </div>
-                  <div>
-                    <Label className="text-caption">Description</Label>
-                    <Textarea value={editedDescription} onChange={(e) => setEditedDescription(e.target.value)} className="mt-1" rows={4} />
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-slate-700">Description</Label>
+                    <Textarea value={editedDescription} onChange={(e) => setEditedDescription(e.target.value)} className="rounded-[8px] border-slate-200 focus:ring-primary/20" rows={6} placeholder="Add a detailed description..." />
                   </div>
-                  <div className="flex gap-2">
-                    <Button onClick={handleSave} size="sm" className="text-caption">
-                      <Save className="h-3 w-3 mr-1" />
-                      Save
+                  <div className="flex gap-2 pt-2">
+                    <Button onClick={handleSave} size="sm" className="rounded-full px-4">
+                      <Save className="h-3.5 w-3.5 mr-2" />
+                      Save Changes
                     </Button>
-                    <Button variant="outline" onClick={handleCancel} size="sm" className="text-caption">Cancel</Button>
+                    <Button variant="outline" onClick={handleCancel} size="sm" className="rounded-full px-4">Cancel</Button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h2 className="text-section-heading font-waldenburg font-light">
-                        Task Details
-                      </h2>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={handleStartEdit}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Details
-                        </Button>
-                        {isManager && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => setDeleteDialogOpen(true)}
-                            title="Delete Task (Manager only)"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 pr-4">
+                      <h3 className="text-xl font-bold tracking-tight text-slate-900">{task.title}</h3>
+                      {task.description ? (
+                        <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{task.description}</p>
+                      ) : (
+                        <p className="text-sm text-slate-400 italic">No description provided.</p>
+                      )}
                     </div>
-                    <div className="space-y-1">
-                      <h3 className="text-body font-medium">{task.title}</h3>
-                      {task.description && (
-                        <p className="text-body-standard text-[#4e4e4e] whitespace-pre-wrap">{task.description}</p>
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <Button variant="outline" size="icon" className="h-9 w-9 rounded-full shadow-sm" onClick={handleStartEdit}>
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Edit</span>
+                      </Button>
+                      {isManager && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-full text-destructive hover:bg-destructive/10"
+                          onClick={() => setDeleteDialogOpen(true)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -318,7 +326,9 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                   </div>
                 </>
               )}
-            </TabsContent>
+            </div>
+            </ScrollArea>
+          </TabsContent>
 
             <TabsContent value="comments" className="mt-0 flex flex-col h-[calc(100vh-140px)]">
               <ScrollArea className="flex-1 pr-4">
@@ -614,7 +624,6 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
             </TabsContent>
           </Tabs>
         </div>
-      </ScrollArea>
 
       {/* Delete Task Confirmation */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

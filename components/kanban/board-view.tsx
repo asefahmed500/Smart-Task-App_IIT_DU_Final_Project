@@ -47,7 +47,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
   // State
   const [conflictOpen, setConflictOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [pendingMove, setPendingMove] = useState<{ taskId: string, targetColumnId: string, version: number } | null>(null)
+  const [pendingMove, setPendingMove] = useState<{ taskId: string, targetColumnId: string, version: number, newPosition: number } | null>(null)
   const [swimlaneGroupBy, setSwimlaneGroupBy] = useState<'assignee' | 'priority' | 'label'>('assignee')
   const lastMouseMove = useRef(0)
 
@@ -74,40 +74,84 @@ export default function BoardView({ boardId }: BoardViewProps) {
     if (!over || session?.role === 'ADMIN') return
 
     const taskId = active.id as string
-    const targetColumnId = over.id as string
+    const overId = over.id as string
 
-    // Find the current task to get its version
-    const currentTask = tasks?.find((t: { id: string }) => t.id === taskId)
+    // Find the current task
+    const currentTask = tasks?.find((t: any) => t.id === taskId)
     if (!currentTask) return
 
-    // If moving to same column, just reorder (TODO: implement reordering)
-    if (currentTask.columnId === targetColumnId) {
-      toast('Reordering inside column not yet fully implemented', { icon: '🚧' })
+    // Identify target column and position
+    let targetColumnId: string
+    let newPosition: number = 0
+
+    // If "over" is a task, find its column and position
+    const overTask = tasks?.find((t: any) => t.id === overId)
+    
+    if (overTask) {
+      targetColumnId = overTask.columnId
+      
+      // Calculate position relative to the task we dropped over
+      const columnTasks = tasks?.filter((t: any) => t.columnId === targetColumnId)
+        .sort((a: any, b: any) => a.position - b.position) || []
+      
+      const overIndex = columnTasks.findIndex((t: any) => t.id === overId)
+      const activeIndex = columnTasks.findIndex((t: any) => t.id === taskId)
+      
+      if (overIndex !== -1) {
+        if (activeIndex !== -1 && activeIndex < overIndex) {
+          // Moving down: place after the target
+          const prevPos = overTask.position
+          const nextTask = columnTasks[overIndex + 1]
+          const nextPos = nextTask ? nextTask.position : prevPos + 1
+          newPosition = (prevPos + nextPos) / 2
+        } else {
+          // Moving up or from different column: place before the target
+          const nextPos = overTask.position
+          const prevTask = columnTasks[overIndex - 1]
+          const prevPos = prevTask ? prevTask.position : nextPos - 1
+          newPosition = (prevPos + nextPos) / 2
+        }
+      }
+    } else {
+      // Over is a column
+      targetColumnId = overId
+      const columnTasks = tasks?.filter((t: any) => t.columnId === targetColumnId)
+        .sort((a: any, b: any) => a.position - b.position) || []
+      
+      if (columnTasks.length > 0) {
+        // Drop at the end of the column
+        newPosition = columnTasks[columnTasks.length - 1].position + 1
+      } else {
+        newPosition = 0
+      }
+    }
+
+    // Only move if target column or position is different
+    if (currentTask.columnId === targetColumnId && Math.abs(currentTask.position - newPosition) < 0.0001) {
       return
     }
 
-    await performMove(taskId, targetColumnId, currentTask.version)
+    await performMove(taskId, targetColumnId, currentTask.version, false, newPosition, currentTask.columnId, currentTask.position)
   }
 
-  const handleSync = () => {
-    setConflictOpen(false)
-  }
-
-  const handleForceOverwrite = () => {
-    if (pendingMove) {
-      performMove(pendingMove.taskId, pendingMove.targetColumnId, pendingMove.version, true)
-      setConflictOpen(false)
-    }
-  }
-
-  const performMove = async (taskId: string, targetColumnId: string, version: number, override: boolean = false) => {
+  const performMove = async (
+    taskId: string, 
+    targetColumnId: string, 
+    version: number, 
+    override: boolean = false, 
+    newPosition: number = 0,
+    fromColumnId?: string,
+    fromPosition?: number
+  ) => {
     try {
       await moveTask({
         taskId,
         targetColumnId,
-        newPosition: 0, // TODO: calculate proper position
+        newPosition,
         version,
         override,
+        fromColumnId,
+        fromPosition
       }).unwrap()
       toast.success(override ? 'WIP Limit Overridden' : 'Task moved successfully')
     } catch (error: any) {
@@ -127,12 +171,24 @@ export default function BoardView({ boardId }: BoardViewProps) {
           })
         }
       } else if (error?.data?.error === 'Version conflict') {
-        setPendingMove({ taskId, targetColumnId, version })
+        setPendingMove({ taskId, targetColumnId, version, newPosition })
         setConflictOpen(true)
       } else {
         toast.error('Failed to move task')
       }
     }
+  }
+
+  const handleForceOverwrite = () => {
+    if (pendingMove) {
+      performMove(pendingMove.taskId, pendingMove.targetColumnId, pendingMove.version, true, pendingMove.newPosition)
+      setConflictOpen(false)
+    }
+  }
+
+  const handleSync = () => {
+    setConflictOpen(false)
+    // Logic to refresh board data would go here
   }
 
   if (boardLoading || columnsLoading || tasksLoading) {

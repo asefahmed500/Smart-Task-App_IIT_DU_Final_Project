@@ -19,6 +19,7 @@ export interface UpdateTaskRequest {
   dueDate?: string | null
   labels?: string[]
   isBlocked?: boolean
+  previousState?: any // Metadata for undo
 }
 
 export interface MoveTaskRequest {
@@ -27,6 +28,8 @@ export interface MoveTaskRequest {
   newPosition: number
   version: number
   override?: boolean
+  fromColumnId?: string // Metadata for undo
+  fromPosition?: number // Metadata for undo
 }
 
 export interface AssignTaskRequest {

@@ -1,7 +1,6 @@
-'use client'
-
 import { Middleware } from '@reduxjs/toolkit'
 import { pushState } from '@/lib/slices/undoSlice'
+import { revertAction } from './undo/revert-handlers'
 
 // Actions that should be tracked in undo history
 const TRACKED_ACTIONS = [
@@ -23,16 +22,29 @@ const CLEAR_ACTIONS = [
   'auth/logout/fulfilled',
 ]
 
-export const undoMiddleware: Middleware = () => (next) => (action: any) => {
+export const undoMiddleware: Middleware = (store) => (next) => (action: any) => {
+  // 1. Check if this is an UNDO request
+  if (action.type === 'undo/undo') {
+    const state = store.getState() as any
+    const lastPresent = state.undo.present
+    
+    if (lastPresent) {
+      // Execute the inverse operation
+      revertAction(store.dispatch, lastPresent).catch(err => {
+        console.error('Failed to revert action during undo:', err)
+      })
+    }
+  }
+
   const result = next(action)
 
-  // Clear history on logout
+  // 2. Clear history on logout
   if (CLEAR_ACTIONS.some((clearAction) => action.type?.includes?.(clearAction))) {
     return next({ type: 'undo/clearHistory' })
   }
 
-  // Track mutations for undo
-  if (TRACKED_ACTIONS.some((tracked) => action.type?.endsWith?.(tracked))) {
+  // 3. Track mutations for undo (skip if the action itself was a revert)
+  if (!action.meta?.isRevert && TRACKED_ACTIONS.some((tracked) => action.type?.endsWith?.(tracked))) {
     // Store the action with its result for replay
     next(pushState({
       type: action.type,

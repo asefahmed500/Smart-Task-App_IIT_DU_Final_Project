@@ -3,112 +3,69 @@
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { X } from 'lucide-react'
-import { setRightSidebarOpen } from '@/lib/slices/uiSlice'
+import { setRightSidebarOpen, setSelectedTask } from '@/lib/slices/uiSlice'
+import TaskDetailSidebar from '@/components/task/task-detail-sidebar'
+import { cn } from '@/lib/utils/cn'
 
 export default function RightSidebar() {
   const dispatch = useAppDispatch()
   const selectedTaskId = useAppSelector((state) => state.ui.selectedTaskId)
-  const rightSidebarTab = useAppSelector((state) => state.ui.rightSidebarTab)
+  const isOpen = useAppSelector((state) => state.ui.rightSidebarOpen)
+
+  const handleClose = () => {
+    dispatch(setSelectedTask(null))
+    dispatch(setRightSidebarOpen(false))
+  }
+
+  if (!isOpen) return null
 
   return (
-    <div className="w-[320px] border-l bg-background h-full flex flex-col">
+    <div className={cn(
+      "fixed top-0 right-0 w-[450px] border-l bg-white h-screen z-50 flex flex-col shadow-[0_0_50px_-12px_rgba(0,0,0,0.25)]",
+      "animate-in slide-in-from-right duration-300 ease-out"
+    )}>
       {/* Header */}
-      <div className="h-14 border-b flex items-center justify-between px-4">
-        <h2 className="font-semibold">
-          {selectedTaskId ? 'Task Details' : 'Board Settings'}
-        </h2>
+      <div className="h-16 border-b flex items-center justify-between px-6 sticky top-0 bg-white/80 backdrop-blur-md z-20">
+        <div className="flex flex-col">
+          <h2 className="font-bold text-lg tracking-tight text-slate-900">
+            {selectedTaskId ? 'Task Details' : 'Board Settings'}
+          </h2>
+          {selectedTaskId && (
+             <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Workspace / Board / Task</span>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => dispatch(setRightSidebarOpen(false))}
+          className="rounded-full h-10 w-10 hover:bg-slate-100 transition-colors"
+          onClick={handleClose}
         >
-          <X className="h-4 w-4" />
+          <X className="h-5 w-5 text-slate-500" />
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-hidden">
         {selectedTaskId ? (
-          <Tabs defaultValue={rightSidebarTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 h-auto p-0">
-              <TabsTrigger
-                value="overview"
-                className="text-xs rounded-none"
-                onClick={() =>
-                  dispatch({ type: 'ui/setRightSidebarTab', payload: 'overview' })
-                }
-              >
-                Overview
-              </TabsTrigger>
-              <TabsTrigger
-                value="comments"
-                className="text-xs rounded-none"
-                onClick={() =>
-                  dispatch({ type: 'ui/setRightSidebarTab', payload: 'comments' })
-                }
-              >
-                Comments
-              </TabsTrigger>
-              <TabsTrigger
-                value="dependencies"
-                className="text-xs rounded-none"
-                onClick={() =>
-                  dispatch({
-                    type: 'ui/setRightSidebarTab',
-                    payload: 'dependencies',
-                  })
-                }
-              >
-                Deps
-              </TabsTrigger>
-              <TabsTrigger
-                value="activity"
-                className="text-xs rounded-none"
-                onClick={() =>
-                  dispatch({ type: 'ui/setRightSidebarTab', payload: 'activity' })
-                }
-              >
-                Activity
-              </TabsTrigger>
-            </TabsList>
-
-            <div className="p-4">
-              <TabsContent value="overview" className="mt-0 space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Task details will appear here when you select a task.
-                </p>
-                {/* TODO: Implement task detail form */}
-              </TabsContent>
-
-              <TabsContent value="comments" className="mt-0">
-                <p className="text-sm text-muted-foreground">
-                  Comments section coming soon.
-                </p>
-              </TabsContent>
-
-              <TabsContent value="dependencies" className="mt-0">
-                <p className="text-sm text-muted-foreground">
-                  Dependencies section coming soon.
-                </p>
-              </TabsContent>
-
-              <TabsContent value="activity" className="mt-0">
-                <p className="text-sm text-muted-foreground">
-                  Activity log coming soon.
-                </p>
-              </TabsContent>
-            </div>
-          </Tabs>
+          <TaskDetailSidebar taskId={selectedTaskId} />
         ) : (
-          <div className="p-4 space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Board settings will appear here.
-            </p>
-            {/* TODO: Implement board settings */}
-          </div>
+          <ScrollArea className="h-full">
+            <div className="p-10 space-y-6 flex flex-col items-center justify-center h-full text-center">
+              <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center mb-4">
+                 <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center">
+                    <div className="w-6 h-6 rounded bg-primary/20 animate-pulse" />
+                 </div>
+              </div>
+              <div className="space-y-2 max-w-[280px]">
+                <h3 className="text-base font-semibold text-slate-800">No Task Selected</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  Select a task from the board to view and edit its details, manage dependencies, or add comments.
+                </p>
+              </div>
+            </div>
+          </ScrollArea>
         )}
-      </ScrollArea>
+      </div>
     </div>
   )
 }

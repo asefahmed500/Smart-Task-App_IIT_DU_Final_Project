@@ -4,10 +4,26 @@ import { prismaAdapter } from "better-auth/adapters/prisma"
 import bcrypt from 'bcrypt'
 import { SignJWT, jwtVerify } from 'jose'
 
+import { jwt } from "better-auth/plugins/jwt"
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
   emailAndPassword: { enabled: true },
-  session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 24 },
+  session: { 
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // 1 day
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 60, // 1 hour cache
+    }
+  },
+  plugins: [
+    jwt({
+        jwt: {
+            expirationTime: "7d",
+        }
+    })
+  ]
 })
 
 const JWT_SECRET = new TextEncoder().encode(process.env.BETTER_AUTH_SECRET || 'secret-key-at-least-32-chars-long!')

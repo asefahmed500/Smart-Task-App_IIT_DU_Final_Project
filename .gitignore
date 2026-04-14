@@ -48,3 +48,7 @@ implementation_plan.md.tmp
 
 # logs
 *.log
+scratch/
+artifacts/
+*.tmp
+!.agents/

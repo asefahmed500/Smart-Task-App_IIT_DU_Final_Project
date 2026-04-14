@@ -158,6 +158,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       },
     })
 
+    // Broadcast update via socket
+    const { broadcastTaskUpdate } = await import('@/lib/socket-server')
+    broadcastTaskUpdate(boardId, task)
+
     return NextResponse.json(task, { status: 201 })
   } catch (error) {
     console.error('Create task error:', error)

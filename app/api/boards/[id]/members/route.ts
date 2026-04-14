@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireApiAuth, requireApiRole } from '@/lib/session'
+import { requireApiAuth } from '@/lib/session'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -50,9 +51,9 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// POST /api/boards/:id/members - Add member to board (Manager/Admin only)
+// POST /api/boards/:id/members - Add member to board
 export async function POST(req: NextRequest, { params }: RouteContext) {
-  const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
+  const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
   const userId = session.user.id
@@ -66,6 +67,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
     }
 
+    const effectiveRole = await getEffectiveBoardRole(session, id)
+    if (effectiveRole !== 'ADMIN' && effectiveRole !== 'MANAGER') {
+      return NextResponse.json({ error: 'Forbidden – Only board administrators and managers can add members' }, { status: 403 })
+    }
+
     const board = await prisma.board.findUnique({
       where: { id },
       include: { members: true }
@@ -73,13 +79,6 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
     if (!board) {
       return NextResponse.json({ error: 'Board not found' }, { status: 404 })
-    }
-
-    const hasAccess = board.ownerId === userId ||
-      board.members.some((m: { userId: string; role: string }) => m.userId === userId && (m.role === 'ADMIN' || m.role === 'MANAGER'))
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden – Only board owners and managers can add members' }, { status: 403 })
     }
 
     const existingMember = board.members.find((m: { userId: string }) => m.userId === targetUserId)
@@ -126,9 +125,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// DELETE /api/boards/:id/members - Remove member from board (Manager/Admin only)
+// DELETE /api/boards/:id/members - Remove member from board
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
+  const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
   const userId = session.user.id
@@ -142,6 +141,12 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
     }
 
+    const effectiveRole = await getEffectiveBoardRole(session, boardId)
+    // A user can leave the board themselves if they are NOT the owner. Let's allow self-removal
+    if (effectiveRole !== 'ADMIN' && effectiveRole !== 'MANAGER' && userId !== targetUserId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const board = await prisma.board.findUnique({
       where: { id: boardId },
       include: { members: true }
@@ -153,13 +158,6 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
     if (board.ownerId === targetUserId) {
       return NextResponse.json({ error: 'Cannot remove board owner' }, { status: 400 })
-    }
-
-    const hasAccess = board.ownerId === userId ||
-      board.members.some((m: { userId: string; role: string }) => m.userId === userId && (m.role === 'ADMIN' || m.role === 'MANAGER'))
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     await prisma.boardMember.delete({
@@ -189,9 +187,9 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// PATCH /api/boards/:id/members - Update member role (Admin/owner only)
+// PATCH /api/boards/:id/members - Update member role
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
+  const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
   const userId = session.user.id
@@ -209,6 +207,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
+    const effectiveRole = await getEffectiveBoardRole(session, boardId)
+    if (effectiveRole !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden – Only board admins can change roles' }, { status: 403 })
+    }
+
     const board = await prisma.board.findUnique({
       where: { id: boardId },
       include: { members: true }
@@ -216,13 +219,6 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     if (!board) {
       return NextResponse.json({ error: 'Board not found' }, { status: 404 })
-    }
-
-    const hasAccess = board.ownerId === userId ||
-      board.members.some((m: { userId: string; role: string }) => m.userId === userId && m.role === 'ADMIN')
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden – Only board owners and admins can change roles' }, { status: 403 })
     }
 
     const member = await prisma.boardMember.update({

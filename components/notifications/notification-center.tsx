@@ -11,6 +11,13 @@ import {
   UserPlus, UserMinus, MessageSquare, 
   Lock, Unlock, ArrowRight, Zap 
 } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { 
+  useGetNotificationsQuery, 
+  useMarkAsReadMutation, 
+  useDeleteNotificationMutation, 
+  useMarkAllAsReadMutation 
+} from '@/lib/slices/notificationsApi'
 
 export default function NotificationCenter() {
   const router = useRouter()
@@ -159,7 +166,8 @@ export default function NotificationCenter() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )
+                })}
                 </div>
               )}
             </ScrollArea>

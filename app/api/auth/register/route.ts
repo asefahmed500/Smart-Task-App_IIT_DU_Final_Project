@@ -16,9 +16,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (password.length < 8) {
+    const { validatePassword } = await import('@/lib/utils/password')
+    const passwordCheck = validatePassword(password)
+    if (!passwordCheck.isValid) {
       return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
+        { error: passwordCheck.error },
         { status: 400 }
       )
     }

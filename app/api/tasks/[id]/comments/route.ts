@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
     const task = await prisma.task.findUnique({
       where: { id },
-      select: { boardId: true }
+      select: { boardId: true, title: true }
     })
 
     if (!task) {

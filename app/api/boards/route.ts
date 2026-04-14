@@ -45,11 +45,31 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/boards - Create a new board (Manager/Admin only)
+// POST /api/boards - Create a new board
 export async function POST(req: NextRequest) {
-  const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
+  const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
+
+  let canCreate = session.user.role === 'ADMIN' || session.user.role === 'MANAGER'
+
+  if (!canCreate) {
+    const settings = await prisma.systemSettings.findUnique({
+      where: { id: 'global' },
+    })
+    
+    // If setting doesn't exist, default to true or true depending on schema default. Let's say true.
+    if (settings?.allowMemberBoardCreation || settings === null) {
+      canCreate = true
+    }
+  }
+
+  if (!canCreate) {
+    return NextResponse.json(
+      { error: 'Forbidden: Board creation is restricted to Managers and Admins.' },
+      { status: 403 }
+    )
+  }
 
   try {
     const body = await req.json()

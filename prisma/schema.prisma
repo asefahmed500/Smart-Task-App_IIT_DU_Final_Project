@@ -135,6 +135,7 @@ model Column {
   boardId   String
   position  Int
   wipLimit  Int?
+  isTerminal Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -254,6 +255,9 @@ model Notification {
   message     String
   link        String?  // URL to navigate to
   read        Boolean  @default(false)
+  status      String   @default("PENDING") // PENDING, SENT, FAILED
+  retryCount  Int      @default(0)
+  lastError   String?
   createdAt   DateTime @default(now())
 
   // Relations

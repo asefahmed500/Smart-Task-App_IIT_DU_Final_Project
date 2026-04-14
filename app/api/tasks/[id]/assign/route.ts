@@ -79,6 +79,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       },
     })
 
+    // Broadcast update via socket
+    const { broadcastTaskUpdate } = await import('@/lib/socket-server')
+    broadcastTaskUpdate(existingTask.boardId, updated)
+
     return NextResponse.json(updated)
   } catch (error) {
     console.error('Assign task error:', error)

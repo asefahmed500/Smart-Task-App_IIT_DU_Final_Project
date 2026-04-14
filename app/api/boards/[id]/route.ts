@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -69,33 +70,21 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// PATCH /api/boards/:id - Update a board (owner, MANAGER or ADMIN only)
+// PATCH /api/boards/:id - Update a board
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
-  const userId = session.user.id
 
   try {
     const { id } = await params
     const body = await req.json()
 
-    // Check if user is owner or admin
-    const board = await prisma.board.findUnique({
-      where: { id },
-      select: { ownerId: true },
-    })
+    const effectiveRole = await getEffectiveBoardRole(session, id)
 
-    if (!board) {
+    if (effectiveRole !== 'ADMIN') {
       return NextResponse.json(
-        { error: 'Board not found' },
-        { status: 404 }
-      )
-    }
-
-    if (board.ownerId !== userId && session.user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Forbidden' },
+        { error: 'Forbidden. Board ADMIN access required.' },
         { status: 403 }
       )
     }
@@ -121,41 +110,42 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// DELETE /api/boards/:id - Delete a board (owner or ADMIN only)
+// DELETE /api/boards/:id - Delete a board
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
-  const userId = session.user.id
 
   try {
     const { id } = await params
 
-    // Check if user is owner or admin
-    const board = await prisma.board.findUnique({
-      where: { id },
-      select: { ownerId: true },
-    })
+    const effectiveRole = await getEffectiveBoardRole(session, id)
 
-    if (!board) {
+    if (effectiveRole !== 'ADMIN') {
       return NextResponse.json(
-        { error: 'Board not found' },
-        { status: 404 }
-      )
-    }
-
-    if (board.ownerId !== userId && session.user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Forbidden' },
+        { error: 'Forbidden. Board ADMIN access required.' },
         { status: 403 }
       )
     }
 
-    await prisma.board.delete({
-      where: { id },
-    })
+    const { searchParams } = new URL(req.url)
+    const hardDelete = searchParams.get('hard') === 'true'
 
-    return NextResponse.json({ success: true })
+    if (hardDelete) {
+      await prisma.board.delete({
+        where: { id },
+      })
+    } else {
+      await prisma.board.update({
+        where: { id },
+        data: { archived: true }
+      })
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      action: hardDelete ? 'DELETED' : 'ARCHIVED' 
+    })
   } catch (error) {
     console.error('Delete board error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

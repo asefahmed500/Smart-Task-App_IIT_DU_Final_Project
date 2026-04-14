@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
 import { evaluateAutomations } from '@/lib/automation/engine'
 import { createNotification } from '@/lib/notifications'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -106,9 +107,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     const { title, description, priority, assigneeId, dueDate, labels, isBlocked } = body
 
+    const effectiveRole = await getEffectiveBoardRole(session, existingTask.boardId)
+
     // MEMBER: can only self-assign (or unassign self); cannot assign to others
     let finalAssigneeId = assigneeId
-    if (userRole === 'MEMBER' && assigneeId !== undefined) {
+    if (effectiveRole === 'MEMBER' && assigneeId !== undefined) {
       if (assigneeId !== null && assigneeId !== userId) {
         // Keep existing assignment — member cannot assign to other users
         finalAssigneeId = existingTask.assigneeId
@@ -178,6 +181,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       }
     }
 
+    // Broadcast update via socket
+    const { broadcastTaskUpdate } = await import('@/lib/socket-server')
+    broadcastTaskUpdate(existingTask.boardId, updated)
+
     return NextResponse.json(updated)
   } catch (error) {
     console.error('Update task error:', error)
@@ -217,7 +224,8 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     }
 
     // Role-based delete: MEMBERs cannot delete tasks (only ADMIN and MANAGER can)
-    if (userRole === 'MEMBER') {
+    const effectiveRole = await getEffectiveBoardRole(session, task.boardId)
+    if (effectiveRole === 'MEMBER') {
       return NextResponse.json(
         { error: 'Only managers and admins can delete tasks' },
         { status: 403 }
@@ -225,6 +233,10 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     }
 
     await prisma.task.delete({ where: { id } })
+
+    // Broadcast deletion via socket
+    const { broadcastTaskDelete } = await import('@/lib/socket-server')
+    broadcastTaskDelete(task.boardId, id)
 
     await prisma.auditLog.create({
       data: {
@@ -236,7 +248,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       },
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json(task)
   } catch (error) {
     console.error('Delete task error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

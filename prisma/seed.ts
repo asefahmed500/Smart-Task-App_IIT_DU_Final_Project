@@ -1,84 +1,135 @@
-import { config } from 'dotenv'
 import { PrismaClient } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
-import pkg from 'pg'
-import * as bcrypt from 'bcrypt'
-const { Pool } = pkg
+import bcrypt from 'bcrypt'
 
-// Load environment variables
-config({ path: '.env.local' })
-
-// Set up Prisma client with adapter
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-const adapter = new PrismaPg(pool)
-const prisma = new PrismaClient({ adapter })
+const prisma = new PrismaClient()
 
 async function main() {
-  console.log('Starting seed...')
+  console.log('Seeding database...')
 
-  const users = [
-    {
+  // Clear existing data
+  await prisma.comment.deleteMany()
+  await prisma.auditLog.deleteMany()
+  await prisma.taskBlock.deleteMany()
+  await prisma.task.deleteMany()
+  await prisma.column.deleteMany()
+  await prisma.boardMember.deleteMany()
+  await prisma.board.deleteMany()
+  await prisma.user.deleteMany()
+  await prisma.systemSettings.deleteMany()
+
+  // Create System Settings
+  await prisma.systemSettings.create({
+    data: {
+      id: 'global',
+      platformName: 'SmartTask Pro',
+      allowMemberBoardCreation: true,
+      defaultWipLimit: 5,
+    }
+  })
+
+  // Create users
+  const adminPassword = await bcrypt.hash('Password123!', 10)
+  const admin = await prisma.user.create({
+    data: {
       email: 'admin@test.com',
-      password: 'password123',
-      name: 'Admin User',
-      role: 'ADMIN' as const,
-    },
-    {
-      email: 'manager@test.com',
-      password: 'password123',
-      name: 'Manager User',
-      role: 'MANAGER' as const,
-    },
-    {
-      email: 'member@test.com',
-      password: 'password123',
-      name: 'Member User',
-      role: 'MEMBER' as const,
-    },
-  ]
-
-  // First, delete existing test users
-  await prisma.user.deleteMany({
-    where: {
-      email: {
-        in: users.map(u => u.email),
-      },
+      name: 'System Admin',
+      password: adminPassword,
+      role: 'ADMIN',
     },
   })
-  console.log('Deleted existing test users...')
 
-  for (const userData of users) {
-    try {
-      // Hash password using bcrypt (same as better-auth uses)
-      const hashedPassword = await bcrypt.hash(userData.password, 10)
+  const managerPassword = await bcrypt.hash('Password123!', 10)
+  const manager = await prisma.user.create({
+    data: {
+      email: 'manager@test.com',
+      name: 'Project Manager',
+      password: managerPassword,
+      role: 'MANAGER',
+    },
+  })
 
-      // Create user directly in database
-      await prisma.user.create({
-        data: {
-          email: userData.email,
-          password: hashedPassword,
-          name: userData.name,
-          role: userData.role,
-          avatar: null,
-        },
-      })
+  const memberPassword = await bcrypt.hash('Password123!', 10)
+  const member = await prisma.user.create({
+    data: {
+      email: 'member@test.com',
+      name: 'Team Member',
+      password: memberPassword,
+      role: 'MEMBER',
+    },
+  })
 
-      console.log(`Created user: ${userData.email} with role: ${userData.role}`)
-    } catch (error) {
-      console.error(`Failed to create user ${userData.email}:`, error)
-    }
-  }
+  // Create a default board for development
+  const board = await prisma.board.create({
+    data: {
+      name: 'Development Board',
+      description: 'The primary workspace for engineering and design.',
+      color: '#4f46e5',
+      ownerId: admin.id,
+      members: {
+        create: [
+          { userId: admin.id, role: 'ADMIN' },
+          { userId: manager.id, role: 'MANAGER' },
+          { userId: member.id, role: 'MEMBER' },
+        ],
+      },
+      columns: {
+        create: [
+          { name: 'Backlog', position: 0 },
+          { name: 'To Do', position: 1, wipLimit: 5 },
+          { name: 'In Progress', position: 2, wipLimit: 4 },
+          { name: 'Code Review', position: 3, wipLimit: 3 },
+          { name: 'Done', position: 4, isTerminal: true },
+        ],
+      },
+    },
+    include: { columns: true },
+  })
 
-  console.log('Seed completed!')
-  console.log('You can now login with:')
-  console.log('  admin@test.com / password123 (Admin)')
-  console.log('  manager@test.com / password123 (Manager)')
-  console.log('  member@test.com / password123 (Member)')
+  const todoCol = board.columns.find((c) => c.name === 'To Do')!
+  const progressCol = board.columns.find((c) => c.name === 'In Progress')!
+
+  // Create initial tasks
+  await prisma.task.create({
+    data: {
+      title: 'Design database schema',
+      description: 'Create the primary models for users, boards, tasks, and audit logs.',
+      priority: 'HIGH',
+      columnId: progressCol.id,
+      boardId: board.id,
+      createdById: admin.id,
+      assigneeId: member.id,
+    },
+  })
+
+  await prisma.task.create({
+    data: {
+      title: 'Implement authentication',
+      description: 'Setup session-based auth with better-auth.',
+      priority: 'CRITICAL',
+      columnId: progressCol.id,
+      boardId: board.id,
+      createdById: admin.id,
+      assigneeId: manager.id,
+    },
+  })
+
+  await prisma.task.create({
+    data: {
+      title: 'Setup GitHub Actions',
+      description: 'Configure CI/CD pipeline for automated testing and deployment.',
+      priority: 'MEDIUM',
+      columnId: todoCol.id,
+      boardId: board.id,
+      createdById: admin.id,
+    },
+  })
+
+  console.log('Seeding completed successfully.')
 }
 
 main()
   .catch((e) => {
-    console.error('Seed failed:', e)
+    console.error(e)
     process.exit(1)
   })
   .finally(async () => {
