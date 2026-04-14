@@ -10,6 +10,18 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
+        // ElevenLabs-inspired Black Pill button
+        black:
+          "bg-black text-white rounded-[9999px] px-[14px] hover:bg-black/90 focus-visible:ring-black/50",
+        // ElevenLabs White Pill (shadow-bordered)
+        white:
+          "bg-white text-black rounded-[9999px] shadow-[rgba(0,0,0,0.4)_0px_0px_1px,_rgba(0,0,0,0.04)_0px_4px_4px] hover:bg-white/80 focus-visible:ring-black/50",
+        // ElevenLabs Warm Stone Pill (signature button)
+        warm:
+          "bg-[rgba(245,242,239,0.8)] text-black py-3 px-5 pl-[14px] rounded-[30px] shadow-[rgba(78,50,23,0.04)_0px_6px_16px] hover:bg-[rgba(245,242,239,0.9)] focus-visible:ring-black/50",
+        // ElevenLabs Uppercase CTA (WaldenburgFH style)
+        cta:
+          "text-[0.88rem] leading-[1.10] tracking-[0.7px] font-bold uppercase bg-black text-white rounded-[9999px] px-[14px] hover:bg-black/90",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

@@ -29,8 +29,22 @@ yarn-error.log*
 pnpm-debug.log*
 
 # env files
+.env
 .env*.local
+.env.example
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agents & tools
+.agents/
+.claude/
+.playwright-mcp/
+.gemini/
+ROLE_FEATURES_AUDIT.md.tmp
+walkthrough.md.tmp
+implementation_plan.md.tmp
+
+# logs
+*.log

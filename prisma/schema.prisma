@@ -1,0 +1,287 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  password     String?
+  role         Role      @default(MEMBER)
+  avatar       String?
+  isActive     Boolean   @default(true)
+  emailVerified Boolean  @default(false)
+  resetToken   String?
+  resetTokenExpires DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  ownedBoards     Board[]       @relation("BoardOwner")
+  memberships     BoardMember[]
+  assignedTasks   Task[]        @relation("AssignedTo")
+  createdTasks    Task[]        @relation("TaskCreator")
+  createdAuditLog AuditLog[]    @relation("AuditActor")
+  receivedAudit   AuditLog[]    @relation("AuditTarget")
+  notifications   Notification[]
+  sessions        Session[]
+  accounts        Account[]
+  comments        Comment[]
+  createdDependencies TaskBlock[] @relation("TaskDependencyCreator")
+
+  @@index([email])
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  providerId        String
+  accountId         String
+  password          String?
+  accessToken       String?
+  refreshToken      String?
+  idToken           String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Board {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  color       String        @default("#3b82f6")
+  ownerId     String
+  archived    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  owner      User           @relation("BoardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members    BoardMember[]
+  columns    Column[]
+  tasks      Task[]
+  auditLogs  AuditLog[]
+  automationRules AutomationRule[]
+
+  @@index([ownerId])
+}
+
+model BoardMember {
+  id        String   @id @default(cuid())
+  boardId   String
+  userId    String
+  role      Role     @default(MEMBER)
+  joinedAt  DateTime @default(now())
+
+  // Relations
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, userId])
+  @@index([boardId])
+  @@index([userId])
+}
+
+model Column {
+  id        String   @id @default(cuid())
+  name      String
+  boardId   String
+  position  Int
+  wipLimit  Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  board Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@index([boardId])
+}
+
+model Task {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?
+  priority     Priority  @default(MEDIUM)
+  status       String    @default("todo")
+  labels       String[]
+  dueDate      DateTime?
+  columnId     String
+  boardId      String
+  assigneeId   String?
+  createdById  String
+  version      Int       @default(1)
+  position     Float     @default(0)
+  isBlocked    Boolean   @default(false)
+  inProgressAt DateTime?
+  completedAt  DateTime?
+  lastMovedAt  DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  column    Column @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  board     Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  assignee  User?  @relation("AssignedTo", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy User   @relation("TaskCreator", fields: [createdById], references: [id])
+  blockers  TaskBlock[]     @relation("BlockedTasks")
+  blocking  TaskBlock[]     @relation("BlockingTasks")
+  auditLogs AuditLog[]
+  comments  Comment[]
+
+  @@index([columnId])
+  @@index([boardId])
+  @@index([assigneeId])
+  @@index([dueDate])
+  @@index([lastMovedAt])
+  @@index([priority])
+}
+
+model TaskBlock {
+  id          String   @id @default(cuid())
+  blockerId   String
+  blockingId  String
+  createdAt   DateTime @default(now())
+
+  // Relations
+  createdById String
+  blocker  Task @relation("BlockedTasks", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocking Task @relation("BlockingTasks", fields: [blockingId], references: [id], onDelete: Cascade)
+  creator  User @relation("TaskDependencyCreator", fields: [createdById], references: [id])
+
+  @@unique([blockerId, blockingId])
+  @@index([blockerId])
+  @@index([blockingId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  entityType  String
+  entityId    String
+  actorId     String
+  targetId    String?
+  boardId     String?
+  changes     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  actor  User   @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+  target User?  @relation("AuditTarget", fields: [targetId], references: [id], onDelete: SetNull)
+  board  Board? @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  task   Task?  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([boardId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model AutomationRule {
+  id          String   @id @default(cuid())
+  boardId     String
+  name        String
+  enabled     Boolean  @default(true)
+  trigger     String   // JSON stringified: { type: "TASK_MOVED", value: "Review" }
+  condition   String?  // JSON stringified: { field: "priority", operator: "EQ", value: "HIGH" }
+  action      String   // JSON stringified: { type: "NOTIFY", target: "MANAGER" }
+  lastFiredAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  @@index([boardId])
+  @@index([enabled])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // TASK_ASSIGNED, TASK_COMPLETED, BOARD_INVITE, etc.
+  title       String
+  message     String
+  link        String?  // URL to navigate to
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  text      String   @db.Text
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+}
+
+model SystemSettings {
+  id                        String   @id @default("global")
+  platformName              String   @default("SmartTask")
+  allowMemberBoardCreation  Boolean  @default(true)
+  defaultWipLimit          Int      @default(5)
+  allowedColors            Json?    // Array of hex strings
+  updatedAt                DateTime @updatedAt
+}

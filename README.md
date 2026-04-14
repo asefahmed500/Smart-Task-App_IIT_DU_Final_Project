@@ -1,21 +1,17 @@
-# Next.js template
+# Smart-Task-App_IIT_DU_Final_Project
 
-This is a Next.js template with shadcn/ui.
+A premium, production-ready Smart Task Management System built with Next.js 15, Prisma, and Better Auth.
 
-## Adding components
+## Features
+- **Role-Based Access Control (RBAC)**: Dedicated dashboards for Admin, Manager, and Member roles.
+- **Real-time Collaboration**: Live presence, cursors, and task updates via Socket.io.
+- **Advanced Task Logic**: WIP limits, task dependencies, swimlanes, and conflict resolution.
+- **Analytics & Governance**: Average cycle time, throughput heatmaps, and platform-wide audit logs.
+- **Offline Resilience**: Action queuing and automatic synchronization upon reconnection.
 
-To add components to your app, run the following command:
-
-```bash
-npx shadcn@latest add button
-```
-
-This will place the ui components in the `components` directory.
-
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button";
-```
+## Tech Stack
+- **Framework**: Next.js 15 (App Router)
+- **Database**: PostgreSQL (Prisma ORM)
+- **Auth**: Better Auth v1
+- **Styling**: Tailwind CSS v4 + shadcn/ui
+- **State**: Redux Toolkit + RTK Query
