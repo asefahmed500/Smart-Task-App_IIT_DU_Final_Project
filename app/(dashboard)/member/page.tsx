@@ -1,37 +1,33 @@
 'use client'
 
 import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { BoardCard } from '@/components/dashboard/board-card'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
-import { useGetTasksQuery } from '@/lib/slices/tasksApi'
+import { useGetAssignedTasksQuery } from '@/lib/slices/tasksApi'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
 import { useRouter } from 'next/navigation'
-import { CheckSquare, Clock, TrendingUp, Target } from 'lucide-react'
+import { CheckSquare, Clock, TrendingUp, Target, AlertCircle } from 'lucide-react'
 
-export default function MemberDashboardPage() {
+export default function MemberPage() {
   const router = useRouter()
   const { data: boards } = useGetBoardsQuery()
   const { data: session } = useGetSessionQuery()
+  const { data: assignedTasks = [] } = useGetAssignedTasksQuery()
 
-  // Filter boards where user is a member
+  // Filter boards where user is a member or owner
   const memberBoards = boards?.filter((board) => {
     const userId = session?.id
     if (board.ownerId === userId) return true
     return board.members?.some((m: any) => m.userId === userId)
   }) || []
 
-  // Fetch tasks for all member boards
-  const tasksQueries = memberBoards.map(board => useGetTasksQuery(board.id))
-  const allTasks = tasksQueries.flatMap(q => q.data || [])
-
   // Use shared stats hook with userId to filter for assigned tasks
-  const stats = useDashboardStats(allTasks, session?.id)
+  const stats = useDashboardStats(assignedTasks, session?.id)
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -43,7 +39,7 @@ export default function MemberDashboardPage() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-min">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 auto-rows-min">
         <StatCard
           icon={Target}
           label="Assigned to Me"
@@ -66,13 +62,66 @@ export default function MemberDashboardPage() {
           iconBgColor="bg-green-500/10"
         />
         <StatCard
+          icon={AlertCircle}
+          label="Blocked Tasks"
+          value={stats.blockedTasks}
+          iconColor="text-red-600"
+          iconBgColor="bg-red-600/10"
+        />
+        <StatCard
           icon={TrendingUp}
           label="Overdue"
           value={stats.overdueTasks}
-          iconColor="text-red-500"
-          iconBgColor="bg-red-500/10"
+          iconColor="text-rose-500"
+          iconBgColor="bg-rose-500/10"
+        />
+        <StatCard
+          icon={CheckSquare}
+          label="Weekly Throughput"
+          value={stats.throughput}
+          iconColor="text-purple-500"
+          iconBgColor="bg-purple-500/10"
+        />
+        <StatCard
+          icon={Clock}
+          label="Avg Cycle Time"
+          value={stats.avgCycleTime}
+          iconColor="text-cyan-500"
+          iconBgColor="bg-cyan-500/10"
         />
       </div>
+
+      {/* Tasks Due Today */}
+      {stats.tasksDueToday > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-[20px] p-6">
+          <div className="flex items-center gap-3">
+            <Clock className="h-6 w-6 text-orange-500" />
+            <div>
+              <h3 className="text-lg font-semibold">Tasks Due Today</h3>
+              <p className="text-sm text-[#777169]">
+                You have {stats.tasksDueToday} task{stats.tasksDueToday > 1 ? 's' : ''} due today.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Overdue Tasks Alert */}
+      {stats.overdueTasks > 0 && (
+        <div className="bg-rose-50 border border-rose-200 rounded-[24px] p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-rose-500 rounded-full text-white">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-display-header font-waldenburg">Overdue Tasks Attention Required</h3>
+              <p className="text-body text-[#777169]">
+                You have {stats.overdueTasks} overdue task{stats.overdueTasks > 1 ? 's' : ''} that {stats.overdueTasks > 1 ? 'are' : 'is'} currently stalling progress.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* My Boards */}
       <div>
@@ -95,36 +144,6 @@ export default function MemberDashboardPage() {
           )}
         </div>
       </div>
-
-      {/* Tasks Due Today */}
-      {stats.tasksDueToday > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-[20px] p-6">
-          <div className="flex items-center gap-3">
-            <Clock className="h-6 w-6 text-orange-500" />
-            <div>
-              <h3 className="text-lg font-semibold">Tasks Due Today</h3>
-              <p className="text-sm text-[#777169]">
-                You have {stats.tasksDueToday} task{stats.tasksDueToday > 1 ? 's' : ''} due today.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Overdue Tasks Alert */}
-      {stats.overdueTasks > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-[20px] p-6">
-          <div className="flex items-center gap-3">
-            <TrendingUp className="h-6 w-6 text-red-500" />
-            <div>
-              <h3 className="text-lg font-semibold">Overdue Tasks</h3>
-              <p className="text-sm text-[#777169]">
-                You have {stats.overdueTasks} overdue task{stats.overdueTasks > 1 ? 's' : ''} that need attention.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

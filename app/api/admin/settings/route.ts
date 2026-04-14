@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiRole } from '@/lib/session'
+import { z } from 'zod'
 
-// GET /api/admin/settings - Get platform settings (Admin only)
+const settingsSchema = z.object({
+  platformName: z.string().min(1).max(50),
+  allowMemberBoardCreation: z.boolean(),
+  defaultWipLimit: z.number().int().min(1).max(100),
+})
+
+// GET /api/admin/settings - Get global platform settings
 export async function GET(req: NextRequest) {
   const authResult = await requireApiRole(['ADMIN'])
   if (authResult instanceof NextResponse) return authResult
@@ -12,54 +19,67 @@ export async function GET(req: NextRequest) {
       where: { id: 'global' }
     })
 
-    // Create default if they don't exist
     if (!settings) {
+      // Initialize with defaults if missing
       settings = await prisma.systemSettings.create({
         data: {
           id: 'global',
           platformName: 'SmartTask',
           allowMemberBoardCreation: true,
-          defaultWipLimit: 5,
+          defaultWipLimit: 5
         }
       })
     }
 
     return NextResponse.json(settings)
   } catch (error) {
-    console.error('Get system settings error:', error)
+    console.error('Get settings error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-// PATCH /api/admin/settings - Update platform settings (Admin only)
+// PATCH /api/admin/settings - Update global platform settings
 export async function PATCH(req: NextRequest) {
   const authResult = await requireApiRole(['ADMIN'])
   if (authResult instanceof NextResponse) return authResult
+  const session = authResult
 
   try {
     const body = await req.json()
-    const { platformName, allowMemberBoardCreation, defaultWipLimit, allowedColors } = body
+    const validated = settingsSchema.safeParse(body)
+    
+    if (!validated.success) {
+      return NextResponse.json(
+        { error: 'Invalid settings data', details: validated.error.format() },
+        { status: 400 }
+      )
+    }
 
-    const settings = await prisma.systemSettings.upsert({
+    const { platformName, allowMemberBoardCreation, defaultWipLimit } = validated.data
+
+    const updated = await prisma.systemSettings.update({
       where: { id: 'global' },
-      update: {
+      data: {
         platformName,
         allowMemberBoardCreation,
-        defaultWipLimit,
-        allowedColors
-      },
-      create: {
-        id: 'global',
-        platformName: platformName || 'SmartTask',
-        allowMemberBoardCreation: allowMemberBoardCreation ?? true,
-        defaultWipLimit: defaultWipLimit || 5,
-        allowedColors
+        defaultWipLimit
       }
     })
 
-    return NextResponse.json(settings)
+    // Audit log
+    await prisma.auditLog.create({
+      data: {
+        action: 'SETTINGS_UPDATED',
+        entityType: 'System',
+        entityId: 'global',
+        actorId: session.user.id,
+        changes: body
+      }
+    })
+
+    return NextResponse.json(updated)
   } catch (error) {
-    console.error('Update system settings error:', error)
+    console.error('Update settings error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -8,7 +8,7 @@ import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
 import { useRouter } from 'next/navigation'
-import { Plus, Users, SquareCheck, TrendingUp, Clock } from 'lucide-react'
+import { Plus, Users, SquareCheck, TrendingUp, Clock, AlertCircle, BarChart3 } from 'lucide-react'
 import { useEffect } from 'react'
 
 export default function ManagerDashboardPage() {
@@ -87,6 +87,20 @@ export default function ManagerDashboardPage() {
           value={stats.totalTasks}
           iconColor="text-green-500"
           iconBgColor="bg-green-500/10"
+        />
+        <StatCard
+          icon={AlertCircle}
+          label="Blocked Tasks"
+          value={stats.blockedTasks}
+          iconColor="text-red-500"
+          iconBgColor="bg-red-500/10"
+        />
+        <StatCard
+          icon={BarChart3}
+          label="Weekly Throughput"
+          value={stats.throughput}
+          iconColor="text-purple-500"
+          iconBgColor="bg-purple-500/10"
         />
         <StatCard
           icon={Clock}

@@ -112,14 +112,14 @@ export default function PlatformSettings() {
         </Card>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-start pt-4 border-t border-[rgba(0,0,0,0.08)]">
         <Button 
           onClick={handleSave} 
           disabled={isUpdating}
-          className="rounded-[9999px] px-8 py-6 h-auto text-body-medium font-waldenburg font-light"
+          className="rounded-lg px-6 h-10 text-sm font-medium"
         >
-          {isUpdating ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-          Save Platform Configuration
+          {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          Save Configuration
         </Button>
       </div>
     </div>

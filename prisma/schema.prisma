@@ -48,6 +48,7 @@ model User {
   accounts        Account[]
   comments        Comment[]
   createdDependencies TaskBlock[] @relation("TaskDependencyCreator")
+  attachments         TaskAttachment[]
 
   @@index([email])
   @@index([role])
@@ -174,6 +175,7 @@ model Task {
   blocking  TaskBlock[]     @relation("BlockingTasks")
   auditLogs AuditLog[]
   comments  Comment[]
+  attachments TaskAttachment[]
 
   @@index([columnId])
   @@index([boardId])
@@ -284,4 +286,22 @@ model SystemSettings {
   defaultWipLimit          Int      @default(5)
   allowedColors            Json?    // Array of hex strings
   updatedAt                DateTime @updatedAt
+}
+
+model TaskAttachment {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  type      String
+  size      Int
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+  @@index([userId])
 }

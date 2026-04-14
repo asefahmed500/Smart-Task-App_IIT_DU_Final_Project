@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
-import type { Task, Priority } from './boardsApi'
+import type { Task, Priority, TaskAttachment } from './boardsApi'
 
 export interface CreateTaskRequest {
   title: string
@@ -38,6 +38,8 @@ export interface CommentPayload {
   text: string
   createdAt: string
   user: { id: string; name: string | null; avatar: string | null }
+  taskId: string
+  userId: string
 }
 
 export const tasksApi = createApi({
@@ -50,6 +52,11 @@ export const tasksApi = createApi({
   endpoints: (builder) => ({
     getTasks: builder.query<Task[], string>({
       query: (boardId) => `/boards/${boardId}/tasks`,
+      providesTags: (result) =>
+        result?.map(task => ({ type: 'Task' as const, id: task.id })) || [],
+    }),
+    getAssignedTasks: builder.query<Task[], void>({
+      query: () => '/tasks/assigned',
       providesTags: (result) =>
         result?.map(task => ({ type: 'Task' as const, id: task.id })) || [],
     }),
@@ -112,18 +119,56 @@ export const tasksApi = createApi({
       }),
       invalidatesTags: (result, error, { taskId }) => [{ type: 'Task', id: `COMMENTS_${taskId}` }]
     }),
+    deleteComment: builder.mutation<void, string>({
+      query: (commentId) => ({
+        url: `/comments/${commentId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, commentId) => [{ type: 'Task', id: 'COMMENTS' }, 'Task']
+    }),
+    updateComment: builder.mutation<CommentPayload, { id: string; text: string }>({
+      query: ({ id, text }) => ({
+        url: `/comments/${id}`,
+        method: 'PATCH',
+        body: { text }
+      }),
+      invalidatesTags: (result, error, { id }) => [{ type: 'Task', id: 'COMMENTS' }, 'Task']
+    }),
     addTaskDependency: builder.mutation<any, { taskId: string; linkedTaskId: string; type: 'BLOCKS' | 'IS_BLOCKED_BY' }>({
       query: ({ taskId, ...body }) => ({
         url: `/tasks/${taskId}/dependencies`,
         method: 'POST',
         body
       }),
-      invalidatesTags: ['Task']
+      invalidatesTags: (result, error, { taskId }) => [{ type: 'Task', id: taskId }]
+    }),
+    removeTaskDependency: builder.mutation<void, { taskId: string; linkedTaskId: string; type: 'BLOCKS' | 'IS_BLOCKED_BY' }>({
+      query: ({ taskId, ...body }) => ({
+        url: `/tasks/${taskId}/dependencies`,
+        method: 'DELETE',
+        body
+      }),
+      invalidatesTags: (result, error, { taskId }) => [{ type: 'Task', id: taskId }]
     }),
     searchTasks: builder.query<Task[], string>({
       query: (q) => `/tasks/search?q=${encodeURIComponent(q)}`,
       providesTags: (result) => 
         result?.map(task => ({ type: 'Task' as const, id: task.id })) || [],
+    }),
+    addAttachment: builder.mutation<TaskAttachment, { taskId: string; name: string; url: string; type?: string; size?: number }>({
+      query: ({ taskId, ...body }) => ({
+        url: `/tasks/${taskId}/attachments`,
+        method: 'POST',
+        body
+      }),
+      invalidatesTags: (result, error, { taskId }) => [{ type: 'Task', id: taskId }]
+    }),
+    deleteAttachment: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/attachments/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Task']
     }),
   }),
 })
@@ -139,6 +184,12 @@ export const {
   useGetTaskAuditQuery,
   useGetTaskCommentsQuery,
   useAddCommentMutation,
+  useDeleteCommentMutation,
+  useUpdateCommentMutation,
   useAddTaskDependencyMutation,
+  useRemoveTaskDependencyMutation,
   useSearchTasksQuery,
+  useAddAttachmentMutation,
+  useDeleteAttachmentMutation,
+  useGetAssignedTasksQuery,
 } = tasksApi

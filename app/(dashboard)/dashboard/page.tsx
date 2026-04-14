@@ -31,16 +31,16 @@ export default function DashboardPage() {
     MEMBER: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
   }
 
-  // Redirect ADMIN and MANAGER to their dedicated dashboards
+  // Redirect all roles to their dedicated dashboards
   useEffect(() => {
-    if (profile?.role === 'ADMIN' && pathname === '/dashboard') {
-      router.replace('/admin')
-    } else if (profile?.role === 'MANAGER' && pathname === '/dashboard') {
-      router.replace('/manager')
+    if (pathname === '/dashboard') {
+      if (profile?.role === 'ADMIN') router.replace('/admin')
+      else if (profile?.role === 'MANAGER') router.replace('/manager')
+      else if (profile?.role === 'MEMBER') router.replace('/member')
     }
   }, [profile, pathname, router])
 
-  if ((profile?.role === 'ADMIN' || profile?.role === 'MANAGER') && pathname === '/dashboard') {
+  if (pathname === '/dashboard' && profile?.role) {
     return null // Will redirect
   }
 

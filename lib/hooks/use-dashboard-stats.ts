@@ -9,6 +9,7 @@ interface DashboardStats {
   totalTasks: number
   avgCycleTime: string
   throughput: number
+  blockedTasks: number
 }
 
 export function useDashboardStats(
@@ -29,6 +30,7 @@ export function useDashboardStats(
     let totalCycleTime = 0
     let completedWithCycleTime = 0
     let completedTasksThisWeek = 0
+    let blockedTasks = 0
 
     const tasksToProcess = userId
       ? tasks.filter((task) => task.assigneeId === userId)
@@ -40,6 +42,10 @@ export function useDashboardStats(
         completedTasks++
       } else if (task.status === 'in_progress') {
         inProgressTasks++
+      }
+
+      if (task.isBlocked) {
+        blockedTasks++
       }
 
       // Count due today
@@ -82,6 +88,7 @@ export function useDashboardStats(
       totalTasks: tasksToProcess.length,
       avgCycleTime: avgCycleTimeDays.toFixed(1) + 'd',
       throughput: completedTasksThisWeek,
+      blockedTasks,
     }
   }, [tasks, userId])
 }

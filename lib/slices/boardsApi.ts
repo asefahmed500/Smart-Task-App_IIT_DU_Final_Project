@@ -64,6 +64,19 @@ export interface Task {
     blockingId: string
     blocking?: Task
   }>
+  attachments?: TaskAttachment[]
+}
+
+export interface TaskAttachment {
+  id: string
+  name: string
+  url: string
+  type: string
+  size: number
+  taskId: string
+  userId: string
+  createdAt: string
+  user: { id: string; name: string | null; avatar: string | null }
 }
 
 export interface Board {
@@ -97,8 +110,18 @@ export interface UpdateBoardRequest {
 }
 
 export interface MetricsPayload {
-  avgCycleTimeHours: number;
-  avgLeadTimeHours: number;
+  cycleTime: {
+    avg: number
+    median: number
+    p95: number
+    count: number
+  };
+  leadTime: {
+    avg: number
+    median: number
+    p95: number
+    count: number
+  };
   throughput: { date: string, count: number }[];
   totalTasks: number;
   completedTasks: number;
@@ -220,6 +243,10 @@ export const boardsApi = createApi({
       query: (boardId) => `/boards/${boardId}/automations`,
       providesTags: (result, error, boardId) => [{ type: 'Board', id: `${boardId}-automations` }],
     }),
+    getBoardAudit: builder.query<any[], string>({
+      query: (boardId) => `/boards/${boardId}/audit`,
+      providesTags: (result, error, boardId) => [{ type: 'Board', id: `${boardId}-audit` }],
+    }),
     createAutomation: builder.mutation<any, { boardId: string; name: string; trigger: any; condition?: any; action: any }>({
       query: ({ boardId, name, trigger, condition, action }) => ({
         url: `/boards/${boardId}/automations`,
@@ -265,4 +292,5 @@ export const {
   useCreateAutomationMutation,
   useUpdateAutomationMutation,
   useDeleteAutomationMutation,
+  useGetBoardAuditQuery,
 } = boardsApi

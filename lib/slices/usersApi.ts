@@ -52,6 +52,9 @@ export const usersApi = createApi({
         body: data,
       }),
     }),
+    searchUsers: builder.query<UserProfile[], string>({
+      query: (q) => `/search?q=${encodeURIComponent(q)}`,
+    }),
   }),
 })
 
@@ -61,4 +64,5 @@ export const {
   useGetUserBoardsQuery,
   useGetUserActivityQuery,
   useChangePasswordMutation,
+  useSearchUsersQuery,
 } = usersApi

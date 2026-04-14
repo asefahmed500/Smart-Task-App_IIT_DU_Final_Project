@@ -1,44 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { calculateCycleTime } from '@/lib/metrics/cycle-time'
-import { calculateLeadTime } from '@/lib/metrics/lead-time'
+import { useGetBoardMetricsQuery } from '@/lib/slices/boardsApi'
 
 interface FlowMetricsProps {
   boardId: string
 }
 
-interface Metrics {
-  avg: number
-  median: number
-  p95: number
-  count: number
-}
-
 export default function FlowMetrics({ boardId }: FlowMetricsProps) {
-  const [cycleTime, setCycleTime] = useState<Metrics | null>(null)
-  const [leadTime, setLeadTime] = useState<Metrics | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function loadMetrics() {
-      setLoading(true)
-      try {
-        const [cycle, lead] = await Promise.all([
-          calculateCycleTime(boardId),
-          calculateLeadTime(boardId),
-        ])
-        setCycleTime(cycle)
-        setLeadTime(lead)
-      } catch (error) {
-        console.error('Failed to load metrics:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadMetrics()
-  }, [boardId])
+  const { data: metrics, isLoading } = useGetBoardMetricsQuery(boardId)
+  const cycleTime = metrics?.cycleTime
+  const leadTime = metrics?.leadTime
 
   const MetricBar = ({ value, max = 30, label, color = 'bg-blue-500' }: { value: number; max?: number; label: string; color?: string }) => {
     const percentage = Math.min((value / max) * 100, 100)
@@ -55,7 +27,7 @@ export default function FlowMetrics({ boardId }: FlowMetricsProps) {
     )
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card className="p-6">
         <h3 className="text-section-heading font-waldenburg font-light mb-4">Flow Metrics</h3>
