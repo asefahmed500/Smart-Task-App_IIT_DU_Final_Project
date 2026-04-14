@@ -61,7 +61,7 @@ export default function DashboardLayout({
         style={{ paddingLeft: sidebarOpen ? 280 : 0 }}
       >
         <Navbar />
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className="flex-1 overflow-hidden relative">{children}</main>
       </div>
 
       {/* Right Sidebar — fixed on the right, overlays */}

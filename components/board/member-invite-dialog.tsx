@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { UserPlus } from 'lucide-react'
+import { UserPlus, Search } from 'lucide-react'
 import { toast } from 'sonner'
-import { useGetUsersQuery } from '@/lib/slices/adminApi'
+import { useSearchUsersQuery } from '@/lib/slices/usersApi'
 
 interface MemberInviteDialogProps {
   boardId: string
@@ -19,12 +19,15 @@ interface MemberInviteDialogProps {
 export default function MemberInviteDialog({ boardId, onInvite, existingMemberIds = [] }: MemberInviteDialogProps) {
   const [open, setOpen] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   const [role, setRole] = useState<'ADMIN' | 'MANAGER' | 'MEMBER'>('MEMBER')
   const [isInviting, setIsInviting] = useState(false)
 
-  const { data: users = [] } = useGetUsersQuery()
+  const { data: searchResults = [], isLoading: isSearching } = useSearchUsersQuery(searchTerm, {
+     skip: searchTerm.length < 2
+  })
 
-  const availableUsers = users.filter(user => !existingMemberIds.includes(user.id) && user.isActive)
+  const availableUsers = searchResults.filter(user => !existingMemberIds.includes(user.id))
 
   const handleInvite = async () => {
     if (!selectedUserId) {
@@ -60,23 +63,42 @@ export default function MemberInviteDialog({ boardId, onInvite, existingMemberId
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label className="text-caption">Select User</Label>
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a user to invite" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableUsers.length === 0 ? (
-                  <div className="p-2 text-caption text-[#777169]">No available users</div>
-                ) : (
-                  availableUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name || user.email}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            <Label className="text-caption">Search User (Name or Email)</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Type at least 2 characters..." 
+                className="pl-9"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            {searchTerm.length >= 2 && (
+               <div className="border rounded-lg mt-2 max-h-[200px] overflow-y-auto bg-card">
+                  {isSearching ? (
+                     <div className="p-4 text-center text-caption text-muted-foreground">Searching...</div>
+                  ) : availableUsers.length === 0 ? (
+                     <div className="p-4 text-center text-caption text-muted-foreground">No users found</div>
+                  ) : (
+                     availableUsers.map(user => (
+                        <div 
+                          key={user.id} 
+                          className={`flex items-center justify-between p-3 hover:bg-muted cursor-pointer transition-colors ${selectedUserId === user.id ? 'bg-primary/5 border-l-2 border-primary' : ''}`}
+                          onClick={() => setSelectedUserId(user.id)}
+                        >
+                           <div>
+                              <p className="text-body-standard font-medium">{user.name}</p>
+                              <p className="text-caption text-muted-foreground">{user.email}</p>
+                           </div>
+                           {selectedUserId === user.id && (
+                              <div className="h-2 w-2 rounded-full bg-primary" />
+                           )}
+                        </div>
+                     ))
+                  )}
+               </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label className="text-caption">Board Role</Label>

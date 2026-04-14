@@ -6,7 +6,6 @@ interface RouteContext {
   params: Promise<{ id: string }>
 }
 
-// GET /api/tasks/:id/audit - Get audit log for a task
 export async function GET(req: NextRequest, { params }: RouteContext) {
   const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
@@ -16,39 +15,40 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params
 
-    // Get task to verify access and get boardId
-    const task = await prisma.task.findUnique({
-      where: { id },
-      select: { boardId: true },
+    const board = await prisma.board.findFirst({
+      where: {
+        id,
+        OR: [
+          { ownerId: userId },
+          { members: { some: { userId } } },
+        ],
+      },
     })
 
-    if (!task) {
-      return NextResponse.json(
-        { error: 'Task not found' },
-        { status: 404 }
-      )
+    if (!board) {
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 })
     }
 
-    // Build where clause
-    let whereClause: any = { entityId: id }
-
     const auditLogs = await prisma.auditLog.findMany({
-      where: whereClause,
+      where: { boardId: id },
       include: {
         actor: {
-          select: { id: true, name: true, email: true, avatar: true, role: true },
+          select: { id: true, name: true, avatar: true, role: true },
         },
         target: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true },
         },
+        task: {
+           select: { id: true, title: true }
+        }
       },
       orderBy: { createdAt: 'desc' },
-      take: 50,
+      take: 100,
     })
 
     return NextResponse.json(auditLogs)
   } catch (error) {
-    console.error('Get audit error:', error)
+    console.error('Get board audit error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

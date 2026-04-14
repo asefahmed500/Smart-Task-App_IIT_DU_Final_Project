@@ -43,17 +43,17 @@ export default function ActivityFeed() {
                 <div key={activity.id} className="flex gap-3">
                   <Avatar className="h-8 w-8">
                     <AvatarImage
-                      src={activity.actor.avatar || undefined}
-                      alt={activity.actor.name || 'User'}
+                      src={activity.actor?.avatar || undefined}
+                      alt={activity.actor?.name || 'User'}
                     />
                     <AvatarFallback>
-                      {activity.actor.name?.[0] || 'U'}
+                      {activity.actor?.name?.[0] || 'U'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <p className="text-sm">
                       <span className="font-medium">
-                        {activity.actor.name || 'You'}
+                        {activity.actor?.name || 'User'}
                       </span>{' '}
                       {actionLabels[activity.action] || activity.action.toLowerCase()}
                       {activity.board && (

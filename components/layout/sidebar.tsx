@@ -100,12 +100,12 @@ export default function Sidebar() {
         <div className="px-3 space-y-0.5">
           {userRole === 'MEMBER' && (
             <Button
-              variant={pathname === '/dashboard' ? 'secondary' : 'ghost'}
+              variant={pathname === '/member' ? 'secondary' : 'ghost'}
               className="w-full justify-start h-8 text-sm"
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push('/member')}
             >
               <Home className="mr-2 h-3.5 w-3.5" />
-              My Dashboard
+              Member Overview
             </Button>
           )}
 
@@ -116,7 +116,7 @@ export default function Sidebar() {
               onClick={() => router.push('/manager')}
             >
               <Users className="mr-2 h-3.5 w-3.5" />
-              Manager Dashboard
+              Manager Overview
             </Button>
           )}
 
@@ -132,13 +132,19 @@ export default function Sidebar() {
           )}
         </div>
 
-        {/* Quick Filters */}
+        {/* Quick Filters - Only highlight if on a task-relevant page */}
         <div className="px-3 mt-3 space-y-0.5">
           <p className="text-xs font-medium text-muted-foreground px-2 mb-1">FILTERS</p>
           <Button
-            variant={filterDue === 'all' ? 'secondary' : 'ghost'}
+            variant={(filterDue === 'all' && (pathname === '/dashboard' || pathname.startsWith('/board'))) ? 'secondary' : 'ghost'}
             className="w-full justify-start h-8 text-sm"
-            onClick={() => dispatch(setFilterDue('all'))}
+            onClick={() => {
+              dispatch(setFilterDue('all'))
+              if (!pathname.startsWith('/board') && pathname !== '/member' && pathname !== '/manager' && pathname !== '/admin') {
+                const homePath = userRole === 'ADMIN' ? '/admin' : userRole === 'MANAGER' ? '/manager' : '/member'
+                router.push(homePath)
+              }
+            }}
           >
             <CheckSquare className="mr-2 h-3.5 w-3.5" />
             All Tasks
@@ -150,9 +156,14 @@ export default function Sidebar() {
           </Button>
 
           <Button
-            variant={filterDue === 'today' ? 'secondary' : 'ghost'}
+            variant={(filterDue === 'today' && (pathname === '/dashboard' || pathname.startsWith('/board'))) ? 'secondary' : 'ghost'}
             className="w-full justify-start h-8 text-sm"
-            onClick={() => dispatch(setFilterDue('today'))}
+            onClick={() => {
+              dispatch(setFilterDue('today'))
+              if (!pathname.startsWith('/board') && pathname !== '/dashboard') {
+                router.push('/dashboard')
+              }
+            }}
           >
             <Clock className="mr-2 h-3.5 w-3.5" />
             Due Today
@@ -164,9 +175,14 @@ export default function Sidebar() {
           </Button>
 
           <Button
-            variant={filterDue === 'overdue' ? 'secondary' : 'ghost'}
+            variant={(filterDue === 'overdue' && (pathname === '/dashboard' || pathname.startsWith('/board'))) ? 'secondary' : 'ghost'}
             className="w-full justify-start h-8 text-sm"
-            onClick={() => dispatch(setFilterDue('overdue'))}
+            onClick={() => {
+              dispatch(setFilterDue('overdue'))
+              if (!pathname.startsWith('/board') && pathname !== '/dashboard') {
+                router.push('/dashboard')
+              }
+            }}
           >
             <AlertCircle className="mr-2 h-3.5 w-3.5 text-destructive" />
             Overdue
@@ -227,12 +243,13 @@ export default function Sidebar() {
 
       {/* Create Board Button — only for MANAGER and ADMIN */}
       {canCreateBoards && (
-        <div className="p-3 border-t">
+        <div className="p-4 border-t bg-muted/20">
           <Button
-            className="w-full h-8 text-sm"
-            onClick={() => router.push('/manager')}
+            variant="default"
+            className="w-full h-10 text-sm font-medium shadow-sm hover:translate-y-[-1px] transition-transform"
+            onClick={() => router.push('/dashboard/new')}
           >
-            <Plus className="mr-2 h-3.5 w-3.5" />
+            <Plus className="mr-2 h-4 w-4" />
             New Board
           </Button>
         </div>
