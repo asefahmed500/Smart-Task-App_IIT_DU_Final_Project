@@ -142,6 +142,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     }
 
     const effectiveRole = await getEffectiveBoardRole(session, boardId)
+
     // A user can leave the board themselves if they are NOT the owner. Let's allow self-removal
     if (effectiveRole !== 'ADMIN' && effectiveRole !== 'MANAGER' && userId !== targetUserId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -154,6 +155,14 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
     if (!board) {
       return NextResponse.json({ error: 'Board not found' }, { status: 404 })
+    }
+
+    // For self-removal, verify the user is actually a member first
+    if (userId === targetUserId) {
+      const isMember = board.members.some((m: { userId: string }) => m.userId === userId)
+      if (!isMember) {
+        return NextResponse.json({ error: 'You are not a member of this board' }, { status: 400 })
+      }
     }
 
     if (board.ownerId === targetUserId) {

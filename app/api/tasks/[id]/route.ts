@@ -232,7 +232,20 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       )
     }
 
-    await prisma.task.delete({ where: { id } })
+    // Delete task and cleanup related TaskBlock records to avoid dangling references
+    await prisma.$transaction([
+      // Clean up TaskBlock records where this task is either the blocker or blocking
+      prisma.taskBlock.deleteMany({
+        where: {
+          OR: [
+            { blockerId: id },
+            { blockingId: id }
+          ]
+        }
+      }),
+      // Delete the task itself
+      prisma.task.delete({ where: { id } })
+    ])
 
     // Broadcast deletion via socket
     const { broadcastTaskDelete } = await import('@/lib/socket-server')

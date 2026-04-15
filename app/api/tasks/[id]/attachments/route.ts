@@ -42,6 +42,46 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Missing name or url' }, { status: 400 })
     }
 
+    // File validation - security: prevent malicious uploads
+    const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+    const ALLOWED_FILE_TYPES = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+      'text/plain',
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]
+
+    // Validate file type
+    if (type && !ALLOWED_FILE_TYPES.includes(type)) {
+      return NextResponse.json({
+        error: 'File type not allowed',
+        allowedTypes: ALLOWED_FILE_TYPES
+      }, { status: 400 })
+    }
+
+    // Validate file size
+    const fileSize = size || 0
+    if (fileSize > MAX_FILE_SIZE) {
+      return NextResponse.json({
+        error: 'File too large',
+        maxSize: MAX_FILE_SIZE,
+        yourSize: fileSize
+      }, { status: 400 })
+    }
+
+    // Validate filename for path traversal attempts
+    if (name.includes('..') || name.includes('/') || name.includes('\\')) {
+      return NextResponse.json({ error: 'Invalid filename' }, { status: 400 })
+    }
+
     const attachment = await prisma.taskAttachment.create({
       data: {
         name,

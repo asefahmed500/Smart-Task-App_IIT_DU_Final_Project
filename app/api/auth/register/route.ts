@@ -1,8 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashPassword, createToken } from '@/lib/auth'
+import { rateLimit, getIdentifier } from '@/lib/rate-limiter'
 
 export async function POST(req: NextRequest) {
+  // Rate limiting: 3 registrations per hour per IP
+  const identifier = getIdentifier(req)
+  const rateLimitResult = await rateLimit(identifier, 3, 60 * 60 * 1000)
+
+  if (!rateLimitResult.success) {
+    return NextResponse.json(
+      {
+        error: 'Too many registration attempts. Please try again later.',
+        retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000),
+      },
+      {
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString(),
+        },
+      }
+    )
+  }
+
   try {
     const body = await req.json()
     // Note: `role` is intentionally NOT accepted from self-registration.

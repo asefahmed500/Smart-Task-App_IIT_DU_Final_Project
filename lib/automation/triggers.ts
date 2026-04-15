@@ -1,7 +1,15 @@
 import { AutomationTrigger } from './engine'
 
+// Whitelisted trigger types for security
+export const ALLOWED_TRIGGER_TYPES = [
+  'TASK_MOVED',
+  'TASK_ASSIGNED',
+  'PRIORITY_CHANGED',
+  'TASK_STALLED',
+] as const
+
 /**
- * Execute a trigger check
+ * Execute a trigger check with security validation
  * @param trigger - The trigger configuration
  * @param eventType - The event type that occurred
  * @param taskData - The task data
@@ -13,6 +21,12 @@ export async function executeTrigger(
   taskData: any
 ): Promise<boolean> {
   const { type, value } = trigger
+
+  // Security: Validate trigger type against whitelist
+  if (!ALLOWED_TRIGGER_TYPES.includes(type as any)) {
+    console.error(`[Security] Invalid automation trigger type: ${type}`)
+    return false
+  }
 
   // First check if the event type matches the trigger type
   const eventTypeMatch = mapEventTypeToTriggerType(eventType)
@@ -43,6 +57,7 @@ export async function executeTrigger(
       return false
 
     default:
+      // Security: Default to false for unknown types
       return false
   }
 }
@@ -51,6 +66,7 @@ export async function executeTrigger(
  * Map event type strings to trigger type enum values
  */
 function mapEventTypeToTriggerType(eventType: string): AutomationTrigger['type'] | null {
+  // Security: Only return whitelisted types
   switch (eventType) {
     case 'TASK_MOVED':
       return 'TASK_MOVED'
@@ -61,6 +77,7 @@ function mapEventTypeToTriggerType(eventType: string): AutomationTrigger['type']
     case 'TASK_STALLED':
       return 'TASK_STALLED'
     default:
+      console.warn(`[Security] Unknown event type in automation: ${eventType}`)
       return null
   }
 }

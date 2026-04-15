@@ -26,13 +26,41 @@ export async function GET(req: NextRequest) {
       path: '/api/socket',
       addTrailingSlash: false,
       cors: {
-        origin: '*',
+        origin: process.env.NODE_ENV === 'production'
+          ? process.env.ALLOWED_ORIGIN?.split(',') || ['https://smart-task.com']
+          : ['http://localhost:3000', 'http://localhost:3001'],
         methods: ['GET', 'POST'],
+        credentials: true,
       },
     })
 
+    // Authentication middleware for Socket.IO
+    ioInstance.use(async (socket, next) => {
+      try {
+        const token = socket.handshake.auth.token || socket.handshake.headers.authorization
+
+        if (!token) {
+          return next(new Error('Authentication error: No token provided'))
+        }
+
+        const { getSession } = await import('@/lib/auth')
+        const session = await getSession(token)
+
+        if (!session) {
+          return next(new Error('Authentication error: Invalid token'))
+        }
+
+        socket.data.user = session.user
+        socket.data.userId = session.user.id
+        next()
+      } catch (err) {
+        return next(new Error('Authentication error'))
+      }
+    })
+
     ioInstance.on('connection', (socket) => {
-      console.log(`Socket connected: ${socket.id}`)
+      const user = socket.data.user
+      console.log(`Socket connected: ${socket.id} (User: ${user?.email || 'anonymous'})`)
 
       socket.on('board:join', ({ boardId }) => {
         socket.join(`board:${boardId}`)

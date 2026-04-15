@@ -4,10 +4,22 @@ let socket: Socket | null = null
 
 export const initSocket = () => {
   if (!socket) {
+    // Get auth token from cookie for Socket.IO authentication
+    const getAuthToken = () => {
+      if (typeof document !== 'undefined') {
+        const match = document.cookie.match(/(^|;) *auth_token=([^;]*)/)
+        return match ? match[2] : null
+      }
+      return null
+    }
+
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
       path: '/api/socket',
       addTrailingSlash: false,
       transports: ['websocket', 'polling'],
+      auth: {
+        token: getAuthToken(),
+      },
     })
 
     socket.on('connect', () => {

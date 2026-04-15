@@ -11,7 +11,8 @@ export async function middleware(req: NextRequest) {
   }
 
   // For protected routes, check for session cookie
-  // We'll do a simple cookie check - actual validation happens in page/layout
+  // Note: API routes handle their own auth via requireApiAuth/requireApiRole
+  // This middleware only protects page routes
   const sessionToken = req.cookies.get('auth_token')?.value
 
   if (!sessionToken) {
@@ -25,16 +26,20 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Match all routes except for static files and API routes that handle their own auth
+  // Match all routes except:
+  // - Static files (_next/static, _next/image)
+  // - favicon.ico
+  // - API routes (they handle their own auth via requireApiAuth/requireApiRole)
+  // - Files with extensions
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - api/auth (better-auth handles its own auth)
-     * - api (API routes handle their own auth)
+     * - api (API routes handle their own authentication)
+     * - Files with extensions (images, fonts, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/auth|api|.*\\..*).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api|.*\\..*).*)',
   ],
 }

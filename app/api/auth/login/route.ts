@@ -1,8 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyPassword, createToken } from '@/lib/auth'
+import { rateLimit, getIdentifier } from '@/lib/rate-limiter'
 
 export async function POST(req: NextRequest) {
+  // Rate limiting: 5 attempts per 5 minutes per IP
+  const identifier = getIdentifier(req)
+  const rateLimitResult = await rateLimit(identifier, 5, 5 * 60 * 1000)
+
+  if (!rateLimitResult.success) {
+    return NextResponse.json(
+      {
+        error: 'Too many login attempts. Please try again later.',
+        retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000),
+      },
+      {
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString(),
+        },
+      }
+    )
+  }
+
   try {
     const body = await req.json()
     const { email, password } = body

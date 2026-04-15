@@ -6,17 +6,34 @@ import { SignJWT, jwtVerify } from 'jose'
 
 import { jwt } from "better-auth/plugins/jwt"
 
+// Get allowed origins for CORS and CSRF
+const getAllowedOrigins = () => {
+  const allowed = process.env.ALLOWED_ORIGIN?.split(',') || ['http://localhost:3000']
+  return allowed.map(o => o.trim())
+}
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
   emailAndPassword: { enabled: true },
-  session: { 
+  session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day
     cookieCache: {
       enabled: true,
       maxAge: 60 * 60, // 1 hour cache
-    }
+    },
   },
+  // Advanced security settings
+  advanced: {
+    // Disable cross-subdomain cookies for security
+    crossSubDomainCookies: {
+      enabled: false,
+    },
+    // Use secure cookies in production
+    useSecureCookies: process.env.NODE_ENV === 'production',
+  },
+  // Allow specific origins only
+  trustedOrigins: getAllowedOrigins(),
   plugins: [
     jwt({
         jwt: {
@@ -26,7 +43,16 @@ export const auth = betterAuth({
   ]
 })
 
-const JWT_SECRET = new TextEncoder().encode(process.env.BETTER_AUTH_SECRET || 'secret-key-at-least-32-chars-long!')
+// Enforce secure JWT secret - must be set and at least 64 characters
+if (!process.env.BETTER_AUTH_SECRET) {
+  throw new Error('BETTER_AUTH_SECRET environment variable is required. Set it to a secure random string of at least 64 characters.')
+}
+
+if (process.env.BETTER_AUTH_SECRET.length < 64) {
+  throw new Error(`BETTER_AUTH_SECRET must be at least 64 characters long for security. Current length: ${process.env.BETTER_AUTH_SECRET.length}`)
+}
+
+const JWT_SECRET = new TextEncoder().encode(process.env.BETTER_AUTH_SECRET)
 
 export interface User {
   id: string

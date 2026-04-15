@@ -7,9 +7,33 @@ export interface AutomationTrigger {
   value?: string | number
 }
 
+// Whitelisted fields for automation conditions to prevent injection
+export const ALLOWED_CONDITION_FIELDS = [
+  'priority',
+  'assigneeId',
+  'columnId',
+  'label',
+  'daysSinceLastMove',
+  'title',
+  'description',
+] as const
+
+// Whitelisted operators for automation conditions
+export const ALLOWED_CONDITION_OPERATORS = [
+  'EQ',
+  'NEQ',
+  'CONTAINS',
+  'GT',
+  'LT',
+  'GTE',
+  'LTE',
+  'EMPTY',
+  'NOT_EMPTY',
+] as const
+
 export interface AutomationCondition {
-  field: 'priority' | 'assigneeId' | 'columnId' | 'label' | 'daysSinceLastMove'
-  operator: 'EQ' | 'NEQ' | 'CONTAINS' | 'GT' | 'LT' | 'GTE' | 'LTE'
+  field: typeof ALLOWED_CONDITION_FIELDS[number]
+  operator: typeof ALLOWED_CONDITION_OPERATORS[number]
   value: string | number
 }
 
@@ -128,10 +152,22 @@ export async function evaluateAutomations(
 }
 
 /**
- * Evaluate a condition against task data
+ * Evaluate a condition against task data with security validation
  */
 async function evaluateCondition(condition: AutomationCondition, taskData: any): Promise<boolean> {
   const { field, operator, value } = condition
+
+  // Security: Validate field and operator against whitelist
+  if (!ALLOWED_CONDITION_FIELDS.includes(field as any)) {
+    console.error(`[Security] Invalid automation condition field: ${field}`)
+    return false
+  }
+
+  if (!ALLOWED_CONDITION_OPERATORS.includes(operator as any)) {
+    console.error(`[Security] Invalid automation condition operator: ${operator}`)
+    return false
+  }
+
   const taskValue = getTaskFieldValue(taskData, field)
 
   switch (operator) {
@@ -149,13 +185,17 @@ async function evaluateCondition(condition: AutomationCondition, taskData: any):
       return Number(taskValue) >= Number(value)
     case 'LTE':
       return Number(taskValue) <= Number(value)
+    case 'EMPTY':
+      return !taskValue || (Array.isArray(taskValue) && taskValue.length === 0)
+    case 'NOT_EMPTY':
+      return taskValue && (!Array.isArray(taskValue) || taskValue.length > 0)
     default:
       return false
   }
 }
 
 /**
- * Get a field value from task data
+ * Get a field value from task data with safe defaults
  */
 function getTaskFieldValue(task: any, field: string): any {
   switch (field) {
@@ -171,7 +211,13 @@ function getTaskFieldValue(task: any, field: string): any {
       if (!task.lastMovedAt) return 999
       const daysSince = Math.floor((Date.now() - new Date(task.lastMovedAt).getTime()) / (1000 * 60 * 60 * 24))
       return daysSince
+    case 'title':
+      return task.title || ''
+    case 'description':
+      return task.description || ''
     default:
+      // Security: Return null for unknown fields instead of throwing
+      console.warn(`[Security] Unknown field requested in automation: ${field}`)
       return null
   }
 }
