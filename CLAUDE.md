@@ -127,10 +127,11 @@ The application uses an ElevenLabs-inspired design system with restrained elegan
   - `uiSlice.ts` - UI state (online status, current board, view mode, focus mode)
   - `presenceSlice.ts` - Real-time user presence
   - `undoSlice.ts` - Undo/redo history
-- Custom middleware (applied in order):
-  - RTK Query middleware (auto-added for each API)
-  - `socketMiddleware` - Socket.IO integration for real-time features
-  - `undoMiddleware` - Tracks mutations for undo functionality
+- Custom middleware (applied in order - this matters!):
+  1. RTK Query middleware (auto-added for each API) - handles caching, invalidation
+  2. `socketMiddleware` - joins/leaves board rooms on `ui/setCurrentBoard`, listens for presence
+  3. `undoMiddleware` - tracks mutations, handles undo actions, clears on logout
+  4. `createOfflineMiddleware()` - queues mutations when `state.ui.isOnline` is false
 
 ### Database (Prisma)
 
@@ -152,6 +153,13 @@ npx prisma db push
 - API handler: `app/api/auth/[...all]/route.ts` - `toNextJsHandler(auth.handler)`
 - Session utilities: `lib/session.ts` - `getSession()`, `requireAuth()`, `requireRole(['ADMIN' | 'MANAGER' | 'MEMBER'])`
 - Environment: `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` in `.env`
+
+**Session Utility Pattern:**
+Two separate patterns for different contexts:
+- **Server Components / Pages**: `requireAuth()` and `requireRole()` - redirect to `/login` or `/dashboard`
+- **API Routes**: `requireApiAuth()` and `requireApiRole()` - return `NextResponse` with 401/403 status
+
+This distinction prevents API routes from redirecting (which would break JSON responses).
 
 ### Socket.IO (Real-time Features)
 
@@ -293,3 +301,17 @@ if (targetColumn.wipLimit && taskCount >= targetColumn.wipLimit && !isManagerOrA
   return NextResponse.json({ error: 'WIP_LIMIT_EXCEEDED' }, { status: 409 })
 }
 ```
+
+**Undo/redo tracked actions:**
+`lib/undo-middleware.ts` tracks these actions for undo history:
+- `task/createTask/fulfilled`, `task/updateTask/fulfilled`, `task/deleteTask/fulfilled`
+- `task/moveTask/fulfilled`, `task/assignTask/fulfilled`
+- `boards/createBoard/fulfilled`, `boards/updateBoard/fulfilled`, `boards/deleteBoard/fulfilled`
+- `columns/createColumn/fulfilled`, `columns/updateColumn/fulfilled`, `columns/deleteColumn/fulfilled`
+
+Revert handlers in `lib/undo/revert-handlers.ts` define inverse operations for each action type.
+
+**Prisma JsonValue type handling:**
+Prisma's `JsonField` returns `JsonValue` (which can be `null`), but `JSON.parse()` expects `string`.
+Use type assertion when parsing: `JSON.parse(rule.trigger as string)`
+For null values in JSON fields, use `Prisma.JsonNull` instead of plain `null`.
