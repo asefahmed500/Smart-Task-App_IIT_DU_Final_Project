@@ -50,6 +50,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Features: Task CRUD, self-assignment only, focus mode, undo/redo
 - Redirect target: `/dashboard`
 
+**Board-Level Role Calculation (`lib/board-roles.ts`):**
+Priority order for determining a user's effective role on a board:
+1. Platform ADMIN → always ADMIN (global privilege)
+2. Board owner → ADMIN (implicit board ownership)
+3. BoardMember record → use the assigned role (ADMIN/MANAGER/MEMBER)
+4. Non-member → null (no access)
+
 **Middleware Protection:** `middleware.ts` protects `/admin` routes. Session checks in API routes enforce role permissions.
 
 ### Design System (ElevenLabs-Inspired)
@@ -149,6 +156,8 @@ npx prisma db push
 ### Socket.IO (Real-time Features)
 
 - Client: `lib/socket.ts` - singleton socket instance with event emitters/listeners
+- Server: `app/api/socket/route.ts` - Socket.IO server with authentication middleware
+- Auth: Token validation via `getSession()` from better-auth
 - Events: `board:join`, `board:leave`, `task:update`, `task:move`, `presence:update`, `presence:cursor`, `presence:editing:start`, `presence:editing:stop`
 - Integration: `lib/socket-middleware.ts` - Redux middleware that connects presenceSlice to socket events
 
@@ -164,7 +173,14 @@ npx prisma db push
 
 **Hard enforcement:** Members cannot move tasks to full columns. Managers/Admins can override.
 **API:** `app/api/tasks/[id]/move/route.ts` - Checks WIP limit before allowing move
+**Board-level role:** Uses `getEffectiveBoardRole()` from `lib/board-roles.ts` to determine permissions
+**Override:** Manager/Admin can pass `override: true` to bypass WIP limit
 **Visual feedback:** Column headers show count/limit, red pulse when full
+
+**Self-Assignment Restriction:**
+**API:** `app/api/tasks/[id]/route.ts` (PATCH endpoint)
+**Rule:** Members can only assign tasks to themselves (or unassign)
+**Implementation:** Lines 112-119 enforce this - if MEMBER and assigneeId !== userId, keeps existing assignment
 
 ### Notification System
 
@@ -202,6 +218,29 @@ npx prisma db push
 - Replay: `replayQueue()` function restores queued actions when back online
 - Visual indicator: `components/offline-banner.tsx`
 - Middleware: Auto-queues mutation actions when `state.ui.isOnline` is false
+
+### Security Features
+
+**Rate Limiting:**
+- Implementation: `lib/rate-limiter.ts` - In-memory Map-based rate limiter
+- Login endpoint: 5 attempts per 5 minutes per IP (see `app/api/auth/login/route.ts`)
+- Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After`
+- IP extraction: Supports `x-forwarded-for`, `x-real-ip`, `cf-connecting-ip`
+
+**Security Headers (`next.config.mjs`):**
+- CSP: `default-src 'self'`, `script-src 'self'` (unsafe-eval/inline in dev), `style-src 'self' 'unsafe-inline'`
+- HSTS: `max-age=31536000; includeSubDomains`
+- X-Frame-Options: `DENY`
+- X-Content-Type-Options: `nosniff`
+- Referrer-Policy: `strict-origin-when-cross-origin`
+- Permissions-Policy: `camera=(), microphone=(), geolocation=(), payment=()`
+
+**Automation Whitelisting:**
+- Triggers: TASK_MOVED, TASK_ASSIGNED, PRIORITY_CHANGED, TASK_STALLED (see `lib/automation/triggers.ts`)
+- Actions: NOTIFY_USER, NOTIFY_ROLE, AUTO_ASSIGN, CHANGE_PRIORITY, ADD_LABEL (see `lib/automation/actions.ts`)
+- Condition fields: priority, assigneeId, columnId, label, daysSinceLastMove, title, description
+- Condition operators: EQ, NEQ, CONTAINS, GT, LT, GTE, LTE, EMPTY, NOT_EMPTY
+- Security validation in `evaluateCondition()` (line 161-169 in `lib/automation/engine.ts`)
 
 ### Project Structure
 
