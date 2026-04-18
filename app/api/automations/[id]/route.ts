@@ -45,9 +45,9 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
     return NextResponse.json({
       ...rule,
-      trigger: JSON.parse(rule.trigger),
-      condition: rule.condition ? JSON.parse(rule.condition) : null,
-      action: JSON.parse(rule.action),
+      trigger: JSON.parse(rule.trigger as string),
+      condition: rule.condition ? JSON.parse(rule.condition as string) : null,
+      action: JSON.parse(rule.action as string),
     })
   } catch (error) {
     console.error('Get automation error:', error)

@@ -84,9 +84,9 @@ export async function evaluateAutomations(
     // Evaluate each rule
     for (const rule of rules) {
       try {
-        const trigger = JSON.parse(rule.trigger) as AutomationTrigger
-        const condition = rule.condition ? JSON.parse(rule.condition) as AutomationCondition : null
-        const action = JSON.parse(rule.action) as AutomationAction
+        const trigger = JSON.parse(rule.trigger as string) as AutomationTrigger
+        const condition = rule.condition ? JSON.parse(rule.condition as string) as AutomationCondition : null
+        const action = JSON.parse(rule.action as string) as AutomationAction
 
         // Check if trigger matches
         const triggerMatches = await executeTrigger(trigger, eventType, taskData)

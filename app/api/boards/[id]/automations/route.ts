@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth, requireApiRole } from '@/lib/session'
+import { Prisma } from '@prisma/client'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         boardId,
         name,
         trigger: JSON.stringify(trigger),
-        condition: condition ? JSON.stringify(condition) : null,
+        condition: condition ? JSON.stringify(condition) : Prisma.JsonNull,
         action: JSON.stringify(action),
       }
     })
