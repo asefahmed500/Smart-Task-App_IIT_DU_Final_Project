@@ -14,10 +14,10 @@ export async function GET(req: NextRequest) {
   // @ts-ignore
   if (!global.io) {
     console.log('--- Initializing Socket.IO ---')
-    
+
     // @ts-ignore
     const httpServer: NetServer = req.socket?.server
-    
+
     if (!httpServer) {
       return new Response('HTTP Server not found', { status: 500 })
     }
@@ -60,7 +60,14 @@ export async function GET(req: NextRequest) {
 
     ioInstance.on('connection', (socket) => {
       const user = socket.data.user
+      const userId = socket.data.userId
       console.log(`Socket connected: ${socket.id} (User: ${user?.email || 'anonymous'})`)
+
+      // Join user-specific notification room
+      if (userId) {
+        socket.join(`user:${userId}`)
+        console.log(`User ${userId} joined notification room`)
+      }
 
       socket.on('board:join', ({ boardId }) => {
         socket.join(`board:${boardId}`)

@@ -1,16 +1,17 @@
 import { prisma } from './prisma'
+import { getIO } from './socket-server'
 
-export type NotificationType = 
-  | 'TASK_ASSIGNED' 
-  | 'TASK_UNASSIGNED' 
-  | 'COMMENT_ADDED' 
-  | 'TASK_BLOCKED' 
-  | 'TASK_UNBLOCKED' 
+export type NotificationType =
+  | 'TASK_ASSIGNED'
+  | 'TASK_UNASSIGNED'
+  | 'COMMENT_ADDED'
+  | 'TASK_BLOCKED'
+  | 'TASK_UNBLOCKED'
   | 'TASK_MOVED'
   | 'AUTOMATION_TRIGGER'
 
 /**
- * Creates an in-app notification for a user
+ * Creates an in-app notification for a user and broadcasts via Socket.IO
  */
 export async function createNotification(
   userId: string,
@@ -20,7 +21,7 @@ export async function createNotification(
   link?: string
 ) {
   try {
-    return await prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: {
         userId,
         type,
@@ -30,9 +31,26 @@ export async function createNotification(
         status: 'SENT',
       },
     })
+
+    // Broadcast via Socket.IO if server is available
+    const io = getIO()
+    if (io) {
+      // Emit to user's personal room
+      io.to(`user:${userId}`).emit('notification:new', {
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        link: notification.link,
+        read: notification.read,
+        createdAt: notification.createdAt,
+      })
+    }
+
+    return notification
   } catch (error: any) {
     console.error('Failed to create notification:', error)
-    
+
     // Save as FAILED if possible, for future retry
     try {
       await prisma.notification.create({
@@ -89,7 +107,7 @@ export async function notifyTaskParticipants(
     userIds.delete(actorId)
 
     // Send notifications
-    const promises = Array.from(userIds).map(userId => 
+    const promises = Array.from(userIds).map(userId =>
       createNotification(userId, type, title, message, link)
     )
 
