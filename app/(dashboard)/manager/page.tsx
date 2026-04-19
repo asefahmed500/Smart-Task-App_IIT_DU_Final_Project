@@ -7,6 +7,7 @@ import { StatCard } from '@/components/dashboard/stat-card'
 import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useRouter } from 'next/navigation'
 import { Plus, Users, SquareCheck, TrendingUp, Clock, AlertCircle, BarChart3 } from 'lucide-react'
 import { useEffect } from 'react'
@@ -52,7 +53,8 @@ export default function ManagerDashboardPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <ScrollArea className="h-full">
+      <div className="space-y-6 max-w-7xl mx-auto p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -136,6 +138,7 @@ export default function ManagerDashboardPage() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </ScrollArea>
   )
 }

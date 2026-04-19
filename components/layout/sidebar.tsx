@@ -11,6 +11,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { useRouter, usePathname } from 'next/navigation'
@@ -203,31 +204,45 @@ export default function Sidebar() {
               </AccordionTrigger>
               <AccordionContent className="pt-1 space-y-0.5">
                 {filteredBoards?.map((board) => (
-                  <Button
-                    key={board.id}
-                    variant={pathname === `/board/${board.id}` ? 'secondary' : 'ghost'}
-                    className="w-full justify-start h-auto py-2 px-2 text-sm"
-                    onClick={() => router.push(`/board/${board.id}`)}
-                  >
-                    <div
-                      className="w-2.5 h-2.5 rounded-full mr-2.5 flex-shrink-0"
-                      style={{ backgroundColor: board.color }}
-                    />
-                    <div className="flex-1 text-left min-w-0">
-                      <div className="font-medium text-sm truncate">{board.name}</div>
-                      {board.description && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {board.description}
+                  <TooltipProvider key={board.id} delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={pathname === `/board/${board.id}` ? 'secondary' : 'ghost'}
+                          className="w-full justify-start h-auto py-2 px-2 text-sm"
+                          onClick={() => router.push(`/board/${board.id}`)}
+                        >
+                          <div
+                            className="w-2.5 h-2.5 rounded-full mr-2.5 flex-shrink-0"
+                            style={{ backgroundColor: board.color }}
+                          />
+                          <div className="flex-1 text-left min-w-0">
+                            <div className="font-medium text-sm truncate">{board.name}</div>
+                            {board.description && (
+                              <div className="text-xs text-muted-foreground line-clamp-2 leading-tight">
+                                {board.description}
+                              </div>
+                            )}
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="ml-auto flex-shrink-0 text-xs"
+                          >
+                            {board._count?.members || 0}
+                          </Badge>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <div className="space-y-1">
+                          <p className="font-medium">{board.name}</p>
+                          {board.description && (
+                            <p className="text-xs text-muted-foreground">{board.description}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground">{board._count?.tasks || 0} tasks</p>
                         </div>
-                      )}
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className="ml-auto flex-shrink-0 text-xs"
-                    >
-                      {board._count?.members || 0}
-                    </Badge>
-                  </Button>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 ))}
 
                 {filteredBoards?.length === 0 && (

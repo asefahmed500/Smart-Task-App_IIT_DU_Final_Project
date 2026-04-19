@@ -7,6 +7,7 @@ import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { useGetAssignedTasksQuery } from '@/lib/slices/tasksApi'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useRouter } from 'next/navigation'
 import { CheckSquare, Clock, TrendingUp, Target, AlertCircle } from 'lucide-react'
 
@@ -27,7 +28,8 @@ export default function MemberPage() {
   const stats = useDashboardStats(assignedTasks, session?.id)
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-6">
+    <ScrollArea className="h-full">
+      <div className="space-y-6 max-w-7xl mx-auto p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -144,6 +146,7 @@ export default function MemberPage() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </ScrollArea>
   )
 }

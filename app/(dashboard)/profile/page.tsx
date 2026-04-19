@@ -8,6 +8,7 @@ import ActivityFeed from '@/components/profile/activity-feed'
 import SettingsSection from '@/components/profile/settings-section'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 
@@ -16,7 +17,8 @@ export default function ProfilePage() {
   const { data: boards } = useGetUserBoardsQuery()
 
   return (
-    <div className="space-y-6">
+    <ScrollArea className="h-full">
+      <div className="space-y-6 p-6 max-w-7xl mx-auto">
       {/* Back Button */}
       <Button variant="ghost" onClick={() => router.back()} className="mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -80,6 +82,7 @@ export default function ProfilePage() {
           </Card>
         </div>
       </div>
-    </div>
+      </div>
+    </ScrollArea>
   )
 }
