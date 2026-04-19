@@ -197,7 +197,7 @@ export default function Column({ column, boardId, tasks, focusMode, filterAssign
           </ScrollArea>
         </CardContent>
 
-        {userRole !== 'ADMIN' && (
+        {userRole && (
           <div className="p-3 pt-0">
             <Button
               variant="ghost"
