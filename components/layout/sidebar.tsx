@@ -23,8 +23,10 @@ export default function Sidebar() {
   const router = useRouter()
   const pathname = usePathname()
   const dispatch = useAppDispatch()
-  const { data: boards } = useGetBoardsQuery()
   const { data: session } = useGetSessionQuery()
+  const { data: boards } = useGetBoardsQuery(undefined, {
+    skip: !session, // Skip fetching boards until session is loaded
+  })
   const filterDue = useAppSelector((state) => state.ui.filterDue)
   const sidebarOpen = useAppSelector((state) => state.ui.sidebarOpen)
   const [searchQuery, setSearchQuery] = useState('')
@@ -197,42 +199,44 @@ export default function Sidebar() {
 
         {/* Boards List */}
         <div className="mt-4 px-3">
-          <Accordion type="multiple" defaultValue={['boards']}>
+          <Accordion type="multiple" defaultValue={['boards']} className="w-full">
             <AccordionItem value="boards" className="border-0">
               <AccordionTrigger className="py-2 text-xs font-medium text-muted-foreground hover:no-underline px-2">
                 WORKSPACES
               </AccordionTrigger>
-              <AccordionContent className="pt-1 space-y-0.5">
+              <AccordionContent className="pt-1 space-y-0.5 overflow-visible">
                 {filteredBoards?.map((board) => (
                   <TooltipProvider key={board.id} delayDuration={300}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant={pathname === `/board/${board.id}` ? 'secondary' : 'ghost'}
-                          className="w-full justify-start h-auto py-2 px-2 text-sm"
-                          onClick={() => router.push(`/board/${board.id}`)}
-                        >
-                          <div
-                            className="w-2.5 h-2.5 rounded-full mr-2.5 flex-shrink-0"
-                            style={{ backgroundColor: board.color }}
-                          />
-                          <div className="flex-1 text-left min-w-0">
-                            <div className="font-medium text-sm truncate">{board.name}</div>
-                            {board.description && (
-                              <div className="text-xs text-muted-foreground line-clamp-2 leading-tight">
-                                {board.description}
-                              </div>
-                            )}
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className="ml-auto flex-shrink-0 text-xs"
+                        <div className="w-full">
+                          <Button
+                            variant={pathname === `/board/${board.id}` ? 'secondary' : 'ghost'}
+                            className="w-full justify-start h-auto py-2 px-2 text-sm"
+                            onClick={() => router.push(`/board/${board.id}`)}
                           >
-                            {board._count?.members || 0}
-                          </Badge>
-                        </Button>
+                            <div
+                              className="w-2.5 h-2.5 rounded-full mr-2.5 flex-shrink-0"
+                              style={{ backgroundColor: board.color }}
+                            />
+                            <div className="flex-1 text-left min-w-0">
+                              <div className="font-medium text-sm truncate">{board.name}</div>
+                              {board.description && (
+                                <div className="text-xs text-muted-foreground line-clamp-2 leading-tight">
+                                  {board.description}
+                                </div>
+                              )}
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className="ml-auto flex-shrink-0 text-xs"
+                            >
+                              {board._count?.members || 0}
+                            </Badge>
+                          </Button>
+                        </div>
                       </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-xs">
+                      <TooltipContent side="right" className="max-w-xs z-50">
                         <div className="space-y-1">
                           <p className="font-medium">{board.name}</p>
                           {board.description && (
@@ -247,7 +251,7 @@ export default function Sidebar() {
 
                 {filteredBoards?.length === 0 && (
                   <div className="text-sm text-muted-foreground py-4 text-center">
-                    {searchQuery ? 'No boards found' : 'No boards yet'}
+                    {!session ? 'Loading...' : searchQuery ? 'No boards found' : 'No boards yet'}
                   </div>
                 )}
               </AccordionContent>
