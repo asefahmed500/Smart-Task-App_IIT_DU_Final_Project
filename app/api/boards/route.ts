@@ -8,10 +8,14 @@ export async function GET(req: NextRequest) {
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
   const userId = session.user.id
+  const userRole = session.user.role
 
   try {
+    // Platform admins can see all boards
+    const isAdmin = userRole === 'ADMIN'
+
     const boards = await prisma.board.findMany({
-      where: {
+      where: isAdmin ? undefined : {
         OR: [
           { ownerId: userId },
           { members: { some: { userId } } },
@@ -70,7 +74,7 @@ export async function POST(req: NextRequest) {
     const settings = await prisma.systemSettings.findUnique({
       where: { id: 'global' },
     })
-    
+
     // If setting doesn't exist, default to true or true depending on schema default. Let's say true.
     if (settings?.allowMemberBoardCreation || settings === null) {
       canCreate = true
@@ -129,6 +133,23 @@ export async function POST(req: NextRequest) {
         columns: true,
       },
     })
+
+    // Audit log for board creation (non-blocking)
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: 'BOARD_CREATED',
+          entityType: 'Board',
+          entityId: board.id,
+          actorId: session.user.id,
+          boardId: board.id,
+          changes: { name, description, color },
+        },
+      })
+    } catch (auditError) {
+      console.error('Failed to create audit log for board creation:', auditError)
+      // Continue anyway - board was created successfully
+    }
 
     return NextResponse.json(board, { status: 201 })
   } catch (error) {
