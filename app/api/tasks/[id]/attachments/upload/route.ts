@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
-import { v4 as uuidv4 } from 'uuid'
+import { randomUUID } from 'crypto'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
     // Generate unique filename
     const ext = originalName.split('.').pop()
-    const uniqueFileName = `${uuidv4()}.${ext}`
+    const uniqueFileName = `${randomUUID()}.${ext}`
 
     // Ensure uploads directory exists
     const uploadsDir = join(process.cwd(), 'public', 'uploads', 'attachments')

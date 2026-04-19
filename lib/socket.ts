@@ -27,7 +27,7 @@ export const initSocket = () => {
       reconnection: true,
       reconnectionDelay: BASE_RECONNECT_DELAY,
       reconnectionDelayMax: 30000, // Max 30 seconds between attempts
-      maxReconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+      reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
       timeout: 10000, // Connection timeout
     })
 

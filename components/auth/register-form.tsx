@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -20,7 +20,7 @@ const registerSchema = z.object({
 
 type RegisterFormValues = z.infer<typeof registerSchema>
 
-export default function RegisterForm() {
+function RegisterFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [registerMutation, { isLoading }] = useRegisterMutation()
@@ -201,5 +201,19 @@ export default function RegisterForm() {
         By signing up, you agree to receive email verification
       </p>
     </form>
+  )
+}
+
+// Default export with Suspense boundary for useSearchParams
+export default function RegisterForm() {
+  return (
+    <Suspense fallback={<div className="animate-pulse space-y-4">
+      <div className="h-10 bg-gray-200 rounded" />
+      <div className="h-10 bg-gray-200 rounded" />
+      <div className="h-10 bg-gray-200 rounded" />
+      <div className="h-10 bg-gray-200 rounded" />
+    </div>}>
+      <RegisterFormContent />
+    </Suspense>
   )
 }
