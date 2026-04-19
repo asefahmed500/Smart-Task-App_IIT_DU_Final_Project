@@ -2,27 +2,28 @@
 
 import { useGetBoardsQuery, useDeleteBoardMutation } from '@/lib/slices/boardsApi'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Trash2, 
-  ExternalLink, 
-  Loader2, 
-  Layout, 
-  Users, 
-  CheckCircle2 
+import {
+  Trash2,
+  ExternalLink,
+  Loader2,
+  Layout,
+  Users,
+  CheckCircle2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export default function BoardsTable() {
   const { data: boards, isLoading } = useGetBoardsQuery()
@@ -61,7 +62,8 @@ export default function BoardsTable() {
         <Badge variant="secondary">{boards?.length || 0} Total</Badge>
       </CardHeader>
       <CardContent>
-        <Table>
+        <ScrollArea className="h-[500px]">
+          <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Board Name</TableHead>
@@ -126,6 +128,7 @@ export default function BoardsTable() {
             ))}
           </TableBody>
         </Table>
+        </ScrollArea>
       </CardContent>
     </Card>
   )

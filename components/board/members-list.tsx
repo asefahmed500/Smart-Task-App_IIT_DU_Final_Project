@@ -12,6 +12,7 @@ import {
 import { MoreVertical, Shield, Crown, User } from 'lucide-react'
 import { BoardMember } from '@/lib/slices/boardsApi'
 import { cn } from '@/lib/utils'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface MembersListProps {
   members: BoardMember[]
@@ -35,7 +36,8 @@ export default function MembersList({
   onChangeRole
 }: MembersListProps) {
   return (
-    <div className="space-y-2">
+    <ScrollArea className="h-[400px] pr-4">
+      <div className="space-y-2">
       {members.map((member) => {
         const config = roleConfig[member.role]
         const Icon = config.icon
@@ -104,6 +106,7 @@ export default function MembersList({
           No members yet. Add someone to get started!
         </div>
       )}
-    </div>
+      </div>
+    </ScrollArea>
   )
 }
