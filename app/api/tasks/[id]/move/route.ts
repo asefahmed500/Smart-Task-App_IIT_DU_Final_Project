@@ -4,6 +4,8 @@ import { requireApiAuth } from '@/lib/session'
 import { evaluateAutomations } from '@/lib/automation/engine'
 import { notifyTaskParticipants } from '@/lib/notifications'
 import { getEffectiveBoardRole } from '@/lib/board-roles'
+import { validateRequest } from '@/lib/api/validation-middleware'
+import { moveTaskSchema } from '@/lib/validations/task'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -18,15 +20,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
   try {
     const { id } = await params
-    const body = await req.json()
-    const { targetColumnId, newPosition, version, override } = body
+    const validation = await validateRequest(req, moveTaskSchema)
+    if (!validation.success) return validation.error
 
-    if (!targetColumnId || newPosition === undefined) {
-      return NextResponse.json(
-        { error: 'Target column and position are required' },
-        { status: 400 }
-      )
-    }
+    const { targetColumnId, newPosition, version, override } = validation.data
 
     // Get existing task
     const existingTask = await prisma.task.findUnique({

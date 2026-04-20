@@ -22,6 +22,16 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
        return NextResponse.json({ error: 'Forbidden: Members cannot modify columns.' }, { status: 403 })
     }
 
+    // Get column details for audit log
+    const column = await prisma.column.findUnique({
+      where: { id },
+      select: { boardId: true, name: true },
+    })
+
+    if (!column) {
+      return NextResponse.json({ error: 'Column not found' }, { status: 404 })
+    }
+
     const updated = await prisma.column.update({
       where: { id },
       data: {
@@ -30,6 +40,28 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         ...(isTerminal !== undefined && { isTerminal }),
       },
     })
+
+    // Audit log for column update
+    await prisma.auditLog.create({
+      data: {
+        action: 'COLUMN_UPDATED',
+        entityType: 'Column',
+        entityId: id,
+        actorId: session.user.id,
+        boardId: column.boardId,
+        changes: body,
+      },
+    })
+
+    // Broadcast board update (column changes affect board)
+    const { broadcastBoardUpdate } = await import('@/lib/socket-server')
+    const board = await prisma.board.findUnique({
+      where: { id: column.boardId },
+      include: {
+        columns: { orderBy: { position: 'asc' } }
+      }
+    })
+    if (board) broadcastBoardUpdate(column.boardId, board)
 
     return NextResponse.json(updated)
   } catch (error) {
@@ -51,7 +83,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
   try {
     const { id } = await params
-    
+
     // Check if column exists and has tasks
     const column = await prisma.column.findUnique({
       where: { id },
@@ -67,6 +99,29 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     }
 
     await prisma.column.delete({ where: { id } })
+
+    // Audit log for column deletion
+    await prisma.auditLog.create({
+      data: {
+        action: 'COLUMN_DELETED',
+        entityType: 'Column',
+        entityId: id,
+        actorId: session.user.id,
+        boardId: column.boardId,
+        changes: { name: column.name },
+      },
+    })
+
+    // Broadcast board update (column changes affect board)
+    const { broadcastBoardUpdate } = await import('@/lib/socket-server')
+    const board = await prisma.board.findUnique({
+      where: { id: column.boardId },
+      include: {
+        columns: { orderBy: { position: 'asc' } }
+      }
+    })
+    if (board) broadcastBoardUpdate(column.boardId, board)
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Delete column error:', error)

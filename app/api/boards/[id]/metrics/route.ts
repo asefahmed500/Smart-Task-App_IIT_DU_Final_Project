@@ -34,14 +34,13 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Process tasks for metrics using helper functions
-    const [cycleTime, leadTime, throughput] = await Promise.all([
+    // Process tasks for metrics using helper functions (parallel for performance)
+    const [cycleTime, leadTime, throughput, totalTasks] = await Promise.all([
       calculateCycleTime(id),
       calculateLeadTime(id),
       calculateThroughput(id, 90), // Default to 90 days for throughput heatmap
+      prisma.task.count({ where: { boardId: id } }),
     ])
-
-    const totalTasks = await prisma.task.count({ where: { boardId: id } })
 
     return NextResponse.json({
        cycleTime,

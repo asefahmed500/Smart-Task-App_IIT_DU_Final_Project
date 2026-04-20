@@ -43,6 +43,31 @@ export async function POST(req: NextRequest) {
       )
     )
 
+    // Audit log for column reorder (use first column's boardId)
+    if (columnsToReorder.length > 0) {
+      const boardId = columnsToReorder[0].boardId
+      await prisma.auditLog.create({
+        data: {
+          action: 'COLUMNS_REORDERED',
+          entityType: 'Column',
+          entityId: columnsToReorder[0].id,
+          actorId: userId,
+          boardId,
+          changes: { columns: columns.map((c: { id: string; position: number }) => ({ id: c.id, position: c.position })) },
+        },
+      })
+
+      // Broadcast board update (column reorder affects board)
+      const { broadcastBoardUpdate } = await import('@/lib/socket-server')
+      const board = await prisma.board.findUnique({
+        where: { id: boardId },
+        include: {
+          columns: { orderBy: { position: 'asc' } }
+        }
+      })
+      if (board) broadcastBoardUpdate(boardId, board)
+    }
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Reorder columns error:', error)

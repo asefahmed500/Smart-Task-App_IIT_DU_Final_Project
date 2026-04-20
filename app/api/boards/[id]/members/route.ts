@@ -118,6 +118,14 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       },
     })
 
+    // Broadcast member update
+    const { broadcastMemberUpdate } = await import('@/lib/socket-server')
+    const updatedMembers = await prisma.boardMember.findMany({
+      where: { boardId: id },
+      include: { user: { select: { id: true, name: true, email: true, avatar: true, isActive: true } } }
+    })
+    broadcastMemberUpdate(id, updatedMembers)
+
     return NextResponse.json(member)
   } catch (error) {
     console.error('Add board member error:', error)
@@ -189,6 +197,14 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       },
     })
 
+    // Broadcast member update
+    const { broadcastMemberUpdate } = await import('@/lib/socket-server')
+    const updatedMembers = await prisma.boardMember.findMany({
+      where: { boardId },
+      include: { user: { select: { id: true, name: true, email: true, avatar: true, isActive: true } } }
+    })
+    broadcastMemberUpdate(boardId, updatedMembers)
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Remove board member error:', error)
@@ -230,6 +246,17 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Board not found' }, { status: 404 })
     }
 
+    // Check: This would be the last admin if we're demoting them
+    const targetMember = board.members.find((m: { userId: string }) => m.userId === targetUserId)
+    if (targetMember && targetMember.role === 'ADMIN' && role.toUpperCase() !== 'ADMIN') {
+      const otherAdmins = board.members.filter((m: { userId: string, role: string }) =>
+        m.role === 'ADMIN' && m.userId !== targetUserId
+      )
+      if (otherAdmins.length === 0) {
+        return NextResponse.json({ error: 'Cannot remove the last admin from the board' }, { status: 400 })
+      }
+    }
+
     const member = await prisma.boardMember.update({
       where: {
         boardId_userId: {
@@ -256,6 +283,14 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         changes: { targetUserId, newRole: role },
       },
     })
+
+    // Broadcast member update
+    const { broadcastMemberUpdate } = await import('@/lib/socket-server')
+    const updatedMembers = await prisma.boardMember.findMany({
+      where: { boardId },
+      include: { user: { select: { id: true, name: true, email: true, avatar: true, isActive: true } } }
+    })
+    broadcastMemberUpdate(boardId, updatedMembers)
 
     return NextResponse.json(member)
   } catch (error) {

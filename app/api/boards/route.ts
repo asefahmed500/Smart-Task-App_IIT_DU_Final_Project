@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth, requireApiRole } from '@/lib/session'
+import { validateRequest } from '@/lib/api/validation-middleware'
+import { createBoardSchema } from '@/lib/validations/board'
 
 // GET /api/boards - List all boards the user has access to (all authenticated)
 export async function GET(req: NextRequest) {
@@ -33,21 +35,11 @@ export async function GET(req: NextRequest) {
           },
         },
         _count: {
-          select: { members: true, tasks: true },
-        },
-        tasks: {
-          where: {
-            dueDate: { not: null },
-            completedAt: null, // Only fetch uncompleted tasks for counts
-          },
           select: {
-            id: true,
-            dueDate: true,
-            column: {
-              select: { name: true }
-            }
-          }
-        }
+            members: true,
+            tasks: true,
+          },
+        },
       },
       orderBy: { updatedAt: 'desc' },
     })
@@ -89,15 +81,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json()
-    const { name, description, color = '#3b82f6' } = body
+    const validation = await validateRequest(req, createBoardSchema)
+    if (!validation.success) return validation.error
 
-    if (!name) {
-      return NextResponse.json(
-        { error: 'Board name is required' },
-        { status: 400 }
-      )
-    }
+    const { name, description, color = '#3b82f6' } = validation.data
 
     // Create board with default columns
     const board = await prisma.board.create({

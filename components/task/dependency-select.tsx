@@ -24,7 +24,7 @@ export default function DependencySelectDialog({
   availableTasks,
   onAddDependency,
 }: DependencySelectProps) {
-  const [selectedBlockerId, setSelectedBlockerId] = useState('')
+  const [selectedBlockerId, setSelectedBlockerId] = useState<string | undefined>(undefined)
   const [isAdding, setIsAdding] = useState(false)
 
   // Filter out current task and existing blockers
@@ -44,8 +44,8 @@ export default function DependencySelectDialog({
 
     setIsAdding(true)
     try {
-      await onAddDependency(selectedBlockerId)
-      setSelectedBlockerId('')
+      await onAddDependency(selectedBlockerId!)
+      setSelectedBlockerId(undefined)
       onOpenChange(false)
     } catch (error: any) {
       toast.error(error.data?.error || 'Failed to add dependency')

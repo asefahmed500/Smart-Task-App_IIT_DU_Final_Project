@@ -223,3 +223,42 @@
     @apply text-[0.63rem] leading-[1.60];
   }
 }
+
+/* Custom Scrollbar Styling - ElevenLabs Inspired */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-dark-gray);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  opacity: 0.3;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
+  opacity: 0.5;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.dark * {
+  scrollbar-color: var(--color-border) transparent;
+}

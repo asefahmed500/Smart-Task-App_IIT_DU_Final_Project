@@ -42,7 +42,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!isLoading && session && session.role !== 'ADMIN') {
-      router.replace(session.role === 'MANAGER' ? '/manager' : '/dashboard/dashboard')
+      router.replace(session.role === 'MANAGER' ? '/manager' : '/dashboard')
     }
   }, [session, isLoading, router])
 
@@ -67,12 +67,12 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-[#fafafa]">
+    <div className="h-full flex flex-col overflow-hidden bg-background">
       <div className="flex-1 overflow-auto p-6 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-display-hero font-waldenburg font-light tracking-tight">Admin Control Center</h1>
-            <p className="text-body text-[#777169] mt-2">Manage the platform, oversight users, and audit all activities.</p>
+            <p className="text-body text-muted-foreground mt-2">Manage the platform, oversight users, and audit all activities.</p>
           </div>
           <Button 
             className="rounded-[9999px] h-11 px-6 shadow-sm hover:translate-y-[-1px] transition-transform" 

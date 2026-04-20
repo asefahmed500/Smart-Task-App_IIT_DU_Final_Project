@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth, requireApiRole } from '@/lib/session'
+import { validateRequest } from '@/lib/api/validation-middleware'
+import { updateAutomationSchema } from '@/lib/validations/automation'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -64,8 +66,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
   try {
     const { id } = await params
-    const body = await req.json()
-    const { name, trigger, condition, action, enabled } = body
+
+    const validation = await validateRequest(req, updateAutomationSchema)
+    if (!validation.success) return validation.error
+
+    const { name, trigger, condition, action, enabled } = validation.data
 
     const rule = await prisma.automationRule.findUnique({
       where: { id },
@@ -109,6 +114,14 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         changes: updateData as any,
       },
     })
+
+    // Broadcast automation update
+    const { broadcastAutomationUpdate } = await import('@/lib/socket-server')
+    const updatedAutomations = await prisma.automationRule.findMany({
+      where: { boardId: rule.boardId },
+      orderBy: { createdAt: 'desc' }
+    })
+    broadcastAutomationUpdate(rule.boardId, updatedAutomations)
 
     return NextResponse.json(updatedRule)
   } catch (error) {
@@ -157,6 +170,14 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
         changes: { deletedRule: rule.name },
       },
     })
+
+    // Broadcast automation update
+    const { broadcastAutomationUpdate } = await import('@/lib/socket-server')
+    const updatedAutomations = await prisma.automationRule.findMany({
+      where: { boardId: rule.boardId },
+      orderBy: { createdAt: 'desc' }
+    })
+    broadcastAutomationUpdate(rule.boardId, updatedAutomations)
 
     return NextResponse.json({ success: true })
   } catch (error) {

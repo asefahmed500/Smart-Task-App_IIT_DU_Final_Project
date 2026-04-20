@@ -2,7 +2,7 @@
 
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { useGetTaskQuery, useGetTaskAuditQuery, useUpdateTaskMutation, useGetTaskCommentsQuery, useAddCommentMutation, useDeleteCommentMutation, useUpdateCommentMutation, useAddTaskDependencyMutation, useRemoveTaskDependencyMutation, useDeleteTaskMutation, useAddAttachmentMutation, useDeleteAttachmentMutation } from '@/lib/slices/tasksApi'
-import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
+import { useGetBoardsQuery, type Priority } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -51,6 +51,10 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editedTitle, setEditedTitle] = useState('')
   const [editedDescription, setEditedDescription] = useState('')
+  const [editedPriority, setEditedPriority] = useState<Priority>('MEDIUM')
+  const [editedAssigneeId, setEditedAssigneeId] = useState('')
+  const [editedDueDate, setEditedDueDate] = useState('')
+  const [editedLabels, setEditedLabels] = useState<string[]>([])
 
   const { data: comments, isLoading: commentsLoading } = useGetTaskCommentsQuery(taskId)
   const [addComment] = useAddCommentMutation()
@@ -108,13 +112,27 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
   }
 
   const handleSave = async () => {
-    await updateTask({ id: taskId, data: { title: editedTitle, description: editedDescription } })
+    await updateTask({
+      id: taskId,
+      data: {
+        title: editedTitle,
+        description: editedDescription,
+        priority: editedPriority,
+        assigneeId: editedAssigneeId || undefined,
+        dueDate: editedDueDate || undefined,
+        labels: editedLabels,
+      }
+    })
     setIsEditing(false)
   }
 
   const handleStartEdit = () => {
     setEditedTitle(task.title)
     setEditedDescription(task.description || '')
+    setEditedPriority((task.priority || 'MEDIUM') as Priority)
+    setEditedAssigneeId(task.assigneeId || '')
+    setEditedDueDate(task.dueDate || '')
+    setEditedLabels(task.labels || [])
     setIsEditing(true)
   }
 
@@ -190,7 +208,47 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-semibold text-slate-700">Description</Label>
-                    <Textarea value={editedDescription} onChange={(e) => setEditedDescription(e.target.value)} className="rounded-[8px] border-slate-200 focus:ring-primary/20" rows={6} placeholder="Add a detailed description..." />
+                    <Textarea value={editedDescription} onChange={(e) => setEditedDescription(e.target.value)} className="rounded-[8px] border-slate-200 focus:ring-primary/20" rows={4} placeholder="Add a detailed description..." />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold text-slate-700">Priority</Label>
+                      <Select value={editedPriority} onValueChange={(v) => setEditedPriority(v as Priority)}>
+                        <SelectTrigger className="rounded-[8px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="LOW">Low</SelectItem>
+                          <SelectItem value="MEDIUM">Medium</SelectItem>
+                          <SelectItem value="HIGH">High</SelectItem>
+                          <SelectItem value="CRITICAL">Critical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold text-slate-700">Due Date</Label>
+                      <Input type="date" value={editedDueDate} onChange={(e) => setEditedDueDate(e.target.value)} className="rounded-[8px]" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-slate-700">Assignee</Label>
+                    <Select value={editedAssigneeId || 'unassigned'} onValueChange={(v) => setEditedAssigneeId(v === 'unassigned' ? '' : v)}>
+                      <SelectTrigger className="rounded-[8px]">
+                        <SelectValue placeholder="Unassigned" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {activeBoard?.members?.map((m: any) => (
+                          <SelectItem key={m.userId} value={m.userId}>
+                            {m.user.name || m.user.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-slate-700">Labels (comma separated)</Label>
+                    <Input value={editedLabels.join(', ')} onChange={(e) => setEditedLabels(e.target.value.split(',').map(l => l.trim()).filter(l => l))} className="rounded-[8px] border-slate-200 focus:ring-primary/20" placeholder="bug, urgent, frontend" />
                   </div>
                   <div className="flex gap-2 pt-2">
                     <Button onClick={handleSave} size="sm" className="rounded-full px-4">

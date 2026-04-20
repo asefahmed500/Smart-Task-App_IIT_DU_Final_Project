@@ -169,7 +169,7 @@ export default function AutomationBuilder({ boardId, members }: AutomationBuilde
 
       <div className="space-y-3">
         <h3 className="text-body-medium font-medium px-1">Active Board Automations</h3>
-        <ScrollArea className="h-[300px] border rounded-lg bg-[rgba(0,0,0,0.01)] p-4">
+        <ScrollArea className="min-h-[200px] max-h-[400px] border rounded-lg bg-[rgba(0,0,0,0.01)] p-4">
           {isLoading ? (
              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-muted-foreground" /></div>
           ) : automations && automations.length > 0 ? (

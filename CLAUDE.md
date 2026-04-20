@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` - Run ESLint
 - `npm run format` - Format code with Prettier
 - `npm run typecheck` - Run TypeScript type checking
+- `npm run seed` - Seed database with sample data
 - `npx shadcn@latest add <component>` - Add shadcn/ui components
 - `npx prisma generate` - Regenerate Prisma client after schema changes
 - `npx prisma db push` - Push schema changes to database
@@ -25,6 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Database/ORM**: Prisma v7 with PostgreSQL (pg adapter)
 - **Authentication**: better-auth v1 with email/password
 - **Real-time**: Socket.IO client for presence/collaboration
+- **Validation**: Zod schemas for API request validation
 
 ## Architecture
 
@@ -61,13 +63,26 @@ Priority order for determining a user's effective role on a board:
 
 ### Design System (ElevenLabs-Inspired)
 
+**IMPORTANT: Always use CSS variables, never hardcoded colors.**
+
 The application uses an ElevenLabs-inspired design system with restrained elegance, warm undertones, and light-weight typography.
 
-**Color Palette:**
-- Primary backgrounds: `#ffffff` (white), `#f5f5f5` (light gray)
-- Accent: `#f5f2ef` (warm stone) - signature warm background
-- Text: `#000000` (primary), `#4e4e4e` (dark gray), `#777169` (warm gray/muted)
-- Border: `#e5e5e5`
+**CSS Variables (defined in globals.css):**
+- `--background`, `--foreground` - Main background/text
+- `--card`, `--card-foreground` - Card backgrounds
+- `--popover`, `--popover-foreground` - Popover/dialog
+- `--primary`, `--primary-foreground` - Primary actions (black/white)
+- `--secondary`, `--secondary-foreground` - Secondary actions (warm stone)
+- `--muted`, `--muted-foreground` - Muted elements
+- `--accent`, `--accent-foreground` - Accent highlights
+- `--border` - All borders (use this, never `rgba(0,0,0,0.08)` or similar)
+- `--input` - Input backgrounds
+
+**Always use these instead of:**
+- ❌ `bg-white`, `bg-black` → ✅ `bg-background`, `bg-foreground`
+- ❌ `border-[rgba(0,0,0,0.08)]` → ✅ `border-border`
+- ❌ `text-[#777169]` → ✅ `text-muted-foreground`
+- ❌ `bg-[#f5f5f5]` → ✅ `bg-muted`
 
 **Typography:**
 - Display headings: Inter 300 (light weight) - approximates Waldenburg style
@@ -106,11 +121,6 @@ The application uses an ElevenLabs-inspired design system with restrained elegan
 - `cta`: Uppercase bold CTA (WaldenburgFH style)
 - `outline`, `secondary`, `ghost`, `destructive`, `link`
 
-**Card Variants (`components/ui/card.tsx`):**
-- `default`: 20px radius, multi-layer shadow
-- `elevated`: 24px radius, elevated shadow
-- `warm`: 30px radius, warm stone background
-
 ### Redux Store Architecture
 
 - Store configuration: `lib/store.ts` - uses `configureStore()` with RTK Query APIs
@@ -118,7 +128,7 @@ The application uses an ElevenLabs-inspired design system with restrained elegan
 - RTK Query APIs in `lib/slices/`:
   - `authApi.ts` - Authentication endpoints
   - `boardsApi.ts` - Board/column management, automation rules
-  - `tasksApi.ts` - Task CRUD operations
+  - `tasksApi.ts` - Task CRUD operations, comments, attachments
   - `usersApi.ts` - User profile/boards
   - `adminApi.ts` - Admin operations
   - `notificationsApi.ts` - Notification system
@@ -133,12 +143,42 @@ The application uses an ElevenLabs-inspired design system with restrained elegan
   3. `undoMiddleware` - tracks mutations, handles undo actions, clears on logout
   4. `createOfflineMiddleware()` - queues mutations when `state.ui.isOnline` is false
 
+### API Validation Pattern (Required for all new API routes)
+
+**Always use Zod validation for API requests.**
+
+1. Import the validation middleware:
+```typescript
+import { validateRequest } from '@/lib/api/validation-middleware'
+import { createTaskSchema } from '@/lib/validations/task'
+```
+
+2. Use it in your route handler:
+```typescript
+export async function POST(req: NextRequest) {
+  const validation = await validateRequest(req, createTaskSchema)
+  if (!validation.success) return validation.error
+
+  const { title, description } = validation.data
+  // ... rest of handler
+}
+```
+
+3. Define schemas in `lib/validations/`:
+- `task.ts` - Task-related schemas (createTaskSchema, updateTaskSchema, moveTaskSchema, etc.)
+- `board.ts` - Board-related schemas (createBoardSchema, updateBoardSchema, etc.)
+- `user.ts` - User-related schemas
+- `notification.ts` - Notification schemas
+- `automation.ts` - Automation rule schemas (createAutomationSchema, updateAutomationSchema)
+
 ### Database (Prisma)
 
-- Schema: `prisma/schema.prisma` - defines User, Board, Column, Task, TaskBlock, AuditLog, BoardMember, AutomationRule, Notification
+- Schema: `prisma/schema.prisma` - defines User, Board, Column, Task, TaskBlock, AuditLog, BoardMember, AutomationRule, Notification, Comment, TaskAttachment, SystemSettings
 - Client: `lib/prisma.ts` - singleton pattern with PrismaPg adapter, uses `DATABASE_URL`
 - Models: Uses cuid() for IDs, PostgreSQL dialect, cascading deletes
 - Key relations: User ↔ Board (owner/members), Task ↔ Column, Task ↔ Task (blockers via TaskBlock)
+- **Indexes:** Composite index on Task for stalled queries: `@@index([boardId, completedAt, lastMovedAt])`
+- **AuditLog model**: Captures all mutations with actorId, action, entityType, entityId, boardId, changes (Json), ipAddress, userAgent
 
 **Important:** After modifying `prisma/schema.prisma`, always run:
 ```bash
@@ -153,6 +193,10 @@ npx prisma db push
 - API handler: `app/api/auth/[...all]/route.ts` - `toNextJsHandler(auth.handler)`
 - Session utilities: `lib/session.ts` - `getSession()`, `requireAuth()`, `requireRole(['ADMIN' | 'MANAGER' | 'MEMBER'])`
 - Environment: `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` in `.env`
+- **Email**: `lib/email.ts` - nodemailer integration for verification and password reset emails
+  - `sendVerificationEmail()` - Sends verification email with 24hr expiry
+  - `sendPasswordResetEmail()` - Sends reset link with 1hr expiry
+  - Config: `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_SECURE`, `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM`
 
 **Session Utility Pattern:**
 Two separate patterns for different contexts:
@@ -163,11 +207,42 @@ This distinction prevents API routes from redirecting (which would break JSON re
 
 ### Socket.IO (Real-time Features)
 
-- Client: `lib/socket.ts` - singleton socket instance with event emitters/listeners
+- Client: `lib/socket.ts` - singleton socket instance with event emitters/listeners, exponential backoff reconnection
 - Server: `app/api/socket/route.ts` - Socket.IO server with authentication middleware
+- **Initialization**: `components/layout/socket-initializer.tsx` - Ensures Socket.IO server initializes before any client connections (prevents "server unavailable" warnings on first load)
 - Auth: Token validation via `getSession()` from better-auth
-- Events: `board:join`, `board:leave`, `task:update`, `task:move`, `presence:update`, `presence:cursor`, `presence:editing:start`, `presence:editing:stop`
+- Events: `board:join`, `board:leave`, `task:update`, `task:move`, `presence:update`, `presence:cursor`, `presence:editing:start`, `presence:editing:stop`, `comment:new`, `comment:updated`, `comment:deleted`
 - Integration: `lib/socket-middleware.ts` - Redux middleware that connects presenceSlice to socket events
+- **Cleanup**: `disconnectSocket()` called on logout to prevent memory leaks
+- **Notifications**: Real-time delivery via `io.to(\`user:${userId}\`).emit('notification:new')`
+
+**Socket.IO Server Initialization Pattern:**
+The Socket.IO server in Next.js App Router requires a GET request to `/api/socket` to initialize. The `SocketInitializer` component in the root layout handles this automatically on app startup.
+
+### Comments System
+
+**API:** `app/api/tasks/[id]/comments/route.ts` - GET/POST comments for a task
+**Components:**
+- `components/task/comments-panel.tsx` - Main container with Socket.IO real-time updates
+- `components/task/comment-form.tsx` - Add comment form
+- `components/task/comment-item.tsx` - Individual comment with edit/delete (owner only)
+
+**Real-time events:** `comment:new`, `comment:updated`, `comment:deleted`
+
+### File Attachments System
+
+**API:** 
+- `app/api/tasks/[id]/attachments/route.ts` - GET/POST attachments
+- `app/api/tasks/[id]/attachments/upload/route.ts` - Multipart file upload
+
+**Components:**
+- `components/task/file-upload.tsx` - Drag-and-drop upload with validation (10MB limit, type restrictions)
+- `components/task/attachment-list.tsx` - Display attachments with download/delete
+
+**Validation:**
+- Max file size: 10MB
+- Allowed types: Images (jpeg, png, gif, webp), PDF, Documents (doc, docx, xls, xlsx), TXT, ZIP
+- Files stored in: `public/uploads/attachments/`
 
 ### Automation Rules System
 
@@ -190,35 +265,13 @@ This distinction prevents API routes from redirecting (which would break JSON re
 **Rule:** Members can only assign tasks to themselves (or unassign)
 **Implementation:** Lines 112-119 enforce this - if MEMBER and assigneeId !== userId, keeps existing assignment
 
-### Notification System
-
-**API:** `app/api/notifications/route.ts`, `app/api/notifications/[id]/route.ts`
-**UI:** `components/notifications/notification-center.tsx` - Bell icon with unread count badge
-**Real-time:** Socket.IO broadcasts `notification:new` events
-
-### Advanced Metrics
-
-**Throughput Calendar:** `components/metrics/throughput-calendar.tsx` - 90-day GitHub-style heatmap
-**Flow Metrics:** `components/metrics/flow-metrics.tsx` - Cycle time, lead time calculations
-**Calculations:** `lib/metrics/throughput.ts`, `lib/metrics/cycle-time.ts`, `lib/metrics/lead-time.ts`
-
-### Swimlane View
-
-**Component:** `components/kanban/swimlane-view.tsx` - Groups tasks by assignee/priority/label
-**Selector:** `components/kanban/swimlane-group-select.tsx` - Group selection dropdown
-**Toggle:** View mode toggle in navbar (Board/Swimlane/Metrics)
-
-### Dependency Management
-
-**Data Model:** TaskBlock in Prisma schema (already exists)
-**Visualization:** `components/kanban/dependency-arrows.tsx` - SVG arrow overlay
-**Management:** `components/task/dependency-select.tsx` - Add blocking task dialog
-
 ### Theme (Dark Mode)
 
 - Provider: `components/theme-provider.tsx` wraps root layout
 - Hotkey: Press `d` to toggle dark/light mode (ignores input fields)
+- Toggle button: In navbar (Sun/Moon icons)
 - CSS: Custom variant `@custom-variant dark (&:is(.dark *))` in `app/globals.css`
+- **Always test new components in both light and dark modes**
 
 ### Offline Support
 
@@ -228,6 +281,32 @@ This distinction prevents API routes from redirecting (which would break JSON re
 - Middleware: Auto-queues mutation actions when `state.ui.isOnline` is false
 
 ### Security Features
+
+**CRITICAL: Always use board-level role checks for board operations:**
+
+For any board-related API route (tasks, columns, members), use `getEffectiveBoardRole()` from `lib/board-roles.ts` instead of `session.user.role`:
+
+```typescript
+// ❌ WRONG - checks platform role only
+if (session.user.role === 'MEMBER') { ... }
+
+// ✅ CORRECT - checks board-level role
+const effectiveRole = await getEffectiveBoardRole(session, boardId)
+if (effectiveRole === 'MEMBER') { ... }
+```
+
+This ensures platform MEMBERS who are board MANAGERs or ADMINs have proper permissions.
+
+**Audit Logging:**
+Comprehensive audit logging across mutations (actorId, entityType, action, changes, boardId):
+- Tasks: `app/api/tasks/[id]/route.ts`, `app/api/tasks/[id]/move/route.ts`, `app/api/tasks/[id]/assign/route.ts`
+- Comments/Attachments: `app/api/tasks/[id]/comments/route.ts`, `app/api/tasks/[id]/attachments/route.ts`
+- Dependencies: `app/api/tasks/[id]/dependencies/route.ts`
+- Boards: `app/api/boards/route.ts`, `app/api/boards/[id]/route.ts` (BOARD_CREATED, UPDATED, DELETED, ARCHIVED)
+- Columns: `app/api/columns/[id]/route.ts`, `app/api/columns/reorder/route.ts` (COLUMN_UPDATED, DELETED, REORDERED)
+- Members: `app/api/boards/[id]/members/route.ts` (MEMBER_INVITED, ROLE_CHANGED, REMOVED)
+- Automations: `app/api/boards/[id]/automations/route.ts`, `app/api/automations/[id]/route.ts`
+- Users: `app/api/users/change-password/route.ts`, `app/api/admin/settings/route.ts`
 
 **Rate Limiting:**
 - Implementation: `lib/rate-limiter.ts` - In-memory Map-based rate limiter
@@ -242,39 +321,6 @@ This distinction prevents API routes from redirecting (which would break JSON re
 - X-Content-Type-Options: `nosniff`
 - Referrer-Policy: `strict-origin-when-cross-origin`
 - Permissions-Policy: `camera=(), microphone=(), geolocation=(), payment=()`
-
-**Automation Whitelisting:**
-- Triggers: TASK_MOVED, TASK_ASSIGNED, PRIORITY_CHANGED, TASK_STALLED (see `lib/automation/triggers.ts`)
-- Actions: NOTIFY_USER, NOTIFY_ROLE, AUTO_ASSIGN, CHANGE_PRIORITY, ADD_LABEL (see `lib/automation/actions.ts`)
-- Condition fields: priority, assigneeId, columnId, label, daysSinceLastMove, title, description
-- Condition operators: EQ, NEQ, CONTAINS, GT, LT, GTE, LTE, EMPTY, NOT_EMPTY
-- Security validation in `evaluateCondition()` (line 161-169 in `lib/automation/engine.ts`)
-
-### Project Structure
-
-- `app/` - Next.js App Router (pages, layouts, API routes)
-  - `app/(auth)/` - Auth route group (login, register)
-  - `app/(dashboard)/` - Protected dashboard route group
-    - `app/(dashboard)/dashboard/page.tsx` - Member dashboard (redirects admins/managers away)
-    - `app/(dashboard)/admin/page.tsx` - Admin dashboard
-    - `app/(dashboard)/manager/page.tsx` - Manager dashboard
-    - `app/(dashboard)/board/[id]/page.tsx` - Board/Kanban view
-  - `app/(landing)/` - Public landing page
-  - `app/api/` - API routes
-- `components/` - React components
-  - `ui/` - shadcn/ui base components
-  - `auth/` - Authentication components
-  - `admin/` - Admin dashboard components
-  - `automation/` - Automation rule components
-  - `kanban/` - Kanban board components
-  - `metrics/` - Metrics visualization components
-  - `notifications/` - Notification components
-  - `task/` - Task-related components
-  - `layout/` - Layout components (navbar, sidebar)
-- `lib/` - Utility functions, Redux slices, middleware
-  - `lib/automation/` - Automation system
-  - `lib/metrics/` - Metrics calculation utilities
-  - `prisma/` - Database schema and migrations
 
 ### Key Implementation Patterns
 
@@ -315,3 +361,170 @@ Revert handlers in `lib/undo/revert-handlers.ts` define inverse operations for e
 Prisma's `JsonField` returns `JsonValue` (which can be `null`), but `JSON.parse()` expects `string`.
 Use type assertion when parsing: `JSON.parse(rule.trigger as string)`
 For null values in JSON fields, use `Prisma.JsonNull` instead of plain `null`.
+
+### Socket.IO Real-time Patterns
+
+**Adding real-time listeners to components:**
+
+```typescript
+import { onTaskUpdate, onTaskDelete } from '@/lib/socket'
+
+useEffect(() => {
+  const unsubscribeTaskUpdate = onTaskUpdate(() => {
+    // RTK Query auto-refetches via cache invalidation
+  })
+  return () => unsubscribeTaskUpdate()
+}, [boardId])
+```
+
+**Broadcasting updates after API changes:**
+
+```typescript
+import { broadcastTaskUpdate } from '@/lib/socket-server'
+
+// After database mutation:
+broadcastTaskUpdate(boardId, updatedData)
+```
+
+**Common events:** `task:updated`, `task:deleted`, `board:updated`, `members:updated`, `automations:updated`, `comment:new`
+
+### File Upload/Delete Pattern
+
+**Upload:** Files stored in `public/uploads/attachments/` with UUID names
+**Delete:** Always delete physical file AND database record:
+
+```typescript
+import { unlink } from 'fs/promises'
+import { join } from 'path'
+
+const filePath = join(process.cwd(), 'public', attachment.url)
+await unlink(filePath) // Delete from disk
+await prisma.taskAttachment.delete({ where: { id } }) // Delete from DB
+```
+
+### Notification Pattern
+
+**Always use `refetch()` instead of `window.location.reload()`:**
+
+```typescript
+const { data, refetch } = useGetNotificationsQuery()
+
+useEffect(() => {
+  const cleanup = onNotification(() => {
+    refetch() // ✅ Correct - cache invalidation
+    // window.location.reload() // ❌ Wrong - jarring UX
+  })
+  return cleanup
+}, [refetch])
+```
+
+### Offline Mode Implementation Notes
+
+**What works:**
+- Detection via `ConnectivityListener` component
+- localStorage queue in `lib/offlineQueue.ts`
+- Visual indicators in `OfflineBanner`
+
+**Limitations:**
+- Only RTK Query mutations with patterns `tasksApi/`, `boardsApi/`, etc. are queued
+- Replay mechanism calls `initiate()` - requires proper action structure
+- Actions pass through for optimistic UI updates even when offline
+
+### Project Structure
+
+- `app/` - Next.js App Router (pages, layouts, API routes)
+  - `app/(auth)/` - Auth route group (login, register)
+  - `app/(dashboard)/` - Protected dashboard route group
+    - `app/(dashboard)/dashboard/page.tsx` - Member dashboard (redirects admins/managers away)
+    - `app/(dashboard)/admin/page.tsx` - Admin dashboard
+    - `app/(dashboard)/manager/page.tsx` - Manager dashboard
+    - `app/(dashboard)/board/[id]/page.tsx` - Board/Kanban view
+  - `app/(landing)/` - Public landing page
+  - `app/api/` - API routes
+- `components/` - React components
+  - `ui/` - shadcn/ui base components
+  - `auth/` - Authentication components
+  - `admin/` - Admin dashboard components
+  - `automation/` - Automation rule components
+  - `kanban/` - Kanban board components
+  - `metrics/` - Metrics visualization components
+  - `notifications/` - Notification components
+  - `task/` - Task-related components (comments-panel, comment-form, comment-item, file-upload, attachment-list)
+  - `layout/` - Layout components (navbar, sidebar)
+- `lib/` - Utility functions, Redux slices, middleware
+  - `lib/api/` - API utilities (validation-middleware)
+  - `lib/automation/` - Automation system
+  - `lib/metrics/` - Metrics calculation utilities
+  - `lib/validations/` - Zod validation schemas
+  - `prisma/` - Database schema and migrations
+
+### Performance Optimization Patterns
+
+**Eliminate Waterfalls in API Routes:**
+Use `Promise.all()` for parallel independent operations:
+```typescript
+// ❌ Wrong - sequential awaits
+const cycleTime = await calculateCycleTime(id)
+const leadTime = await calculateLeadTime(id)
+const totalTasks = await prisma.task.count({ where: { boardId: id } })
+
+// ✅ Correct - parallel execution
+const [cycleTime, leadTime, totalTasks] = await Promise.all([
+  calculateCycleTime(id),
+  calculateLeadTime(id),
+  prisma.task.count({ where: { boardId: id } }),
+])
+```
+
+**Memoize Components to Prevent Unnecessary Re-renders:**
+Use `React.memo()` with custom comparison for components that receive frequent updates:
+```typescript
+export default memo(function Column({ column, tasks, activeId }) {
+  // component logic
+}, (prev, next) => {
+  return prev.column.id === next.column.id &&
+         prev.tasks.length === next.tasks.length &&
+         prev.activeId === next.activeId
+})
+```
+
+**RTK Query Cache Invalidation:**
+Never use `window.location.reload()` for refreshes after mutations. RTK Query auto-invalidates caches via tag invalidation.
+
+### Select Component Best Practices
+
+**Avoid Controlled/Uncontrolled Warnings:**
+Always initialize Select values with a defined state (never empty string `''`):
+```typescript
+// ❌ Wrong - causes controlled/uncontrolled warning
+const [assigneeId, setAssigneeId] = useState('')
+<Select value={assigneeId || 'unassigned'} />
+
+// ✅ Correct - always controlled
+const [assigneeId, setAssigneeId] = useState('unassigned')
+<Select value={assigneeId} onValueChange={setAssigneeId} />
+
+// For optional selects, use undefined:
+const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
+<Select value={selectedId} onValueChange={(v) => setSelectedId(v || undefined)} />
+```
+
+### Testing Approach
+
+**Manual Testing with next-browser:**
+The project uses `next-browser` for comprehensive UI/UX testing:
+- Run `next-browser open http://localhost:3000` to start testing
+- Use `snapshot` to discover interactive elements
+- Use `errors` to check for build/runtime errors
+- Use `browser-logs` to check console warnings
+- Use `network` to verify API endpoints
+- Test all user flows: login, dashboard navigation, board operations, task CRUD
+
+**Test Coverage Checklist:**
+- All three role dashboards (admin/manager/member)
+- Board view modes (Board/Swimlane/Metrics)
+- Create/edit/delete tasks
+- Real-time features (presence, cursors)
+- Dark mode toggle
+- Offline mode (disconnect network)
+

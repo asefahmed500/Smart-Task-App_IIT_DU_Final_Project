@@ -105,6 +105,17 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Audit log for user creation
+    await prisma.auditLog.create({
+      data: {
+        action: 'USER_CREATED',
+        entityType: 'User',
+        entityId: user.id,
+        actorId: authResult.user.id,
+        changes: { email, name, role },
+      },
+    })
+
     return NextResponse.json(user, { status: 201 })
   } catch (error) {
     console.error('Create user error:', error)

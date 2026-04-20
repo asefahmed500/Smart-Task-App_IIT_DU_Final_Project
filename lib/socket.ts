@@ -46,9 +46,11 @@ export const initSocket = () => {
     })
 
     socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error)
+      // Only log first error to avoid spam
+      if (reconnectAttempts === 0) {
+        console.warn('Socket.IO server unavailable - real-time features disabled')
+      }
       reconnectAttempts++
-
       // Exponential backoff for manual reconnection handling
       const delay = Math.min(
         BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts),
@@ -154,4 +156,28 @@ export const disconnectSocket = () => {
     socket.disconnect()
     socket = null
   }
+}
+
+export const onBoardUpdate = (callback: (data: any) => void) => {
+  const socket = getSocket()
+  socket?.on('board:updated', callback)
+  return () => socket?.off('board:updated', callback)
+}
+
+export const onMemberUpdate = (callback: (data: any) => void) => {
+  const socket = getSocket()
+  socket?.on('members:updated', callback)
+  return () => socket?.off('members:updated', callback)
+}
+
+export const onAutomationUpdate = (callback: (data: any) => void) => {
+  const socket = getSocket()
+  socket?.on('automations:updated', callback)
+  return () => socket?.off('automations:updated', callback)
+}
+
+export const onTaskDelete = (callback: (data: any) => void) => {
+  const socket = getSocket()
+  socket?.on('task:deleted', callback)
+  return () => socket?.off('task:deleted', callback)
 }

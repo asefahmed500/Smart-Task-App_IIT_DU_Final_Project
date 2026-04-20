@@ -19,7 +19,7 @@ import {
 import { useUpdateColumnMutation, useDeleteColumnMutation } from '@/lib/slices/boardsApi'
 import { Column as ColumnType, Task } from '@/lib/slices/boardsApi'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { toast } from 'sonner'
 import CreateTaskDialog from './create-task-dialog'
 import DraggableTaskCard from './draggable-task-card'
@@ -36,7 +36,7 @@ interface ColumnProps {
   activeId: string | null
 }
 
-export default function Column({ column, boardId, tasks, focusMode, filterAssignee, activeId }: ColumnProps) {
+function ColumnComponent({ column, boardId, tasks, focusMode, filterAssignee, activeId }: ColumnProps) {
   const dispatch = useAppDispatch()
   const [updateColumn] = useUpdateColumnMutation()
   const [deleteColumn] = useDeleteColumnMutation()
@@ -201,7 +201,7 @@ export default function Column({ column, boardId, tasks, focusMode, filterAssign
           <div className="p-3 pt-0">
             <Button
               variant="ghost"
-              className="w-full justify-start text-muted-foreground hover:text-black hover:bg-[rgba(0,0,0,0.04)] h-8 text-xs font-medium"
+              className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-accent/50 h-8 text-xs font-medium"
               onClick={() => setCreateTaskOpen(true)}
             >
               <Plus className="mr-2 h-3.5 w-3.5" />
@@ -284,7 +284,7 @@ export default function Column({ column, boardId, tasks, focusMode, filterAssign
                 This column has {taskCount} task{taskCount !== 1 ? 's' : ''}. Please move all tasks to another column before deleting.
               </div>
             ) : (
-              <p className="text-caption text-[#777169]">This action cannot be undone.</p>
+              <p className="text-caption text-muted-foreground">This action cannot be undone.</p>
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
@@ -302,3 +302,14 @@ export default function Column({ column, boardId, tasks, focusMode, filterAssign
     </div>
   )
 }
+
+// Memoize to prevent unnecessary re-renders when parent state changes
+// Only re-render when column, tasks, or activeId actually change
+export default memo(ColumnComponent, (prev, next) => {
+  return (
+    prev.column.id === next.column.id &&
+    prev.tasks.length === next.tasks.length &&
+    prev.tasks.map(t => t.id).join(',') === next.tasks.map(t => t.id).join(',') &&
+    prev.activeId === next.activeId
+  )
+})

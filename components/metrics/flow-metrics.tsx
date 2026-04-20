@@ -17,10 +17,10 @@ export default function FlowMetrics({ boardId }: FlowMetricsProps) {
     return (
       <div className="space-y-1">
         <div className="flex justify-between text-caption">
-          <span className="text-[#777169]">{label}</span>
+          <span className="text-muted-foreground">{label}</span>
           <span className="font-medium">{value}d</span>
         </div>
-        <div className="h-2 bg-[#f5f5f5] rounded-full overflow-hidden">
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div className={`h-full ${color} transition-all`} style={{ width: `${percentage}%` }} />
         </div>
       </div>
@@ -33,7 +33,7 @@ export default function FlowMetrics({ boardId }: FlowMetricsProps) {
         <h3 className="text-section-heading font-waldenburg font-light mb-4">Flow Metrics</h3>
         <div className="animate-pulse space-y-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 bg-[#f5f5f5] rounded" />
+            <div key={i} className="h-12 bg-muted rounded" />
           ))}
         </div>
       </Card>
@@ -49,28 +49,28 @@ export default function FlowMetrics({ boardId }: FlowMetricsProps) {
         <div>
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-body font-medium">Cycle Time</h4>
-            <span className="text-caption text-[#777169]">Based on {cycleTime?.count || 0} tasks</span>
+            <span className="text-caption text-muted-foreground">Based on {cycleTime?.count || 0} tasks</span>
           </div>
           <div className="space-y-2 pl-4 border-l-2 border-[#3b82f6]">
             <MetricBar label="Average" value={cycleTime?.avg || 0} color="bg-blue-500" />
             <MetricBar label="Median" value={cycleTime?.median || 0} color="bg-blue-400" />
             <MetricBar label="95th Percentile" value={cycleTime?.p95 || 0} max={60} color="bg-blue-300" />
           </div>
-          <p className="text-caption text-[#777169] mt-2">Time from "In Progress" to "Done"</p>
+          <p className="text-caption text-muted-foreground mt-2">Time from "In Progress" to "Done"</p>
         </div>
 
         {/* Lead Time */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-body font-medium">Lead Time</h4>
-            <span className="text-caption text-[#777169]">Based on {leadTime?.count || 0} tasks</span>
+            <span className="text-caption text-muted-foreground">Based on {leadTime?.count || 0} tasks</span>
           </div>
           <div className="space-y-2 pl-4 border-l-2 border-[#10b981]">
             <MetricBar label="Average" value={leadTime?.avg || 0} color="bg-green-500" />
             <MetricBar label="Median" value={leadTime?.median || 0} color="bg-green-400" />
             <MetricBar label="95th Percentile" value={leadTime?.p95 || 0} max={60} color="bg-green-300" />
           </div>
-          <p className="text-caption text-[#777169] mt-2">Time from creation to "Done"</p>
+          <p className="text-caption text-muted-foreground mt-2">Time from creation to "Done"</p>
         </div>
       </div>
     </Card>

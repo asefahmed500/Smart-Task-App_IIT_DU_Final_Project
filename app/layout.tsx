@@ -7,6 +7,7 @@ import ReduxProvider from "@/lib/redux-provider"
 import { Toaster } from "@/components/toaster"
 import { cn } from "@/lib/utils"
 import { ConnectivityListener } from "@/components/layout/connectivity-listener"
+import SocketInitializer from "@/components/layout/socket-initializer"
 
 // ElevenLabs-inspired font configuration
 // Using Inter with light (300) weight for display headings to approximate Waldenburg
@@ -51,6 +52,7 @@ export default function RootLayout({
         <ReduxProvider>
           <ThemeProvider>
             <TooltipProvider>
+              <SocketInitializer />
               {children}
               <Toaster />
               <ConnectivityListener />

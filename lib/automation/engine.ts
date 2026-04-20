@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { executeTrigger } from './triggers'
 import { executeAction } from './actions'
+import type { Task } from '@/lib/slices/boardsApi'
 
 export interface AutomationTrigger {
   type: 'TASK_MOVED' | 'TASK_ASSIGNED' | 'PRIORITY_CHANGED' | 'TASK_STALLED'
@@ -63,7 +64,7 @@ export interface AutomationRule {
 export async function evaluateAutomations(
   boardId: string,
   eventType: string,
-  taskData: any,
+  taskData: Partial<Task>,
   actorId: string
 ) {
   try {
@@ -154,7 +155,7 @@ export async function evaluateAutomations(
 /**
  * Evaluate a condition against task data with security validation
  */
-async function evaluateCondition(condition: AutomationCondition, taskData: any): Promise<boolean> {
+async function evaluateCondition(condition: AutomationCondition, taskData: Partial<Task>): Promise<boolean> {
   const { field, operator, value } = condition
 
   // Security: Validate field and operator against whitelist
@@ -197,7 +198,7 @@ async function evaluateCondition(condition: AutomationCondition, taskData: any):
 /**
  * Get a field value from task data with safe defaults
  */
-function getTaskFieldValue(task: any, field: string): any {
+function getTaskFieldValue(task: Partial<Task>, field: string): any {
   switch (field) {
     case 'priority':
       return task.priority

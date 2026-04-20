@@ -184,6 +184,7 @@ model Task {
   @@index([dueDate])
   @@index([lastMovedAt])
   @@index([priority])
+  @@index([boardId, completedAt, lastMovedAt])
 }
 
 model TaskBlock {

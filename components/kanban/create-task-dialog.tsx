@@ -56,7 +56,7 @@ export default function CreateTaskDialog({
     title: '',
     description: '',
     priority: 'MEDIUM' as (typeof PRIORITIES)[number],
-    assigneeId: userRole === 'MEMBER' ? (userId || '') : '',
+    assigneeId: userRole === 'MEMBER' ? (userId || 'unassigned') : 'unassigned',
     dueDate: '',
     labelInput: '',
     labels: [] as string[],
@@ -87,14 +87,14 @@ export default function CreateTaskDialog({
           title: form.title.trim(),
           description: form.description.trim() || undefined,
           priority: form.priority,
-          assigneeId: form.assigneeId || undefined,
+          assigneeId: form.assigneeId === 'unassigned' ? undefined : form.assigneeId,
           dueDate: form.dueDate || undefined,
           labels: form.labels,
         }
       }).unwrap()
 
       toast.success(`Task "${form.title}" created`)
-      setForm({ title: '', description: '', priority: 'MEDIUM', assigneeId: userRole === 'MEMBER' ? (userId || '') : '', dueDate: '', labelInput: '', labels: [] })
+      setForm({ title: '', description: '', priority: 'MEDIUM', assigneeId: userRole === 'MEMBER' ? (userId || 'unassigned') : 'unassigned', dueDate: '', labelInput: '', labels: [] })
       onOpenChange(false)
     } catch (error: unknown) {
       const apiError = error as { data?: { error?: string; wipLimit?: number } }
@@ -176,8 +176,8 @@ export default function CreateTaskDialog({
                 <Input value={session?.name || 'Me'} disabled className="bg-muted/50" />
               ) : (
                 <Select
-                  value={form.assigneeId || 'unassigned'}
-                  onValueChange={(v) => setForm((f) => ({ ...f, assigneeId: v === 'unassigned' ? '' : v }))}
+                  value={form.assigneeId}
+                  onValueChange={(v) => setForm((f) => ({ ...f, assigneeId: v }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Unassigned" />

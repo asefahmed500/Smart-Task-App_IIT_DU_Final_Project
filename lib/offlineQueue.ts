@@ -66,7 +66,8 @@ export function createOfflineMiddleware(): Middleware {
           payload: { actionId: queuedAction.id, action },
         })
 
-        return
+        // Still pass through for optimistic UI updates
+        return next(action)
       }
     }
 
@@ -78,16 +79,12 @@ export function createOfflineMiddleware(): Middleware {
 function shouldQueueAction(action: any): boolean {
   if (!action.type) return false
 
-  // We want to queue the *intent* to mutate when we are offline.
-  // RTK Query mutation actions usually look like: apiName/executeMutation/pending
-  const isMutation = action.type.includes('/executeMutation/pending') || 
-                   action.type.endsWith('/pending') && (
-                     action.type.includes('task') || 
-                     action.type.includes('boards') ||
-                     action.type.includes('columns')
-                   )
+  // RTK Query mutation patterns: tasksApi/createTask/pending, boardsApi/updateBoard/pending, etc.
+  const mutationPrefixes = ['tasksApi/', 'boardsApi/', 'columnsApi/', 'adminApi/', 'usersApi/']
+  const isMutationAction = action.type.endsWith('/pending') &&
+                         mutationPrefixes.some(prefix => action.type.startsWith(prefix))
 
-  return !!isMutation
+  return isMutationAction
 }
 
 // Replay queued actions when back online

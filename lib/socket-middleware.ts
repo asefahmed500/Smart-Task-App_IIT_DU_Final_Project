@@ -40,6 +40,9 @@ export const socketMiddleware: Middleware = () => (next) => (action: any) => {
     if (presenceCleanup) presenceCleanup()
     if (cursorCleanup) cursorCleanup()
     getSocket().emit('board:leave')
+    // Disconnect socket on logout to prevent memory leaks
+    const { disconnectSocket } = require('@/lib/socket')
+    disconnectSocket()
   }
 
   return next(action)

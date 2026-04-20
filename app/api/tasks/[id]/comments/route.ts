@@ -87,6 +87,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       `/board/${task.boardId}?task=${id}`
     )
 
+    // Broadcast task update for real-time activity feed
+    const { broadcastTaskUpdate } = await import('@/lib/socket-server')
+    broadcastTaskUpdate(task.boardId, { taskId: id, comment })
+
     return NextResponse.json(comment)
   } catch (error) {
     console.error('Create comment error:', error)

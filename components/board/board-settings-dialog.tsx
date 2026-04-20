@@ -16,14 +16,15 @@ import {
   AlertTriangle,
   History 
 } from 'lucide-react'
-import { 
-  useUpdateBoardMutation, 
+import {
+  useUpdateBoardMutation,
   useDeleteBoardMutation,
   useAddBoardMemberMutation,
   useRemoveBoardMemberMutation,
   useUpdateBoardMemberRoleMutation,
   Board
 } from '@/lib/slices/boardsApi'
+import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import AutomationBuilder from './automation-builder'
@@ -45,6 +46,7 @@ const BOARD_COLORS = [
 
 export default function BoardSettingsDialog({ board, open, onOpenChange, currentUserId }: BoardSettingsDialogProps) {
   const router = useRouter()
+  const { data: session } = useGetSessionQuery()
   const [activeTab, setActiveTab] = useState('general')
   const [updateBoard, { isLoading: isUpdating }] = useUpdateBoardMutation()
   const [deleteBoard, { isLoading: isDeleting }] = useDeleteBoardMutation()
@@ -63,35 +65,38 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
   const handleUpdate = async () => {
     try {
       await updateBoard({ id: board.id, data: formData }).unwrap()
-      toast.success('Board settings updated')
-    } catch {
-      toast.error('Failed to update board')
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Failed to update board:', err)
     }
   }
 
   const handleDelete = async () => {
     try {
       await deleteBoard(board.id).unwrap()
-      toast.success('Board deleted successfully')
-      onOpenChange(false)
       router.push('/dashboard')
-    } catch {
-      toast.error('Failed to delete board')
+    } catch (err) {
+      console.error('Failed to delete board:', err)
     }
   }
 
+  // Find current user's role on this board
+  const currentMember = board.members.find((m) => m.userId === currentUserId)
+  const effectiveRole = currentMember?.role || (board.ownerId === currentUserId ? 'ADMIN' : null)
+  const isAdmin = effectiveRole === 'ADMIN' || session?.role === 'ADMIN'
+  const isManager = effectiveRole === 'MANAGER' || session?.role === 'MANAGER' || session?.role === 'ADMIN'
   const isOwner = board.ownerId === currentUserId
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh] md:max-h-[700px] rounded-[24px] overflow-hidden p-0 gap-0">
+      <DialogContent className="max-w-4xl min-h-[600px] max-h-[90vh] rounded-[24px] overflow-hidden p-0 gap-0 flex flex-col">
         <DialogHeader className="sr-only">
           <DialogTitle>Board Settings - {board.name}</DialogTitle>
           <DialogDescription>Configure board general settings, members, and automations.</DialogDescription>
         </DialogHeader>
         <div className="flex h-full">
           {/* Sidebar Tabs */}
-          <div className="w-64 bg-[rgba(0,0,0,0.02)] border-r p-4 flex flex-col gap-2">
+          <div className="w-64 bg-muted/20 border-r p-4 flex flex-col gap-2">
             <h2 className="text-body-medium font-medium px-2 py-4 flex items-center gap-2">
                <Settings className="h-4 w-4" />
                Board Settings
@@ -100,28 +105,28 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
               <TabsList className="bg-transparent flex-col h-auto p-0 gap-1 items-stretch">
                 <TabsTrigger 
                   value="general" 
-                  className="justify-start px-3 h-10 data-[state=active]:bg-white data-[state=active]:shadow-sm border-none"
+                  className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
                 >
                   <Settings className="h-4 w-4 mr-2" />
                   General
                 </TabsTrigger>
                 <TabsTrigger 
                   value="members" 
-                  className="justify-start px-3 h-10 data-[state=active]:bg-white data-[state=active]:shadow-sm border-none"
+                  className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
                 >
                   <Users className="h-4 w-4 mr-2" />
                   Members
                 </TabsTrigger>
                 <TabsTrigger 
                   value="automations" 
-                  className="justify-start px-3 h-10 data-[state=active]:bg-white data-[state=active]:shadow-sm border-none"
+                  className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
                 >
                   <Zap className="h-4 w-4 mr-2" />
                   Automations
                 </TabsTrigger>
                 <TabsTrigger 
                   value="activity" 
-                  className="justify-start px-3 h-10 data-[state=active]:bg-white data-[state=active]:shadow-sm border-none"
+                  className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
                 >
                   <History className="h-4 w-4 mr-2" />
                   Activity
@@ -131,8 +136,8 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 flex flex-col min-w-0 bg-white">
-            <ScrollArea className="flex-1">
+          <div className="flex-1 flex flex-col min-w-0 bg-card overflow-hidden">
+            <ScrollArea className="flex-1 h-full">
               <div className="p-8">
                 <Tabs value={activeTab}>
               <TabsContent value="general" className="m-0 space-y-6">
@@ -215,10 +220,12 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
                     }}
                   />
                 </div>
-                <MembersList 
+                <MembersList
                   members={board.members}
                   currentUserId={currentUserId}
                   isOwner={isOwner}
+                  isAdmin={isAdmin}
+                  isManager={isManager}
                   onRemoveMember={(userId) => removeMember({ boardId: board.id, userId })}
                   onChangeRole={(userId, role) => updateRole({ boardId: board.id, userId, role })}
                 />

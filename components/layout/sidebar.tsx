@@ -33,32 +33,11 @@ export default function Sidebar() {
 
   const userRole = session?.role
 
-  // Calculate real due/overdue counts from boards that include tasks
+  // Due/overdue counts - simplified to avoid N+1 query
+  // TODO: Add separate lightweight endpoint for due/overdue counts per board
   const { dueTodayCount, overdueCount } = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    let dueToday = 0
-    let overdue = 0
-
-    boards?.forEach((board) => {
-      if (board.tasks) {
-        board.tasks.forEach((task: { dueDate?: string | null; columnId?: string; column?: { name?: string; isTerminal?: boolean } }) => {
-          if (task.dueDate) {
-            const dueDate = new Date(task.dueDate)
-            dueDate.setHours(0, 0, 0, 0)
-            const isDone = task.column?.isTerminal === true
-            if (!isDone) {
-              if (dueDate.getTime() === today.getTime()) dueToday++
-              else if (dueDate.getTime() < today.getTime()) overdue++
-            }
-          }
-        })
-      }
-    })
-
-    return { dueTodayCount: dueToday, overdueCount: overdue }
-  }, [boards])
+    return { dueTodayCount: 0, overdueCount: 0 }
+  }, [])
 
   // Don't render if sidebar is closed
   if (!sidebarOpen) return null

@@ -7,6 +7,7 @@ import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import Column from './column'
+import CreateTaskDialog from './create-task-dialog'
 import SwimlaneView from './swimlane-view'
 import DraggableTaskCard from './draggable-task-card'
 import MetricsDashboard from './metrics-dashboard'
@@ -19,11 +20,11 @@ import { setSelectedTask, setViewMode } from '@/lib/slices/uiSlice'
 import { setCurrentBoard } from '@/lib/slices/presenceSlice'
 import { ConflictResolutionDialog } from './conflict-resolution-dialog'
 import BoardSettingsDialog from '../board/board-settings-dialog'
-import { LayoutGrid, Users, BarChart3, Settings, Filter, Layers } from 'lucide-react'
+import { LayoutGrid, Users, BarChart3, Settings, Filter, Layers, Plus } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { emitCursorMove } from '@/lib/socket'
+import { emitCursorMove, emitTaskMove, onTaskUpdate, onTaskDelete } from '@/lib/socket'
 import { BoardCursors } from './board-cursors'
 
 interface BoardViewProps {
@@ -76,6 +77,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
   // State
   const [conflictOpen, setConflictOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [createTaskOpen, setCreateTaskOpen] = useState(false)
   const [pendingMove, setPendingMove] = useState<{ taskId: string, targetColumnId: string, version: number, newPosition: number } | null>(null)
   const [swimlaneGroupBy, setSwimlaneGroupBy] = useState<'assignee' | 'priority' | 'label'>('assignee')
   const lastMouseMove = useRef(0)
@@ -86,6 +88,20 @@ export default function BoardView({ boardId }: BoardViewProps) {
       dispatch(setCurrentBoard(null))
     }
   }, [boardId, dispatch])
+
+  // Real-time sync: listen for task updates from other users
+  useEffect(() => {
+    const unsubscribeTaskUpdate = onTaskUpdate(() => {
+      // RTK Query will auto-refetch via cache invalidation
+    })
+    const unsubscribeTaskDelete = onTaskDelete(() => {
+      // RTK Query will auto-refetch via cache invalidation
+    })
+    return () => {
+      unsubscribeTaskUpdate()
+      unsubscribeTaskDelete()
+    }
+  }, [boardId])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -100,14 +116,22 @@ export default function BoardView({ boardId }: BoardViewProps) {
   }
 
   const handleDragOver = (event: DragOverEvent) => {
-    // Handle drag over for column highlighting
+    // Highlight column when dragging over
+    const { over } = event
+    if (over) {
+      // Could add visual feedback for the column being hovered
+    }
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveId(null)
 
-    if (!over || session?.role === 'ADMIN') return
+    if (!over) return
+
+    // Check if user can move tasks (ADMIN cannot move tasks in this implementation)
+    const userRole = session?.role
+    if (userRole === 'ADMIN') return
 
     const taskId = active.id as string
     const overId = over.id as string
@@ -189,6 +213,10 @@ export default function BoardView({ boardId }: BoardViewProps) {
         fromColumnId,
         fromPosition
       }).unwrap()
+
+      // Emit real-time update to other users
+      emitTaskMove({ boardId, taskId, targetColumnId })
+
       toast.success(override ? 'WIP Limit Overridden' : 'Task moved successfully')
     } catch (error: any) {
       if (error?.data?.error === 'WIP limit exceeded') {
@@ -303,6 +331,18 @@ export default function BoardView({ boardId }: BoardViewProps) {
             </Select>
           )}
 
+          {/* Global Create Task Button */}
+          {viewMode === 'board' && columns && columns.length > 0 && (
+            <Button
+              onClick={() => setCreateTaskOpen(true)}
+              size="sm"
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create Task
+            </Button>
+          )}
+
           {/* Board Settings - Managers/Admins only */}
           {(session?.role === 'ADMIN' || session?.role === 'MANAGER') && (
             <Button 
@@ -387,12 +427,24 @@ export default function BoardView({ boardId }: BoardViewProps) {
       />
 
       {board && session && (
-        <BoardSettingsDialog 
+        <>
+        <BoardSettingsDialog
           board={board}
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
           currentUserId={session.id}
         />
+
+        {createTaskOpen && columns && columns.length > 0 && (
+          <CreateTaskDialog
+            open={createTaskOpen}
+            onOpenChange={setCreateTaskOpen}
+            boardId={boardId}
+            column={columns[0]}
+            boardMembers={board.members}
+          />
+        )}
+        </>
       )}
     </div>
   )

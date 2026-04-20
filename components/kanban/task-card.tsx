@@ -99,10 +99,10 @@ export default function TaskCard({
     <Card
       onClick={onClick}
       className={cn(
-        'group hover:shadow-md transition-all cursor-pointer relative bg-white border-2 border-[rgba(0,0,0,0.06)] rounded-[14px] shadow-sm',
+        'group hover:shadow-md transition-all cursor-pointer relative bg-card border-2 border-border rounded-[14px] shadow-sm',
         isDragging && 'opacity-50 rotate-1 shadow-xl ring-2 ring-primary/30 scale-[1.02]',
-        isStale && 'border-amber-200/50 bg-amber-50/20',
-        isBlocked && 'border-red-200/50 bg-red-50/20',
+        isStale && 'border-amber-200/50 bg-amber-50/20 dark:border-amber-900/30 dark:bg-amber-950/20',
+        isBlocked && 'border-red-200/50 bg-red-50/20 dark:border-red-900/30 dark:bg-red-950/20',
         editingUsers.length > 0 && 'ring-2 ring-blue-500/50'
       )}
     >

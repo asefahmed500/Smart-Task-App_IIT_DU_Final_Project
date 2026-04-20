@@ -18,6 +18,8 @@ interface MembersListProps {
   members: BoardMember[]
   currentUserId: string
   isOwner: boolean
+  isAdmin?: boolean
+  isManager?: boolean
   onRemoveMember: (userId: string) => void
   onChangeRole?: (userId: string, role: 'ADMIN' | 'MANAGER' | 'MEMBER') => void
 }
@@ -32,11 +34,13 @@ export default function MembersList({
   members,
   currentUserId,
   isOwner,
+  isAdmin = false,
+  isManager = false,
   onRemoveMember,
   onChangeRole
 }: MembersListProps) {
   return (
-    <ScrollArea className="h-[400px] pr-4">
+    <ScrollArea className="min-h-[200px] max-h-[500px] pr-4">
       <div className="space-y-2">
       {members.map((member) => {
         const config = roleConfig[member.role]
@@ -46,7 +50,7 @@ export default function MembersList({
         return (
           <div
             key={member.id}
-            className="flex items-center gap-3 p-3 rounded-lg border border-[rgba(0,0,0,0.08)] hover:bg-[rgba(0,0,0,0.02)] transition-colors"
+            className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
           >
             <Avatar className="h-10 w-10">
               <AvatarImage src={member.user.avatar || undefined} />
@@ -57,15 +61,15 @@ export default function MembersList({
             <div className="flex-1 min-w-0">
               <p className="text-body-medium font-medium truncate">
                 {member.user.name || 'Unnamed'}
-                {isCurrentUser && <span className="text-caption text-[#777169] ml-2">(you)</span>}
+                {isCurrentUser && <span className="text-caption text-muted-foreground ml-2">(you)</span>}
               </p>
-              <p className="text-caption text-[#777169] truncate">{member.user.email}</p>
+              <p className="text-caption text-muted-foreground truncate">{member.user.email}</p>
             </div>
             <Badge variant="outline" className={cn('text-xs gap-1', config.color)}>
               <Icon className="h-3 w-3" />
               {config.label}
             </Badge>
-            {isOwner && !isCurrentUser && (
+            {(isAdmin || isManager) && !isCurrentUser && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -102,7 +106,7 @@ export default function MembersList({
         )
       })}
       {members.length === 0 && (
-        <div className="text-center py-8 text-body-standard text-[#777169]">
+        <div className="text-center py-8 text-body-standard text-muted-foreground">
           No members yet. Add someone to get started!
         </div>
       )}

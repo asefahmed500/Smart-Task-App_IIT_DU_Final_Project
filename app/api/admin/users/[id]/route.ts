@@ -53,6 +53,17 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       },
     })
 
+    // Audit log for user update
+    await prisma.auditLog.create({
+      data: {
+        action: 'USER_UPDATED',
+        entityType: 'User',
+        entityId: id,
+        actorId: authResult.user.id,
+        changes: { name, role, isActive },
+      },
+    })
+
     return NextResponse.json(updated)
   } catch (error) {
     console.error('Update user error:', error)
@@ -92,6 +103,17 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     await prisma.user.update({
       where: { id },
       data: { isActive: false },
+    })
+
+    // Audit log for user deletion
+    await prisma.auditLog.create({
+      data: {
+        action: 'USER_DELETED',
+        entityType: 'User',
+        entityId: id,
+        actorId: authResult.user.id,
+        changes: { targetUser: id },
+      },
     })
 
     return NextResponse.json({ success: true })

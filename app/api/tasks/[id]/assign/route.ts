@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
 import { createNotification } from '@/lib/notifications'
 
 interface RouteContext {
@@ -41,8 +42,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Role-based Enforcement: Members can only self-assign or unassign themselves.
-    if (session.user.role === 'MEMBER') {
+    // Role-based Enforcement: Board Members can only self-assign or unassign themselves.
+    const effectiveRole = await getEffectiveBoardRole(session, existingTask.boardId)
+    if (effectiveRole === 'MEMBER') {
        if (assigneeId && assigneeId !== userId) {
           return NextResponse.json({ error: 'Members can only self-assign or unassign themselves' }, { status: 403 })
        }

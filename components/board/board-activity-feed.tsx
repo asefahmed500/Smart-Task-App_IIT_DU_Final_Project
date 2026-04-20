@@ -1,17 +1,36 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useGetBoardAuditQuery } from '@/lib/slices/boardsApi'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatDistanceToNow } from 'date-fns'
 import { Activity, Layout, UserPlus, UserMinus, Shield, Link2, MessageSquare, Settings } from 'lucide-react'
+import { onBoardUpdate, onMemberUpdate, onAutomationUpdate, onTaskUpdate, onTaskDelete } from '@/lib/socket'
 
 interface BoardActivityFeedProps {
   boardId: string
 }
 
 export default function BoardActivityFeed({ boardId }: BoardActivityFeedProps) {
-  const { data: logs, isLoading } = useGetBoardAuditQuery(boardId)
+  const { data: logs, isLoading, refetch } = useGetBoardAuditQuery(boardId)
+
+  useEffect(() => {
+    // Refetch audit logs when board events occur
+    const unsubscribeBoard = onBoardUpdate(() => refetch())
+    const unsubscribeMembers = onMemberUpdate(() => refetch())
+    const unsubscribeAutomations = onAutomationUpdate(() => refetch())
+    const unsubscribeTaskUpdate = onTaskUpdate(() => refetch())
+    const unsubscribeTaskDelete = onTaskDelete(() => refetch())
+
+    return () => {
+      unsubscribeBoard()
+      unsubscribeMembers()
+      unsubscribeAutomations()
+      unsubscribeTaskUpdate()
+      unsubscribeTaskDelete()
+    }
+  }, [boardId, refetch])
 
   if (isLoading) return <div className="p-4 text-center text-muted-foreground">Loading activity...</div>
 
@@ -39,7 +58,7 @@ export default function BoardActivityFeed({ boardId }: BoardActivityFeedProps) {
   }
 
   return (
-    <ScrollArea className="h-[500px] pr-4">
+    <ScrollArea className="min-h-[300px] max-h-[600px] pr-4">
       <div className="space-y-6">
         {logs.map((log) => (
           <div key={log.id} className="flex gap-4 items-start">
@@ -48,7 +67,7 @@ export default function BoardActivityFeed({ boardId }: BoardActivityFeedProps) {
                 <AvatarImage src={log.actor?.avatar || undefined} />
                 <AvatarFallback>{log.actor?.name?.[0] || 'U'}</AvatarFallback>
               </Avatar>
-              <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 border shadow-sm">
+              <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 border shadow-sm">
                  {getActionIcon(log.action)}
               </div>
             </div>

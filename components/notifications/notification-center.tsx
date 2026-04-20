@@ -6,28 +6,42 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
-import { 
-  Bell, X, Check, Trash2, 
-  UserPlus, UserMinus, MessageSquare, 
-  Lock, Unlock, ArrowRight, Zap 
+import {
+  Bell, X, Check, Trash2,
+  UserPlus, UserMinus, MessageSquare,
+  Lock, Unlock, ArrowRight, Zap
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { 
-  useGetNotificationsQuery, 
-  useMarkAsReadMutation, 
-  useDeleteNotificationMutation, 
-  useMarkAllAsReadMutation 
+import {
+  useGetNotificationsQuery,
+  useMarkAsReadMutation,
+  useDeleteNotificationMutation,
+  useMarkAllAsReadMutation
 } from '@/lib/slices/notificationsApi'
+import { onNotification, getSocket } from '@/lib/socket'
 
 export default function NotificationCenter() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const { data: notifications, isLoading } = useGetNotificationsQuery()
+  const { data: notifications, isLoading, refetch } = useGetNotificationsQuery()
   const [markAsRead] = useMarkAsReadMutation()
   const [deleteNotification] = useDeleteNotificationMutation()
   const [markAllAsRead] = useMarkAllAsReadMutation()
 
   const unreadCount = notifications?.filter((n: any) => !n.read).length || 0
+
+  // Listen for real-time notifications
+  // Note: refetch excluded from deps - RTK Query's refetch is stable
+  useEffect(() => {
+    const cleanup = onNotification((notification) => {
+      refetch()
+    })
+
+    return () => {
+      cleanup?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleMarkAsRead = async (id: string) => {
     try {

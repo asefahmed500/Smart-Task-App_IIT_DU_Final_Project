@@ -34,7 +34,7 @@ export default function MemberPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display-hero font-waldenburg font-light">Member Dashboard</h1>
-          <p className="text-body text-[#777169] mt-2">
+          <p className="text-body text-muted-foreground mt-2">
             Welcome back, {session?.name || 'Member'}! Here are your tasks.
           </p>
         </div>
@@ -100,7 +100,7 @@ export default function MemberPage() {
             <Clock className="h-6 w-6 text-orange-500" />
             <div>
               <h3 className="text-lg font-semibold">Tasks Due Today</h3>
-              <p className="text-sm text-[#777169]">
+              <p className="text-sm text-muted-foreground">
                 You have {stats.tasksDueToday} task{stats.tasksDueToday > 1 ? 's' : ''} due today.
               </p>
             </div>
@@ -117,7 +117,7 @@ export default function MemberPage() {
             </div>
             <div>
               <h3 className="text-display-header font-waldenburg">Overdue Tasks Attention Required</h3>
-              <p className="text-body text-[#777169]">
+              <p className="text-body text-muted-foreground">
                 You have {stats.overdueTasks} overdue task{stats.overdueTasks > 1 ? 's' : ''} that {stats.overdueTasks > 1 ? 'are' : 'is'} currently stalling progress.
               </p>
             </div>
@@ -139,7 +139,7 @@ export default function MemberPage() {
 
           {memberBoards.length === 0 && (
             <Card className="p-12 col-span-full text-center rounded-[20px]">
-              <p className="text-body-standard text-[#777169]">
+              <p className="text-body-standard text-muted-foreground">
                 You are not a member of any boards yet. Ask your manager to invite you!
               </p>
             </Card>

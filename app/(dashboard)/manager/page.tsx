@@ -42,10 +42,10 @@ export default function ManagerDashboardPage() {
   if (isLoading) {
     return (
       <div className="p-8 space-y-6">
-        <div className="h-8 bg-[#f5f5f5] rounded animate-pulse w-48" />
+        <div className="h-8 bg-muted rounded animate-pulse w-48" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-[#f5f5f5] rounded-lg animate-pulse" />
+            <div key={i} className="h-32 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       </div>

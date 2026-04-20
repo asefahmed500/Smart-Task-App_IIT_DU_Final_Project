@@ -102,6 +102,14 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       },
     })
 
+    // Broadcast automation update
+    const { broadcastAutomationUpdate } = await import('@/lib/socket-server')
+    const updatedAutomations = await prisma.automationRule.findMany({
+      where: { boardId },
+      orderBy: { createdAt: 'desc' }
+    })
+    broadcastAutomationUpdate(boardId, updatedAutomations)
+
     return NextResponse.json(rule)
   } catch (error) {
     console.error('Create automation error:', error)

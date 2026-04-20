@@ -27,3 +27,33 @@ export function broadcastTaskDelete(boardId: string, taskId: string) {
     io.to(`board:${boardId}`).emit('task:deleted', taskId)
   }
 }
+
+/**
+ * Broadcast board settings update to all clients in a board room
+ */
+export function broadcastBoardUpdate(boardId: string, board: any) {
+  const io = getIO()
+  if (io) {
+    io.to(`board:${boardId}`).emit('board:updated', board)
+  }
+}
+
+/**
+ * Broadcast member changes to all clients in a board room
+ */
+export function broadcastMemberUpdate(boardId: string, members: any) {
+  const io = getIO()
+  if (io) {
+    io.to(`board:${boardId}`).emit('members:updated', members)
+  }
+}
+
+/**
+ * Broadcast automation changes to all clients in a board room
+ */
+export function broadcastAutomationUpdate(boardId: string, automations: any) {
+  const io = getIO()
+  if (io) {
+    io.to(`board:${boardId}`).emit('automations:updated', automations)
+  }
+}

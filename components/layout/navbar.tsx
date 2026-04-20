@@ -24,6 +24,8 @@ import {
   Target,
   Undo,
   Redo,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import {
   Select,
@@ -84,6 +86,13 @@ export default function Navbar() {
           dispatch({ type: 'ui/toggleFocusMode' })
         }
       }
+      if (e.key === 'd' && !e.metaKey && !e.ctrlKey) {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault()
+          document.documentElement.classList.toggle('dark')
+        }
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -95,7 +104,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="h-16 border-b border-[rgba(0,0,0,0.05)] bg-white/80 backdrop-blur-sm sticky top-0 z-50 flex items-center justify-between px-6">
+    <nav className="h-16 border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-50 flex items-center justify-between px-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => dispatch(toggleSidebar())}>
           <LayoutGrid className="h-5 w-5" />
@@ -131,7 +140,7 @@ export default function Navbar() {
 
       <div className="flex items-center gap-3">
         {focusMode && (
-          <Badge variant="outline" className="hidden lg:flex rounded-[9999px] border-[rgba(0,0,0,0.08)]">
+          <Badge variant="outline" className="hidden lg:flex rounded-[9999px] border-border">
             Focus Mode Active
           </Badge>
         )}
@@ -140,7 +149,7 @@ export default function Navbar() {
 
         {/* View mode switcher — only shown when on a board page */}
         {isOnBoard && (
-          <div className="hidden md:flex items-center border border-[rgba(0,0,0,0.08)] rounded-[8px]">
+          <div className="hidden md:flex items-center border border-border rounded-[8px]">
             <Button variant={viewMode === 'board' ? 'secondary' : 'ghost'} size="sm" className="rounded-r-none" onClick={() => dispatch({ type: 'ui/setViewMode', payload: 'board' })}>
               <LayoutGrid className="h-4 w-4" />
             </Button>
@@ -180,12 +189,21 @@ export default function Navbar() {
           >
             <Redo className="h-4 w-4" />
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => document.documentElement.classList.toggle('dark')}
+            title="Toggle dark mode (d)"
+          >
+            <Sun className="h-4 w-4 dark:hidden" />
+            <Moon className="h-4 w-4 hidden dark:block" />
+          </Button>
         </div>
 
         <Button variant="white" size="sm" className="hidden md:flex" onClick={() => dispatch(toggleCommandPalette())}>
           <Command className="h-4 w-4 mr-2" />
           <span className="text-nav">Search...</span>
-          <kbd className="ml-2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-[rgba(0,0,0,0.08)] bg-[#f5f5f5] px-1.5 font-mono text-tiny text-[#777169]">
+          <kbd className="ml-2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-tiny text-muted-foreground">
             <span className="text-xs">⌘</span>K
           </kbd>
         </Button>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiRole } from '@/lib/session'
+import { sendPasswordResetEmail } from '@/lib/email'
 
 // POST /api/admin/users/:id/reset-password - Generate password reset token (Admin only)
 export async function POST(req: NextRequest) {
@@ -39,9 +40,13 @@ export async function POST(req: NextRequest) {
 
     const resetUrl = `${process.env.BETTER_AUTH_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
 
+    // Send password reset email
+    const emailSent = await sendPasswordResetEmail(targetUser.email, resetUrl)
+
     return NextResponse.json({
       success: true,
       message: 'Password reset initiated',
+      emailSent,
       // Only expose token in development
       ...(process.env.NODE_ENV === 'development' && { resetUrl, token: resetToken })
     })

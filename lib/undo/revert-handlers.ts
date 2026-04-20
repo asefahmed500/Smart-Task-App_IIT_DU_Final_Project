@@ -10,19 +10,22 @@ export async function revertAction(dispatch: AppDispatch, pastAction: any) {
   const { type, payload, meta } = pastAction
 
   if (type.includes('task/moveTask')) {
-    const { id } = meta.arg
-    const { fromColumnId, fromPosition } = meta.arg // We need these in my arg!
-    
-    // Note: I need to ensure the moveTask thunk includes fromColumnId in its args
-      await dispatch(
-        tasksApi.endpoints.moveTask.initiate({
-          taskId: id, // Corrected from 'id' to 'taskId' based on MoveTaskRequest
-          targetColumnId: fromColumnId,
-          newPosition: fromPosition,
-          version: payload.version,
-          isRevert: true, // Use this for middleware check
-        } as any)
-      )
+    const { taskId, fromColumnId, fromPosition } = meta.arg
+
+    if (!fromColumnId || fromPosition === undefined) {
+      console.error('Cannot revert move: missing fromColumnId or fromPosition in meta.arg', meta.arg)
+      return
+    }
+
+    await dispatch(
+      tasksApi.endpoints.moveTask.initiate({
+        taskId,
+        targetColumnId: fromColumnId,
+        newPosition: fromPosition,
+        version: payload.version,
+        isRevert: true,
+      } as any)
+    )
   }
 
   if (type.includes('task/updateTask')) {

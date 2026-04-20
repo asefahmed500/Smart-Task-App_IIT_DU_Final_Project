@@ -40,6 +40,7 @@ export interface CommentPayload {
   id: string
   text: string
   createdAt: string
+  updatedAt: string
   user: { id: string; name: string | null; avatar: string | null }
   taskId: string
   userId: string
@@ -158,13 +159,17 @@ export const tasksApi = createApi({
       providesTags: (result) => 
         result?.map(task => ({ type: 'Task' as const, id: task.id })) || [],
     }),
+    getAttachments: builder.query<any[], string>({
+      query: (taskId) => `/tasks/${taskId}/attachments`,
+      providesTags: (result, error, taskId) => [{ type: 'Task', id: `ATTACHMENTS_${taskId}` }]
+    }),
     addAttachment: builder.mutation<TaskAttachment, { taskId: string; name: string; url: string; type?: string; size?: number }>({
       query: ({ taskId, ...body }) => ({
         url: `/tasks/${taskId}/attachments`,
         method: 'POST',
         body
       }),
-      invalidatesTags: (result, error, { taskId }) => [{ type: 'Task', id: taskId }]
+      invalidatesTags: (result, error, { taskId }) => [{ type: 'Task', id: taskId }, { type: 'Task', id: `ATTACHMENTS_${taskId}` }]
     }),
     deleteAttachment: builder.mutation<void, string>({
       query: (id) => ({
@@ -192,6 +197,7 @@ export const {
   useAddTaskDependencyMutation,
   useRemoveTaskDependencyMutation,
   useSearchTasksQuery,
+  useGetAttachmentsQuery,
   useAddAttachmentMutation,
   useDeleteAttachmentMutation,
   useGetAssignedTasksQuery,

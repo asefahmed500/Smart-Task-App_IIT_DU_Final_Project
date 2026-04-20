@@ -103,6 +103,22 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       },
     })
 
+    // Audit log for board update
+    await prisma.auditLog.create({
+      data: {
+        action: 'BOARD_UPDATED',
+        entityType: 'Board',
+        entityId: id,
+        actorId: session.user.id,
+        boardId: id,
+        changes: body,
+      },
+    })
+
+    // Broadcast board update
+    const { broadcastBoardUpdate } = await import('@/lib/socket-server')
+    broadcastBoardUpdate(id, updated)
+
     return NextResponse.json(updated)
   } catch (error) {
     console.error('Update board error:', error)
@@ -128,6 +144,12 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       )
     }
 
+    // Get board details before deletion for audit log
+    const board = await prisma.board.findUnique({
+      where: { id },
+      select: { name: true, description: true },
+    })
+
     const { searchParams } = new URL(req.url)
     const hardDelete = searchParams.get('hard') === 'true'
 
@@ -135,16 +157,40 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       await prisma.board.delete({
         where: { id },
       })
+
+      // Audit log for board deletion
+      await prisma.auditLog.create({
+        data: {
+          action: 'BOARD_DELETED',
+          entityType: 'Board',
+          entityId: id,
+          actorId: session.user.id,
+          boardId: id,
+          changes: { name: board?.name, description: board?.description },
+        },
+      })
     } else {
       await prisma.board.update({
         where: { id },
         data: { archived: true }
       })
+
+      // Audit log for board archival
+      await prisma.auditLog.create({
+        data: {
+          action: 'BOARD_ARCHIVED',
+          entityType: 'Board',
+          entityId: id,
+          actorId: session.user.id,
+          boardId: id,
+          changes: { name: board?.name },
+        },
+      })
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      action: hardDelete ? 'DELETED' : 'ARCHIVED' 
+    return NextResponse.json({
+      success: true,
+      action: hardDelete ? 'DELETED' : 'ARCHIVED'
     })
   } catch (error) {
     console.error('Delete board error:', error)

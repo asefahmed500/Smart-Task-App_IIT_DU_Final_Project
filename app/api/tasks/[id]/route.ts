@@ -4,6 +4,8 @@ import { requireApiAuth } from '@/lib/session'
 import { evaluateAutomations } from '@/lib/automation/engine'
 import { createNotification } from '@/lib/notifications'
 import { getEffectiveBoardRole } from '@/lib/board-roles'
+import { validateRequest } from '@/lib/api/validation-middleware'
+import { updateTaskSchema } from '@/lib/validations/task'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -24,13 +26,10 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         assignee: { select: { id: true, name: true, avatar: true, role: true } },
         column: { select: { id: true, name: true, boardId: true } },
         board: {
-          include: {
-            members: {
-              include: {
-                user: { select: { id: true, name: true, avatar: true } }
-              }
-            },
-            owner: { select: { id: true, name: true, avatar: true } }
+          select: {
+            id: true,
+            name: true,
+            color: true,
           }
         },
         createdBy: { select: { id: true, name: true, avatar: true } },
@@ -80,7 +79,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
   try {
     const { id } = await params
-    const body = await req.json()
+    const validation = await validateRequest(req, updateTaskSchema)
+    if (!validation.success) return validation.error
+
+    const body = validation.data
 
     const existingTask = await prisma.task.findUnique({
       where: { id },
