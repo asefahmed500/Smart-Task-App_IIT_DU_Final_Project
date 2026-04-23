@@ -1,23 +1,23 @@
 import { io, Socket } from 'socket.io-client'
+import { CONSTANTS } from './constants'
 
 let socket: Socket | null = null
 let reconnectAttempts = 0
-const MAX_RECONNECT_ATTEMPTS = 10
-const BASE_RECONNECT_DELAY = 1000 // 1 second
+const MAX_RECONNECT_ATTEMPTS = CONSTANTS.SOCKET_MAX_RECONNECT_ATTEMPTS
+const BASE_RECONNECT_DELAY = CONSTANTS.SOCKET_RECONNECT_DELAY
 
 export const initSocket = () => {
   if (!socket) {
     // Get auth token from cookie for Socket.IO authentication
     const getAuthToken = () => {
-      if (typeof document !== 'undefined') {
-        const match = document.cookie.match(/(^|;) *auth_token=([^;]*)/)
-        return match ? match[2] : null
+      if (typeof window !== 'undefined') {
+        return localStorage.getItem('auth_token')
       }
       return null
     }
 
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
-      path: '/api/socket',
+    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
+      path: '/socket.io/',
       addTrailingSlash: false,
       transports: ['websocket', 'polling'],
       auth: {
@@ -26,18 +26,22 @@ export const initSocket = () => {
       // Reconnection configuration with exponential backoff
       reconnection: true,
       reconnectionDelay: BASE_RECONNECT_DELAY,
-      reconnectionDelayMax: 30000, // Max 30 seconds between attempts
+      reconnectionDelayMax: CONSTANTS.SOCKET_RECONNECT_DELAY_MAX,
       reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
-      timeout: 10000, // Connection timeout
+      timeout: CONSTANTS.SOCKET_CONNECTION_TIMEOUT,
     })
 
     socket.on('connect', () => {
-      console.log('Connected to socket server')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Connected to socket server')
+      }
       reconnectAttempts = 0 // Reset on successful connection
     })
 
     socket.on('disconnect', (reason) => {
-      console.log('Disconnected from socket server:', reason)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Disconnected from socket server:', reason)
+      }
 
       // If server initiated disconnect, don't reconnect
       if (reason === 'io server disconnect') {
@@ -47,34 +51,35 @@ export const initSocket = () => {
 
     socket.on('connect_error', (error) => {
       // Only log first error to avoid spam
-      if (reconnectAttempts === 0) {
-        console.warn('Socket.IO server unavailable - real-time features disabled')
+      if (reconnectAttempts === 0 && process.env.NODE_ENV === 'development') {
+        console.warn('Socket.IO server unavailable - real-time features disabled', error)
       }
       reconnectAttempts++
-      // Exponential backoff for manual reconnection handling
-      const delay = Math.min(
-        BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts),
-        30000 // Max 30 seconds
-      )
-
-      console.log(`Reconnection attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}. Next attempt in ${delay}ms`)
     })
 
     socket.on('reconnect', (attemptNumber) => {
-      console.log(`Reconnected after ${attemptNumber} attempts`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Reconnected after ${attemptNumber} attempts`)
+      }
       reconnectAttempts = 0
     })
 
     socket.on('reconnect_attempt', (attemptNumber) => {
-      console.log(`Reconnection attempt ${attemptNumber}`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Reconnection attempt ${attemptNumber}`)
+      }
     })
 
     socket.on('reconnect_failed', () => {
-      console.error('Failed to reconnect to socket server after maximum attempts')
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to reconnect to socket server after maximum attempts')
+      }
     })
 
     socket.on('error', (error) => {
-      console.error('Socket error:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Socket error:', error)
+      }
     })
   }
 
@@ -180,4 +185,28 @@ export const onTaskDelete = (callback: (data: any) => void) => {
   const socket = getSocket()
   socket?.on('task:deleted', callback)
   return () => socket?.off('task:deleted', callback)
+}
+
+export const onCommentUpdate = (callback: (data: any) => void) => {
+  const socket = getSocket()
+  socket?.on('comment:updated', callback)
+  return () => socket?.off('comment:updated', callback)
+}
+
+export const onAttachmentUpdate = (callback: (data: any) => void) => {
+  const socket = getSocket()
+  socket?.on('attachment:updated', callback)
+  return () => { socket?.off('attachment:updated', callback) }
+}
+
+export const onDependencyUpdate = (callback: (data: any) => void) => {
+  const socket = getSocket()
+  socket?.on('dependency:updated', callback)
+  return () => socket?.off('dependency:updated', callback)
+}
+
+export const onTimeLogUpdate = (callback: (data: any) => void) => {
+  const socket = getSocket()
+  socket?.on('timelog:updated', callback)
+  return () => socket?.off('timelog:updated', callback)
 }

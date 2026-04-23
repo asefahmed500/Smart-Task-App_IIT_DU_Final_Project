@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaNeon } from '@prisma/adapter-neon'
+import { getEnv } from './env-validation'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
@@ -7,15 +8,17 @@ const globalForPrisma = globalThis as unknown as {
 
 let prisma: PrismaClient
 
+const env = getEnv()
+
 if (process.env.NODE_ENV === 'production') {
   const adapter = new PrismaNeon({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: env.DATABASE_URL,
   })
   prisma = new PrismaClient({ adapter })
 } else {
   if (!globalForPrisma.prisma) {
     const adapter = new PrismaNeon({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: env.DATABASE_URL,
     })
     globalForPrisma.prisma = new PrismaClient({ adapter })
   }

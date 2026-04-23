@@ -13,6 +13,12 @@ function VerifyEmailContent() {
 
   useEffect(() => {
     const verifyEmail = async () => {
+      if (!searchParams) {
+        setStatus('error')
+        setMessage('No verification token provided.')
+        return
+      }
+
       const token = searchParams.get('token')
 
       if (!token) {
@@ -37,7 +43,7 @@ function VerifyEmailContent() {
           setStatus('error')
           setMessage(data.error || 'Failed to verify email.')
         }
-      } catch (error) {
+      } catch {
         setStatus('error')
         setMessage('An error occurred. Please try again.')
       }

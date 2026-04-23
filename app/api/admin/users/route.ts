@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
 import { requireApiRole } from '@/lib/session'
+import { rateLimit, getIdentifier } from '@/lib/rate-limiter'
 
 // GET /api/admin/users - List all users (Admin only)
 export async function GET(req: NextRequest) {
@@ -9,28 +10,59 @@ export async function GET(req: NextRequest) {
   if (authResult instanceof NextResponse) return authResult
 
   try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        avatar: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: {
-            ownedBoards: true,
-            memberships: true,
-            assignedTasks: true,
+    const { searchParams } = new URL(req.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const skip = (page - 1) * limit
+    const search = searchParams.get('search') || ''
+
+    const where = search
+      ? {
+          OR: [
+            { email: { contains: search, mode: 'insensitive' as const } },
+            { name: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : undefined
+
+    const [users, totalCount] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          avatar: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: {
+            select: {
+              ownedBoards: true,
+              memberships: true,
+              assignedTasks: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.user.count({ where }),
+    ])
 
-    return NextResponse.json(users)
+    return NextResponse.json({
+      data: users,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNextPage: page * limit < totalCount,
+        hasPrevPage: page > 1,
+      },
+    })
   } catch (error) {
     console.error('Get users error:', error)
     return NextResponse.json(
@@ -44,6 +76,29 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const authResult = await requireApiRole(['ADMIN'])
   if (authResult instanceof NextResponse) return authResult
+  const session = authResult
+
+  // Rate limiting: 10 user creations per hour per admin
+  const identifier = getIdentifier(req)
+  const rateLimitResult = await rateLimit(`admin-create-${session.user.id}`, 10, 60 * 60 * 1000)
+
+  if (!rateLimitResult.success) {
+    return NextResponse.json(
+      {
+        error: 'Too many user creation attempts. Please try again later.',
+        retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000),
+      },
+      {
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString(),
+        },
+      }
+    )
+  }
 
   try {
     const body = await req.json()
@@ -111,7 +166,7 @@ export async function POST(req: NextRequest) {
         action: 'USER_CREATED',
         entityType: 'User',
         entityId: user.id,
-        actorId: authResult.user.id,
+        actorId: session.user.id,
         changes: { email, name, role },
       },
     })

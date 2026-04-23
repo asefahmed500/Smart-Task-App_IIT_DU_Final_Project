@@ -54,13 +54,17 @@ A sophisticated middleware layer that provides a safety net for all board mutati
 - **Action Inversion**: Automatically generates revert handlers for every state-changing operation.
 - **State Restoration**: Allows users to "Undo" complex operations (like multi-task moves or board renames) with atomic precision.
 
+### 🔌 Socket.IO Cleanup (`lib/socket-middleware.ts`)
+- **Logout Cleanup**: Socket disconnection on logout prevents memory leaks
+- **Reconnection**: Exponential backoff reconnection with configurable max attempts
+
 ---
 
 ## 🗄️ 4. Data Architecture & Backend Security
 
 ### 💎 Database Specification (Prisma + PostgreSQL)
 Our schema is designed for high relational integrity and auditing.
-- **Audit Logging**: Every mutation (actor, target, changes, IP, UserAgent) is captured in a system-wide audit table for total compliance.
+- **Audit Logging**: Mutations are captured in a system-wide audit table (AuditLog model) for compliance. Implemented across tasks, comments, attachments, boards, members, automations, and user operations.
 - **Complex Relations**: Native support for task dependencies (blockers/blocking) and multi-tier role management.
 - **Search Optimization**: Optimized indexing on `email`, `role`, `dueDate`, and `status` fields for sub-millisecond query performance.
 
@@ -83,4 +87,4 @@ Our schema is designed for high relational integrity and auditing.
 
 ---
 
-*Master Audit conducted by Antigravity AI on April 18, 2026. All systems verified and documented.*
+*Master Audit conducted by Antigravity AI on April 18, 2026. Updated April 19, 2026. All systems verified and documented.*

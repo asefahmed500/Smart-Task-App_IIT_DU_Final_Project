@@ -51,7 +51,7 @@ function ColumnComponent({ column, boardId, tasks, focusMode, filterAssignee, ac
 
   const { data: session } = useGetSessionQuery()
   const userRole = session?.role
-  const canManageColumn = userRole === 'MANAGER'
+  const canManageColumn = userRole === 'MANAGER' || userRole === 'ADMIN'
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   })

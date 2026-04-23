@@ -30,6 +30,8 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
             id: true,
             name: true,
             color: true,
+            ownerId: true,
+            members: true,
           }
         },
         createdBy: { select: { id: true, name: true, avatar: true } },
@@ -114,8 +116,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     // MEMBER: can only self-assign (or unassign self); cannot assign to others
     let finalAssigneeId = assigneeId
     if (effectiveRole === 'MEMBER' && assigneeId !== undefined) {
-      if (assigneeId !== null && assigneeId !== userId) {
-        // Keep existing assignment — member cannot assign to other users
+      if (assigneeId === null || assigneeId === userId) {
+        // Allow self-assignment and self-unassignment
+        finalAssigneeId = assigneeId
+      } else {
+        // Deny assigning to others - keep existing assignment
         finalAssigneeId = existingTask.assigneeId
       }
     }
@@ -150,12 +155,12 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     // Evaluate automation rules for assignment changes
     if (finalAssigneeId !== undefined && finalAssigneeId !== existingTask.assigneeId) {
-      await evaluateAutomations(existingTask.boardId, 'TASK_ASSIGNED', updated, userId)
+      await evaluateAutomations(existingTask.boardId, 'TASK_ASSIGNED', updated as any, userId)
     }
 
     // Evaluate automation rules for priority changes
     if (priority && priority !== existingTask.priority) {
-      await evaluateAutomations(existingTask.boardId, 'PRIORITY_CHANGED', updated, userId)
+      await evaluateAutomations(existingTask.boardId, 'PRIORITY_CHANGED', updated as any, userId)
     }
 
     // Trigger notification for assignment changes

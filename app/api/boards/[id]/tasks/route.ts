@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
+import { validateRequest } from '@/lib/api/validation-middleware'
+import { createTaskSchema } from '@/lib/validations/task'
+import { verifyBoardAccess } from '@/lib/board-access'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -16,23 +20,25 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   try {
     const { id: boardId } = await params
 
-    // Verify user has access to board
-    const board = await prisma.board.findFirst({
-      where: {
-        id: boardId,
-        OR: [
-          { ownerId: userId },
-          { members: { some: { userId } } },
-        ],
-      },
-    })
+    // Parse pagination params
+    const { searchParams } = new URL(req.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '50')
+    const skip = (page - 1) * limit
 
+    // Verify user has access to board
+    const board = await verifyBoardAccess(userId, boardId)
     if (!board) {
       return NextResponse.json(
         { error: 'Board not found' },
         { status: 404 }
       )
     }
+
+    // Get total count for pagination
+    const totalCount = await prisma.task.count({
+      where: { boardId },
+    })
 
     const tasks = await prisma.task.findMany({
       where: { boardId },
@@ -43,9 +49,21 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         column: true,
       },
       orderBy: [{ position: 'asc' }, { createdAt: 'desc' }],
+      skip,
+      take: limit,
     })
 
-    return NextResponse.json(tasks)
+    return NextResponse.json({
+      data: tasks,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNextPage: page * limit < totalCount,
+        hasPrevPage: page > 1,
+      },
+    })
   } catch (error) {
     console.error('Get tasks error:', error)
     return NextResponse.json(
@@ -61,35 +79,18 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
   const userId = session.user.id
-  const userRole = session.user.role
 
   try {
     const { id: boardId } = await params
-    const body = await req.json()
 
-    const { title, description, priority = 'MEDIUM', columnId, assigneeId, dueDate, labels = [] } = body
+    // Validate input using Zod schema
+    const validation = await validateRequest(req, createTaskSchema)
+    if (!validation.success) return validation.error
 
-    if (!title || !columnId) {
-      return NextResponse.json(
-        { error: 'Title and column are required' },
-        { status: 400 }
-      )
-    }
+    const { title, description, priority, columnId, assigneeId, dueDate, labels } = validation.data
 
     // Verify user has access to board
-    const board = await prisma.board.findFirst({
-      where: {
-        id: boardId,
-        OR: [
-          { ownerId: userId },
-          { members: { some: { userId } } },
-        ],
-      },
-      include: {
-        columns: true,
-      },
-    })
-
+    const board = await verifyBoardAccess(userId, boardId)
     if (!board) {
       return NextResponse.json(
         { error: 'Board not found or access denied' },
@@ -97,9 +98,34 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       )
     }
 
+    // Get board columns to verify column exists and for WIP check
+    const boardWithColumns = await prisma.board.findUnique({
+      where: { id: boardId },
+      include: { columns: true },
+    })
+
+    if (!boardWithColumns) {
+      return NextResponse.json(
+        { error: 'Board not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    // Verify the column belongs to this board
+    const column = boardWithColumns.columns.find(c => c.id === columnId)
+    if (!column) {
+      return NextResponse.json(
+        { error: 'Invalid column ID' },
+        { status: 400 }
+      )
+    }
+
+    // Use board-specific role for WIP limit check
+    const effectiveRole = await getEffectiveBoardRole(session, boardId)
+    const isMember = effectiveRole === 'MEMBER'
+
     // Check WIP limit — MEMBERs are hard blocked; MANAGER/ADMIN can override
-    const column = board.columns.find((c: { id: string; wipLimit: number | null }) => c.id === columnId)
-    if (column?.wipLimit && userRole === 'MEMBER') {
+    if (column?.wipLimit && isMember) {
       const taskCount = await prisma.task.count({
         where: { columnId },
       })
@@ -114,7 +140,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
     // MEMBERs can only self-assign (force userId as assignee if they try to pick someone else)
     let finalAssigneeId = assigneeId
-    if (userRole === 'MEMBER' && assigneeId && assigneeId !== userId) {
+    if (isMember && assigneeId && assigneeId !== userId) {
       finalAssigneeId = userId
     }
 
@@ -129,12 +155,12 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       data: {
         title,
         description,
-        priority,
+        priority: priority || 'MEDIUM',
         columnId,
         boardId,
         assigneeId: finalAssigneeId,
         dueDate: dueDate ? new Date(dueDate) : null,
-        labels,
+        labels: labels || [],
         createdById: userId,
         position: (maxPosition?.position ?? -1) + 1,
       },

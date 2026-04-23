@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
+import { useGetBoardsQuery, useGetMetricsCountsQuery } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { useRouter, usePathname } from 'next/navigation'
 import { Search, Plus, Home, Users, CheckSquare, Clock, AlertCircle, Shield } from 'lucide-react'
@@ -21,7 +21,7 @@ import { useState, useMemo } from 'react'
 
 export default function Sidebar() {
   const router = useRouter()
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ''
   const dispatch = useAppDispatch()
   const { data: session } = useGetSessionQuery()
   const { data: boards } = useGetBoardsQuery(undefined, {
@@ -33,11 +33,16 @@ export default function Sidebar() {
 
   const userRole = session?.role
 
-  // Due/overdue counts - simplified to avoid N+1 query
-  // TODO: Add separate lightweight endpoint for due/overdue counts per board
+  const { data: metricsCounts } = useGetMetricsCountsQuery(undefined, {
+    skip: !session,
+  })
+
   const { dueTodayCount, overdueCount } = useMemo(() => {
-    return { dueTodayCount: 0, overdueCount: 0 }
-  }, [])
+    return { 
+      dueTodayCount: metricsCounts?.dueToday || 0, 
+      overdueCount: metricsCounts?.overdue || 0 
+    }
+  }, [metricsCounts])
 
   // Don't render if sidebar is closed
   if (!sidebarOpen) return null

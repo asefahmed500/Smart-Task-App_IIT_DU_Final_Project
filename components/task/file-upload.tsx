@@ -117,38 +117,54 @@ export default function FileUpload({ taskId, onUploadComplete }: FileUploadProps
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Drop Zone */}
-      <Card
+      <div
         className={cn(
-          'border-2 border-dashed transition-colors cursor-pointer',
-          isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-border/60',
-          isUploading && 'pointer-events-none opacity-50'
+          'relative overflow-hidden rounded-3xl border-2 border-dashed transition-all duration-500 cursor-pointer group',
+          isDragging 
+            ? 'border-primary bg-primary/5 scale-[1.02] shadow-2xl shadow-primary/10' 
+            : 'border-slate-200 hover:border-primary/40 hover:bg-slate-50/50',
+          isUploading && 'pointer-events-none opacity-60'
         )}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => document.getElementById('file-input')?.click()}
       >
-        <div className="flex flex-col items-center justify-center p-6 space-y-3">
+        {/* Decorative Background Elements */}
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-500" />
+        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-500" />
+
+        <div className="relative flex flex-col items-center justify-center p-10 space-y-4">
           {isUploading ? (
-            <>
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-              <p className="text-sm text-muted-foreground">Uploading...</p>
-            </>
-          ) : (
-            <>
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Upload className="h-5 w-5 text-primary" />
+            <div className="flex flex-col items-center space-y-4 animate-in zoom-in-95 duration-300">
+              <div className="relative h-16 w-16">
+                <div className="absolute inset-0 border-4 border-primary/10 rounded-full" />
+                <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Upload className="h-6 w-6 text-primary animate-pulse" />
+                </div>
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium">
-                  {isDragging ? 'Drop files here' : 'Click to upload or drag and drop'}
+                <p className="text-sm font-bold text-slate-900">Uploading assets...</p>
+                <p className="text-xs text-slate-500 mt-1">Please wait while we process your files</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="h-14 w-14 rounded-2xl bg-white shadow-soft-elevation flex items-center justify-center group-hover:scale-110 transition-transform duration-500 border border-slate-100">
+                <Upload className={cn(
+                  "h-6 w-6 transition-colors duration-300",
+                  isDragging ? "text-primary" : "text-slate-400 group-hover:text-primary"
+                )} />
+              </div>
+              <div className="text-center max-w-[240px]">
+                <p className="text-sm font-bold text-slate-900 leading-tight">
+                  {isDragging ? 'Drop to upload' : 'Click to upload or drag and drop'}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Images, PDFs, Documents (max 10MB)
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                  Support for Images, PDFs, and Documents up to <span className="font-bold text-slate-700">10MB</span>
                 </p>
               </div>
             </>
@@ -162,49 +178,63 @@ export default function FileUpload({ taskId, onUploadComplete }: FileUploadProps
           onChange={handleFileSelect}
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
         />
-      </Card>
+      </div>
 
       {/* Upload Validation Info */}
-      <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg">
-        <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <p className="font-medium">File upload requirements:</p>
-          <ul className="space-y-0.5 text-[10px]">
-            <li>• Maximum file size: 10MB</li>
-            <li>• Allowed types: Images, PDFs, Documents, ZIP files</li>
-            <li>• Files are stored securely on the server</li>
+      <div className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+        <div className="mt-1 p-1.5 rounded-lg bg-white shadow-sm border border-slate-100">
+          <AlertCircle className="h-4 w-4 text-slate-400" />
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">Storage Policy</p>
+          <ul className="grid grid-cols-1 gap-1 text-[11px] text-slate-500 font-medium">
+            <li className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-slate-300" />
+              Maximum 10MB per file
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-slate-300" />
+              Secure encrypted storage
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-slate-300" />
+              Standardized format processing
+            </li>
           </ul>
         </div>
       </div>
 
       {/* Recently Uploaded Files */}
       {uploadedFiles.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Uploaded Files</p>
-          {uploadedFiles.map((file) => {
-            const FileIcon = getFileIcon(file.type)
-            return (
-              <Card key={file.id} className="p-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                    <FileIcon className="h-4 w-4 text-muted-foreground" />
+        <div className="space-y-3">
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Recently Uploaded</p>
+          <div className="space-y-2">
+            {uploadedFiles.map((file) => {
+              const FileIcon = getFileIcon(file.type)
+              return (
+                <div 
+                  key={file.id} 
+                  className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-100 shadow-sm"
+                >
+                  <div className="h-9 w-9 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0 border border-slate-100">
+                    <FileIcon className="h-4 w-4 text-primary/60" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                    <p className="text-[13px] font-bold text-slate-900 truncate">{file.name}</p>
+                    <p className="text-[11px] font-medium text-slate-400">{formatFileSize(file.size)}</p>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 flex-shrink-0"
+                    className="h-7 w-7 rounded-full hover:bg-slate-100 text-slate-400"
                     onClick={() => setUploadedFiles(prev => prev.filter(f => f.id !== file.id))}
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-              </Card>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

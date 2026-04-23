@@ -16,6 +16,7 @@ function ResetPasswordContent() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!searchParams) return
     const token = searchParams.get('token')
     if (!token) {
       setStatus('error')
@@ -27,7 +28,6 @@ function ResetPasswordContent() {
     e.preventDefault()
     setError('')
 
-    // Validation
     if (password.length < 8) {
       setError('Password must be at least 8 characters long.')
       return
@@ -35,6 +35,11 @@ function ResetPasswordContent() {
 
     if (password !== confirmPassword) {
       setError('Passwords do not match.')
+      return
+    }
+
+    if (!searchParams) {
+      setError('Invalid reset token.')
       return
     }
 
@@ -62,7 +67,7 @@ function ResetPasswordContent() {
         setStatus('error')
         setMessage(data.error || 'Failed to reset password.')
       }
-    } catch (error) {
+    } catch {
       setStatus('error')
       setMessage('An error occurred. Please try again.')
     }

@@ -30,7 +30,7 @@ export async function revertAction(dispatch: AppDispatch, pastAction: any) {
 
   if (type.includes('task/updateTask')) {
     const { id } = meta.arg
-    const previousData = meta.arg.previousState // I should attach this in the middleware
+    const previousData = meta.arg.previousState
     
     if (previousData) {
       await dispatch(
@@ -45,8 +45,19 @@ export async function revertAction(dispatch: AppDispatch, pastAction: any) {
     }
   }
 
+  if (type.includes('task/assignTask')) {
+    const { id } = meta.arg
+    const previousAssigneeId = meta.arg.previousAssigneeId
+    
+    await dispatch(
+      tasksApi.endpoints.assignTask.initiate({
+        id,
+        assigneeId: previousAssigneeId,
+      } as any)
+    )
+  }
+
   if (type.includes('task/deleteTask')) {
-    // RESTORE logic: Call create with the exact data that was deleted
     const taskData = payload
     await dispatch(
       tasksApi.endpoints.createTask.initiate({
@@ -65,8 +76,59 @@ export async function revertAction(dispatch: AppDispatch, pastAction: any) {
   }
 
   if (type.includes('task/createTask')) {
-    // UNDO create: Delete the task
     const taskId = payload.id
     await dispatch(tasksApi.endpoints.deleteTask.initiate(taskId))
+  }
+
+  // Board Reverts
+  if (type.includes('boards/updateBoard')) {
+    const { id } = meta.arg
+    const previousData = meta.arg.data.previousState
+    
+    if (previousData) {
+      await dispatch(
+        boardsApi.endpoints.updateBoard.initiate({
+          id,
+          data: {
+            ...previousData,
+            isRevert: true,
+          }
+        } as any)
+      )
+    }
+  }
+
+  // Column Reverts
+  if (type.includes('columns/updateColumn')) {
+    const { id } = meta.arg
+    const previousData = meta.arg.previousState
+    
+    if (previousData) {
+      await dispatch(
+        boardsApi.endpoints.updateColumn.initiate({
+          id,
+          ...previousData,
+          isRevert: true,
+        } as any)
+      )
+    }
+  }
+
+  if (type.includes('columns/createColumn')) {
+    const columnId = payload.id
+    await dispatch(boardsApi.endpoints.deleteColumn.initiate(columnId))
+  }
+
+  if (type.includes('columns/deleteColumn')) {
+    const columnData = meta.arg.previousState
+    if (columnData) {
+      await dispatch(
+        boardsApi.endpoints.createColumn.initiate({
+          boardId: columnData.boardId,
+          name: columnData.name,
+          wipLimit: columnData.wipLimit,
+        })
+      )
+    }
   }
 }

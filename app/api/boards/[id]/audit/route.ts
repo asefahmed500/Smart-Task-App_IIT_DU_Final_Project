@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
+import { verifyBoardAccess } from '@/lib/board-access'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -15,16 +16,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params
 
-    const board = await prisma.board.findFirst({
-      where: {
-        id,
-        OR: [
-          { ownerId: userId },
-          { members: { some: { userId } } },
-        ],
-      },
-    })
-
+    const board = await verifyBoardAccess(userId, id)
     if (!board) {
       return NextResponse.json({ error: 'Board not found' }, { status: 404 })
     }
@@ -38,9 +30,6 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         target: {
           select: { id: true, name: true },
         },
-        task: {
-           select: { id: true, title: true }
-        }
       },
       orderBy: { createdAt: 'desc' },
       take: 100,

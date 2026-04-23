@@ -1,14 +1,11 @@
 /**
- * Simple in-memory rate limiter for API routes
- * In production, consider using Redis or a dedicated rate limiting service
+ * Hybrid rate limiter - Database-backed with in-memory cache
+ * Uses dedicated RateLimit table for persistence across server restarts
  */
 
-interface RateLimitEntry {
-  count: number
-  resetTime: number
-}
+import { prisma } from './prisma'
 
-const limiters = new Map<string, RateLimitEntry>()
+const memoryCache = new Map<string, { count: number; resetTime: number }>()
 
 export interface RateLimitResult {
   success: boolean
@@ -18,7 +15,7 @@ export interface RateLimitResult {
 }
 
 /**
- * Check if a request should be rate limited
+ * Hybrid rate limiting - database for persistence, memory for speed
  * @param identifier - Unique identifier (IP address, user ID, etc.)
  * @param maxRequests - Maximum number of requests allowed
  * @param windowMs - Time window in milliseconds
@@ -26,81 +23,75 @@ export interface RateLimitResult {
 export async function rateLimit(
   identifier: string,
   maxRequests: number = 10,
-  windowMs: number = 60 * 1000 // 1 minute default
+  windowMs: number = 60 * 1000
 ): Promise<RateLimitResult> {
   const now = Date.now()
+  const expiresAt = new Date(now + windowMs)
 
-  // Clean up expired entries
-  for (const [key, entry] of limiters.entries()) {
-    if (entry.resetTime < now) {
-      limiters.delete(key)
+  // Check memory cache first (fast path)
+  const cached = memoryCache.get(identifier)
+  if (cached && cached.resetTime > now) {
+    const remaining = Math.max(0, maxRequests - cached.count)
+    if (cached.count > maxRequests) {
+      return { success: false, limit: maxRequests, remaining: 0, resetTime: cached.resetTime }
     }
+    cached.count++
+    memoryCache.set(identifier, cached)
+    return { success: true, limit: maxRequests, remaining: remaining - 1, resetTime: cached.resetTime }
   }
 
-  const entry = limiters.get(identifier)
-
-  if (!entry || entry.resetTime < now) {
-    // First request or window expired
-    const newEntry: RateLimitEntry = {
-      count: 1,
-      resetTime: now + windowMs,
+  // Database fallback for persistence
+  try {
+    let entry = await prisma.rateLimit.findUnique({ where: { identifier } })
+    
+    if (entry && entry.expiresAt > new Date(now)) {
+      const remaining = Math.max(0, maxRequests - entry.count)
+      if (entry.count > maxRequests) {
+        return { success: false, limit: maxRequests, remaining: 0, resetTime: entry.expiresAt.getTime() }
+      }
+      // Update count
+      entry = await prisma.rateLimit.update({
+        where: { identifier },
+        data: { count: entry.count + 1, updatedAt: new Date() },
+      })
+      memoryCache.set(identifier, { count: entry.count, resetTime: entry.expiresAt.getTime() })
+      return { success: true, limit: maxRequests, remaining: remaining - 1, resetTime: entry.expiresAt.getTime() }
     }
-    limiters.set(identifier, newEntry)
 
-    return {
-      success: true,
-      limit: maxRequests,
-      remaining: maxRequests - 1,
-      resetTime: newEntry.resetTime,
+    // Create new entry
+    await prisma.rateLimit.upsert({
+      where: { identifier },
+      create: { identifier, count: 1, expiresAt },
+      update: { count: 1, expiresAt, updatedAt: new Date() },
+    })
+    memoryCache.set(identifier, { count: 1, resetTime: expiresAt.getTime() })
+    return { success: true, limit: maxRequests, remaining: maxRequests - 1, resetTime: expiresAt.getTime() }
+  } catch {
+    // Full in-memory fallback if DB unavailable
+    const entry = memoryCache.get(identifier) ?? { count: 0, resetTime: now + windowMs }
+    if (entry.resetTime <= now) {
+      memoryCache.set(identifier, { count: 1, resetTime: now + windowMs })
+      return { success: true, limit: maxRequests, remaining: maxRequests - 1, resetTime: now + windowMs }
     }
-  }
-
-  // Increment count
-  entry.count += 1
-  limiters.set(identifier, entry)
-
-  const remaining = Math.max(0, maxRequests - entry.count)
-
-  if (entry.count > maxRequests) {
-    return {
-      success: false,
-      limit: maxRequests,
-      remaining: 0,
-      resetTime: entry.resetTime,
+    entry.count++
+    const remaining = Math.max(0, maxRequests - entry.count)
+    if (entry.count > maxRequests) {
+      return { success: false, limit: maxRequests, remaining: 0, resetTime: entry.resetTime }
     }
-  }
-
-  return {
-    success: true,
-    limit: maxRequests,
-    remaining,
-    resetTime: entry.resetTime,
+    memoryCache.set(identifier, entry)
+    return { success: true, limit: maxRequests, remaining, resetTime: entry.resetTime }
   }
 }
 
 /**
- * Extract IP address from request
+ * Extract client IP from request headers
  */
 export function getIdentifier(req: Request): string {
-  // Try various headers for the real IP
   const headers = req.headers
-  const forwardedFor = headers.get('x-forwarded-for')
-  const realIp = headers.get('x-real-ip')
-  const cfConnectingIp = headers.get('cf-connecting-ip')
-
-  if (forwardedFor) {
-    // x-forwarded-for can contain multiple IPs, take the first one
-    return forwardedFor.split(',')[0].trim()
-  }
-
-  if (realIp) {
-    return realIp
-  }
-
-  if (cfConnectingIp) {
-    return cfConnectingIp
-  }
-
-  // Fallback to a default (in production, you might want to reject these)
-  return 'unknown'
+  return (
+    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    headers.get('x-real-ip') ??
+    headers.get('cf-connecting-ip') ??
+    'unknown'
+  )
 }

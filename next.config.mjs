@@ -18,7 +18,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline';",
               "img-src 'self' data: blob: https://*.githubusercontent.com;",
               "font-src 'self' data:;",
-              "connect-src 'self' https://*.neon.tech;",
+              "connect-src 'self' https://*.neon.tech http://localhost:3001 ws://localhost:3001;",
               "frame-src 'none';",
               "object-src 'none';",
               "base-uri 'self';",
@@ -37,10 +37,6 @@ const nextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
           },
           {
             key: 'Permissions-Policy',

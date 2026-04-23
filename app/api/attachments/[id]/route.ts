@@ -68,12 +68,28 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     // Continue with DB deletion even if file delete fails
   }
 
-  // Delete database record
-  await prisma.taskAttachment.delete({
-    where: { id }
-  })
+    // Delete database record
+    await prisma.taskAttachment.delete({
+      where: { id }
+    })
 
-  return NextResponse.json({ success: true })
+    // Audit log for attachment deletion
+    await prisma.auditLog.create({
+      data: {
+        action: 'ATTACHMENT_DELETED',
+        entityType: 'Task',
+        entityId: attachment.taskId,
+        actorId: userId,
+        boardId: attachment.task.boardId,
+        changes: { name: attachment.name, size: attachment.size },
+      },
+    })
+
+    // Broadcast update via socket
+    const { broadcastAttachmentUpdate } = await import('@/lib/socket-server')
+    broadcastAttachmentUpdate(attachment.task.boardId, attachment.taskId)
+
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Delete attachment error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

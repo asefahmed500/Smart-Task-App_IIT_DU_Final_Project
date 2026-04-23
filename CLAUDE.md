@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-- `npm run dev` - Start development server with Turbopack
+- `npm run dev` - Start development server with Socket.IO integration (uses custom server.cjs)
 - `npm run build` - Build for production
-- `npm run start` - Start production server
+- `npm run start` - Start production server with Socket.IO integration
 - `npm run lint` - Run ESLint
 - `npm run format` - Format code with Prettier
 - `npm run typecheck` - Run TypeScript type checking
@@ -16,9 +16,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npx prisma db push` - Push schema changes to database
 - `npx prisma studio` - Open Prisma Studio to browse database
 
+**Note:** The application uses a custom server (`server.cjs`) that integrates Next.js with Socket.IO. This is required for real-time features to work properly.
+
 ## Tech Stack
 
-- **Framework**: Next.js 16 with App Router, React 19
+- **Framework**: Next.js 16.1.7 with App Router, React 19.2
 - **Language**: TypeScript with strict mode
 - **Styling**: Tailwind CSS v4 (PostCSS-based, not tailwind.config.js)
 - **UI Components**: shadcn/ui with class-variance-authority
@@ -173,7 +175,7 @@ export async function POST(req: NextRequest) {
 
 ### Database (Prisma)
 
-- Schema: `prisma/schema.prisma` - defines User, Board, Column, Task, TaskBlock, AuditLog, BoardMember, AutomationRule, Notification, Comment, TaskAttachment, SystemSettings
+- Schema: `prisma/schema.prisma` - defines User, Board, Column, Task, TaskBlock, AuditLog, BoardMember, AutomationRule, Notification, Comment, TaskAttachment, SystemSettings, Webhook, TimeLog, RateLimit
 - Client: `lib/prisma.ts` - singleton pattern with PrismaPg adapter, uses `DATABASE_URL`
 - Models: Uses cuid() for IDs, PostgreSQL dialect, cascading deletes
 - Key relations: User ↔ Board (owner/members), Task ↔ Column, Task ↔ Task (blockers via TaskBlock)
@@ -205,19 +207,58 @@ Two separate patterns for different contexts:
 
 This distinction prevents API routes from redirecting (which would break JSON responses).
 
+### Environment Validation
+
+**Module:** `lib/env-validation.ts` - Comprehensive environment variable validation using Zod
+
+**Purpose:** Fails fast on application startup if required environment variables are missing or invalid, preventing runtime errors from configuration issues.
+
+**Required Variables:**
+- `BETTER_AUTH_SECRET` - Must be at least 64 characters
+- `BETTER_AUTH_URL` - Must be a valid URL
+- `DATABASE_URL` - Must be a valid URL (PostgreSQL connection string)
+- `DIRECT_URL` - Must be a valid URL (for Prisma CLI)
+- `ALLOWED_ORIGIN` - Required for CORS configuration
+
+**Optional Variables:**
+- `PORT` - Defaults to 3000
+- `NODE_ENV` - Defaults to 'development'
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` - Email configuration
+
+**Usage:**
+```typescript
+import { validateEnv, getEnv } from '@/lib/env-validation'
+
+// Validate on startup (called automatically by module)
+const env = validateEnv()
+
+// Get validated environment variables
+const env = getEnv()
+```
+
+**Integration:** Used in `lib/auth.ts` and `lib/prisma.ts` to ensure environment variables are validated before use.
+
 ### Socket.IO (Real-time Features)
 
 - Client: `lib/socket.ts` - singleton socket instance with event emitters/listeners, exponential backoff reconnection
-- Server: `app/api/socket/route.ts` - Socket.IO server with authentication middleware
+- **Custom Server:** `server.cjs` - Integrated Next.js + Socket.IO server (required for dev/production)
+- **Path:** `/api/socket` - Socket.IO endpoint path
 - **Initialization**: `components/layout/socket-initializer.tsx` - Ensures Socket.IO server initializes before any client connections (prevents "server unavailable" warnings on first load)
-- Auth: Token validation via `getSession()` from better-auth
+- Auth: Token validation via `getSession()` from better-auth with middleware
 - Events: `board:join`, `board:leave`, `task:update`, `task:move`, `presence:update`, `presence:cursor`, `presence:editing:start`, `presence:editing:stop`, `comment:new`, `comment:updated`, `comment:deleted`
 - Integration: `lib/socket-middleware.ts` - Redux middleware that connects presenceSlice to socket events
 - **Cleanup**: `disconnectSocket()` called on logout to prevent memory leaks
 - **Notifications**: Real-time delivery via `io.to(\`user:${userId}\`).emit('notification:new')`
 
-**Socket.IO Server Initialization Pattern:**
-The Socket.IO server in Next.js App Router requires a GET request to `/api/socket` to initialize. The `SocketInitializer` component in the root layout handles this automatically on app startup.
+**Socket.IO Architecture:**
+The application uses a custom HTTP server (`server.cjs`) that integrates Next.js with Socket.IO. This server:
+- Handles both Next.js page requests and Socket.IO WebSocket connections
+- Runs on the configured PORT (default 3000)
+- Includes authentication middleware for Socket.IO connections
+- Replaces the default Next.js dev server for full real-time functionality
+
+**Development vs Production:**
+Both development and production use `node server.cjs` to ensure consistent Socket.IO behavior across environments.
 
 ### Comments System
 
@@ -246,11 +287,40 @@ The Socket.IO server in Next.js App Router requires a GET request to `/api/socke
 
 ### Automation Rules System
 
-**Engine:** `lib/automation/engine.ts` - Evaluates and executes automation rules
+**Engine:** `lib/automation/engine.ts` - Evaluates and executes automation rules with Zod validation
 **Triggers:** `lib/automation/triggers.ts` - Trigger handlers (TASK_MOVED, TASK_ASSIGNED, PRIORITY_CHANGED, TASK_STALLED)
 **Actions:** `lib/automation/actions.ts` - Action execution (NOTIFY, AUTO_ASSIGN, CHANGE_PRIORITY, ADD_LABEL)
 **API:** `app/api/boards/[id]/automations/route.ts` - List/create rules
 **UI:** `components/automation/rules-list.tsx`, `components/automation/rule-builder-dialog.tsx`
+**Security:** JSON parsing uses `safeJSONParse()` with Zod schema validation to prevent injection attacks
+
+### Board Export System
+
+**API:** `app/api/boards/[id]/export/route.ts` - Export board data
+**Formats:** JSON (default) or CSV (`?format=csv` query param)
+**Access:** Board members only (verified via `verifyBoardAccess()`)
+**CSV Export:** Flattens columns and tasks with assignee info, labels, dates
+**Usage:** `GET /api/boards/{id}/export?format=csv`
+
+### Webhooks System
+
+**API:** `app/api/boards/[id]/webhooks/route.ts` - Board-level webhooks
+**Management:** MANAGER/ADMIN only (enforced via `getEffectiveBoardRole()`)
+**Events:** TASK_MOVED, TASK_ASSIGNED, COMMENT_ADDED, TASK_BLOCKED, TASK_UNBLOCKED, AUTOMATION_TRIGGER
+**Security:** Optional HMAC SHA-256 secret for payload verification
+**UI:** `components/board/webhook-settings.tsx` - Create/delete webhooks, toggle active status
+**Schema:** `Webhook` model in Prisma with events array, isActive flag
+
+### Time Tracking System
+
+**API:** `app/api/tasks/[id]/time-logs/route.ts` - Task time logging
+**Actions:**
+- `start` - Start timer (creates log with startTime)
+- `stop` - Stop timer (calculates duration, increments Task.totalTimeSpent)
+- `manual` - Add manual time entry
+**Schema:** `TimeLog` model with taskId, userId, startTime, endTime, duration, description
+**Real-time:** Broadcasts `broadcastTimeLogUpdate()` and `broadcastTaskUpdate()` after changes
+**Constraints:** Only one running timer per user per task
 
 ### WIP Limit Enforcement
 
@@ -321,6 +391,27 @@ Comprehensive audit logging across mutations (actorId, entityType, action, chang
 - X-Content-Type-Options: `nosniff`
 - Referrer-Policy: `strict-origin-when-cross-origin`
 - Permissions-Policy: `camera=(), microphone=(), geolocation=(), payment=()`
+
+**File Upload Security:**
+- **Extension Validation:** Uses `path.extname()` instead of `.split('.').pop()` to prevent double-extension attacks
+- **MIME Type Validation:** Validates that file extensions match declared MIME types
+- **Allowed Extensions:** jpg, jpeg, png, gif, webp, pdf, txt, doc, docx, xls, xlsx, zip
+- **Implementation:** `app/api/tasks/[id]/attachments/upload/route.ts`
+
+**Task Assignment Security:**
+- **Self-Assignment:** Members can assign tasks to themselves OR unassign themselves
+- **Assignment Restriction:** Members cannot assign tasks to other users
+- **Implementation:** `app/api/tasks/[id]/route.ts` (PATCH endpoint)
+
+**IP Address Extraction:**
+- **Correct Method:** Uses `headers.get()` for `x-forwarded-for`, `x-real-ip`, `cf-connecting-ip`
+- **Anti-Pattern:** Never read IP addresses from cookies (user-controlled)
+- **Implementation:** `lib/auth.ts` - `getClientIp(headers?: Headers)`
+
+**JSON Parsing Security:**
+- **Automation Engine:** Uses Zod schema validation before parsing JSON from database
+- **Safe Parse Function:** `safeJSONParse()` in `lib/automation/engine.ts` prevents injection attacks
+- **Fallback Values:** Provides safe defaults when validation fails
 
 ### Key Implementation Patterns
 
@@ -441,11 +532,15 @@ useEffect(() => {
     - `app/(dashboard)/board/[id]/page.tsx` - Board/Kanban view
   - `app/(landing)/` - Public landing page
   - `app/api/` - API routes
+    - `app/api/boards/[id]/export/` - Board export (JSON/CSV)
+    - `app/api/boards/[id]/webhooks/` - Board webhook management
+    - `app/api/tasks/[id]/time-logs/` - Time tracking for tasks
 - `components/` - React components
   - `ui/` - shadcn/ui base components
   - `auth/` - Authentication components
   - `admin/` - Admin dashboard components
   - `automation/` - Automation rule components
+  - `board/` - Board management components (settings, webhooks, members, activity feed)
   - `kanban/` - Kanban board components
   - `metrics/` - Metrics visualization components
   - `notifications/` - Notification components

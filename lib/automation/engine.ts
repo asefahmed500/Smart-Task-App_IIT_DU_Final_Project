@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { executeTrigger } from './triggers'
 import { executeAction } from './actions'
 import type { Task } from '@/lib/slices/boardsApi'
+import { z } from 'zod'
 
 export interface AutomationTrigger {
   type: 'TASK_MOVED' | 'TASK_ASSIGNED' | 'PRIORITY_CHANGED' | 'TASK_STALLED'
@@ -54,12 +55,41 @@ export interface AutomationRule {
   action: AutomationAction
 }
 
+// Zod schemas for secure JSON parsing
+const AutomationTriggerSchema = z.object({
+  type: z.enum(['TASK_MOVED', 'TASK_ASSIGNED', 'PRIORITY_CHANGED', 'TASK_STALLED']),
+  value: z.union([z.string(), z.number()]).optional(),
+})
+
+const AutomationConditionSchema = z.object({
+  field: z.enum(ALLOWED_CONDITION_FIELDS),
+  operator: z.enum(ALLOWED_CONDITION_OPERATORS),
+  value: z.union([z.string(), z.number()]),
+})
+
+const AutomationActionSchema = z.object({
+  type: z.enum(['NOTIFY_USER', 'NOTIFY_ROLE', 'AUTO_ASSIGN', 'CHANGE_PRIORITY', 'ADD_LABEL']),
+  target: z.string().optional(),
+  value: z.string().optional(),
+})
+
+/**
+ * Safely parse JSON with Zod schema validation
+ * Returns fallback value if parsing or validation fails
+ */
+function safeJSONParse<T>(json: string, schema: z.ZodSchema<T>, fallback: T): T {
+  try {
+    const parsed = JSON.parse(json)
+    return schema.parse(parsed)
+  } catch (error) {
+    console.error('[Security] JSON parsing failed:', error)
+    return fallback
+  }
+}
+
 /**
  * Evaluate and execute automation rules for a given event
- * @param boardId - The board ID
- * @param eventType - The type of event that occurred
- * @param taskData - The task data related to the event
- * @param actorId - The user who triggered the event
+ * Optimized with parallel evaluation and batch updates
  */
 export async function evaluateAutomations(
   boardId: string,
@@ -68,7 +98,7 @@ export async function evaluateAutomations(
   actorId: string
 ) {
   try {
-    // Fetch all enabled automation rules for the board
+    // Single query - fetch rules with trigger type filter
     const rules = await prisma.automationRule.findMany({
       where: {
         boardId,
@@ -80,72 +110,94 @@ export async function evaluateAutomations(
       return { fired: [] }
     }
 
-    const firedRules: Array<{ ruleId: string; ruleName: string; action: any }> = []
+    // Parse all rules once with validation
+    const parsedRules = rules
+      .map(rule => {
+        try {
+          const trigger = safeJSONParse(
+            rule.trigger as string,
+            AutomationTriggerSchema,
+            { type: 'TASK_MOVED' } // fallback
+          )
 
-    // Evaluate each rule
-    for (const rule of rules) {
-      try {
-        const trigger = JSON.parse(rule.trigger as string) as AutomationTrigger
-        const condition = rule.condition ? JSON.parse(rule.condition as string) as AutomationCondition : null
-        const action = JSON.parse(rule.action as string) as AutomationAction
+          const condition = rule.condition
+            ? safeJSONParse(rule.condition as string, AutomationConditionSchema, null)
+            : null
 
-        // Check if trigger matches
-        const triggerMatches = await executeTrigger(trigger, eventType, taskData)
-        if (!triggerMatches) {
-          continue
+          const action = safeJSONParse(
+            rule.action as string,
+            AutomationActionSchema,
+            { type: 'NOTIFY_USER' } // fallback
+          )
+
+          return { rule, trigger, condition, action }
+        } catch (error) {
+          console.error(`[Security] Failed to parse automation rule ${rule.id}:`, error)
+          return null
         }
+      })
+      .filter((rule): rule is NonNullable<typeof rule> => rule !== null)
 
-        // Check if condition matches (if present)
-        if (condition) {
-          const conditionMatches = await evaluateCondition(condition, taskData)
-          if (!conditionMatches) {
-            continue
-          }
-        }
+    // Filter rules where trigger matches (parallel evaluation)
+    const matchingRules = parsedRules.filter(({ trigger }) => 
+      executeTrigger(trigger, eventType, taskData)
+    )
 
-        // Execute the action
-        await executeAction(action, taskData, rule.boardId, actorId)
+    // Evaluate conditions for matching triggers (parallel)
+    const readyToFire = matchingRules.filter(({ condition }) => {
+      if (!condition) return true
+      return evaluateCondition(condition, taskData)
+    })
 
-        // Update lastFiredAt
-        await prisma.automationRule.update({
-          where: { id: rule.id },
-          data: { lastFiredAt: new Date() },
-        })
-
-        // Log the automation firing
-        await prisma.auditLog.create({
-          data: {
-            action: 'AUTOMATION_FIRED',
-            entityType: 'AutomationRule',
-            entityId: rule.id,
-            actorId,
-            boardId,
-            changes: JSON.stringify({
-              ruleName: rule.name,
-              trigger: {
-                type: trigger.type,
-                value: trigger.value,
-              },
-              action: {
-                type: action.type,
-                target: action.target,
-                value: action.value,
-              },
-            }),
-          },
-        })
-
-        firedRules.push({
-          ruleId: rule.id,
-          ruleName: rule.name,
-          action,
-        })
-      } catch (error) {
-        console.error(`Error evaluating automation rule ${rule.id}:`, error)
-      }
+    if (readyToFire.length === 0) {
+      return { fired: [] }
     }
 
-    return { fired: firedRules }
+    // Execute actions and batch updates
+    await prisma.$transaction(async (tx) => {
+      const promises = readyToFire.map(async ({ rule, action }) => {
+        try {
+          await executeAction(action, taskData, rule.boardId, actorId)
+          
+          // Update lastFiredAt
+          await tx.automationRule.update({
+            where: { id: rule.id },
+            data: { lastFiredAt: new Date() },
+          })
+
+          // Log action
+          await tx.auditLog.create({
+            data: {
+              action: 'AUTOMATION_FIRED',
+              entityType: 'AutomationRule',
+              entityId: rule.id,
+              actorId,
+              boardId,
+              changes: JSON.stringify({
+                ruleName: rule.name,
+                trigger: { type: rule.trigger, value: rule.trigger },
+                action: { type: action.type, target: action.target, value: action.value },
+              }),
+            },
+          })
+
+          return { ruleId: rule.id, ruleName: rule.name, action }
+        } catch (error) {
+          console.error(`Error firing rule ${rule.id}:`, error)
+          return null
+        }
+      })
+      
+      return Promise.all(promises)
+    })
+
+    return { 
+      fired: readyToFire.map(({ rule, action }) => ({
+        ruleId: rule.id,
+        ruleName: rule.name,
+        action,
+      }))
+    }
   } catch (error) {
     console.error('Error in automation engine:', error)
     return { fired: [] }

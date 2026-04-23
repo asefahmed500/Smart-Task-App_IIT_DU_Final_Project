@@ -14,7 +14,8 @@ import {
   Zap, 
   Loader2, 
   AlertTriangle,
-  History 
+  History,
+  Link
 } from 'lucide-react'
 import {
   useUpdateBoardMutation,
@@ -123,6 +124,13 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
                 >
                   <Zap className="h-4 w-4 mr-2" />
                   Automations
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="webhooks" 
+                  className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
+                >
+                  <Link className="h-4 w-4 mr-2" />
+                  Webhooks
                 </TabsTrigger>
                 <TabsTrigger 
                   value="activity" 

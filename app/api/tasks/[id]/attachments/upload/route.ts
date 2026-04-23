@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
 import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
+import { join, extname } from 'path'
 import { randomUUID } from 'crypto'
 
 interface RouteContext {
@@ -24,6 +24,25 @@ const ALLOWED_FILE_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/zip',
 ]
+
+// Allowed file extensions for security (must match MIME types above)
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'doc', 'docx', 'xls', 'xlsx', 'zip']
+
+// MIME type to extension mapping for validation
+const MIME_TYPE_MAP: Record<string, string[]> = {
+  'image/jpeg': ['jpg', 'jpeg'],
+  'image/jpg': ['jpg'],
+  'image/png': ['png'],
+  'image/gif': ['gif'],
+  'image/webp': ['webp'],
+  'application/pdf': ['pdf'],
+  'text/plain': ['txt'],
+  'application/msword': ['doc'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+  'application/vnd.ms-excel': ['xls'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
+  'application/zip': ['zip'],
+}
 
 // Max file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -92,8 +111,27 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       )
     }
 
-    // Generate unique filename
-    const ext = originalName.split('.').pop()
+    // Secure extension extraction using path module
+    const ext = extname(originalName).toLowerCase().substring(1)
+
+    // Validate extension is in allowed list
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return NextResponse.json(
+        { error: `File extension not allowed. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
+    // Validate MIME type matches extension (prevent double-extension attacks)
+    const allowedMimes = MIME_TYPE_MAP[file.type]
+    if (!allowedMimes || !allowedMimes.includes(ext)) {
+      return NextResponse.json(
+        { error: 'File type does not match extension' },
+        { status: 400 }
+      )
+    }
+
+    // Generate unique filename with only the single validated extension
     const uniqueFileName = `${randomUUID()}.${ext}`
 
     // Ensure uploads directory exists
@@ -119,8 +157,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       })
 
     // Broadcast update via socket
-    const { broadcastTaskUpdate } = await import('@/lib/socket-server')
-    broadcastTaskUpdate(task.boardId, { taskId, attachment })
+    const { broadcastAttachmentUpdate } = await import('@/lib/socket-server')
+    broadcastAttachmentUpdate(task.boardId, taskId)
 
     // Log the attachment upload
     await prisma.auditLog.create({

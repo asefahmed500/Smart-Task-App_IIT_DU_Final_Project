@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireApiAuth, requireApiRole } from '@/lib/session'
+import { requireApiAuth } from '@/lib/session'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
+import { verifyBoardAccess } from '@/lib/board-access'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -17,19 +19,31 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     const body = await req.json()
     const { name, wipLimit, isTerminal } = body
 
-    // Verify access - only Admins and Managers can update columns
-    if (session.user.role === 'MEMBER') {
-       return NextResponse.json({ error: 'Forbidden: Members cannot modify columns.' }, { status: 403 })
-    }
-
-    // Get column details for audit log
+    // Get column details with board info
     const column = await prisma.column.findUnique({
       where: { id },
-      select: { boardId: true, name: true },
+      include: { board: true },
     })
 
     if (!column) {
       return NextResponse.json({ error: 'Column not found' }, { status: 404 })
+    }
+
+    // Verify user has access to the board
+    const board = await verifyBoardAccess(session.user.id, column.board.id)
+    if (!board) {
+      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 })
+    }
+
+    // Use board-specific role instead of platform role
+    const effectiveRole = await getEffectiveBoardRole(session, column.board.id)
+
+    // Members cannot modify columns; Managers and Admins can
+    if (effectiveRole !== 'ADMIN' && effectiveRole !== 'MANAGER') {
+      return NextResponse.json(
+        { error: 'Forbidden: Only managers and admins can modify columns.' },
+        { status: 403 }
+      )
     }
 
     const updated = await prisma.column.update({
@@ -48,20 +62,20 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         entityType: 'Column',
         entityId: id,
         actorId: session.user.id,
-        boardId: column.boardId,
+        boardId: column.board.id,
         changes: body,
       },
     })
 
     // Broadcast board update (column changes affect board)
     const { broadcastBoardUpdate } = await import('@/lib/socket-server')
-    const board = await prisma.board.findUnique({
-      where: { id: column.boardId },
+    const updatedBoard = await prisma.board.findUnique({
+      where: { id: column.board.id },
       include: {
         columns: { orderBy: { position: 'asc' } }
       }
     })
-    if (board) broadcastBoardUpdate(column.boardId, board)
+    if (updatedBoard) broadcastBoardUpdate(column.board.id, updatedBoard)
 
     return NextResponse.json(updated)
   } catch (error) {
@@ -76,26 +90,43 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
 
-  // Only Admin can delete columns (destructive)
-  if (session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden: Only Admins can delete columns.' }, { status: 403 })
-  }
-
   try {
     const { id } = await params
 
-    // Check if column exists and has tasks
+    // Get column details
     const column = await prisma.column.findUnique({
       where: { id },
-      include: { _count: { select: { tasks: true } } }
+      include: { 
+        _count: { select: { tasks: true } },
+        board: true,
+      }
     })
 
     if (!column) {
-       return NextResponse.json({ error: 'Column not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Column not found' }, { status: 404 })
     }
 
+    // Verify user has access to the board
+    const board = await verifyBoardAccess(session.user.id, column.board.id)
+    if (!board) {
+      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 })
+    }
+
+    // Use board-specific role - Only Board Admin can delete columns (destructive action)
+    const effectiveRole = await getEffectiveBoardRole(session, column.board.id)
+    if (effectiveRole !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Forbidden: Only board admins can delete columns.' },
+        { status: 403 }
+      )
+    }
+
+    // Check if column has tasks
     if (column._count.tasks > 0) {
-       return NextResponse.json({ error: 'Cannot delete column with tasks. Move tasks first.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Cannot delete column with tasks. Move tasks first.' },
+        { status: 400 }
+      )
     }
 
     await prisma.column.delete({ where: { id } })
@@ -107,20 +138,20 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
         entityType: 'Column',
         entityId: id,
         actorId: session.user.id,
-        boardId: column.boardId,
+        boardId: column.board.id,
         changes: { name: column.name },
       },
     })
 
     // Broadcast board update (column changes affect board)
     const { broadcastBoardUpdate } = await import('@/lib/socket-server')
-    const board = await prisma.board.findUnique({
-      where: { id: column.boardId },
+    const updatedBoard = await prisma.board.findUnique({
+      where: { id: column.board.id },
       include: {
         columns: { orderBy: { position: 'asc' } }
       }
     })
-    if (board) broadcastBoardUpdate(column.boardId, board)
+    if (updatedBoard) broadcastBoardUpdate(column.board.id, updatedBoard)
 
     return NextResponse.json({ success: true })
   } catch (error) {

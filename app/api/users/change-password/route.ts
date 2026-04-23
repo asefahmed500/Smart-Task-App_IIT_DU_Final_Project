@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { hashPassword, verifyPassword } from '@/lib/auth'
+import { hashPassword, verifyPassword, revokeAllSessions } from '@/lib/auth'
 import { requireApiAuth } from '@/lib/session'
 
 export async function POST(req: NextRequest) {
@@ -48,6 +48,10 @@ export async function POST(req: NextRequest) {
       data: { password: hashedPassword }
     })
 
+    // Security: Revoke all sessions when password changes (forces re-login)
+    // In production, consider letting current session stay valid
+    await revokeAllSessions(userId)
+
     // Create audit log
     await prisma.auditLog.create({
       data: {
@@ -59,7 +63,7 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, message: 'All sessions invalidated. Please log in again.' })
   } catch (error) {
     console.error('Change password error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

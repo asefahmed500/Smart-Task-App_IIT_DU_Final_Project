@@ -3,6 +3,12 @@ import { prisma } from '@/lib/prisma'
 import { requireApiAuth, requireApiRole } from '@/lib/session'
 import { validateRequest } from '@/lib/api/validation-middleware'
 import { createBoardSchema } from '@/lib/validations/board'
+import { z } from 'zod'
+
+const paginatedQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+})
 
 // GET /api/boards - List all boards the user has access to (all authenticated)
 export async function GET(req: NextRequest) {
@@ -13,8 +19,24 @@ export async function GET(req: NextRequest) {
   const userRole = session.user.role
 
   try {
+    // Parse pagination params
+    const { searchParams } = new URL(req.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const skip = (page - 1) * limit
+
     // Platform admins can see all boards
     const isAdmin = userRole === 'ADMIN'
+
+    // Get total count for pagination
+    const totalCount = await prisma.board.count({
+      where: isAdmin ? undefined : {
+        OR: [
+          { ownerId: userId },
+          { members: { some: { userId } } },
+        ],
+      },
+    })
 
     const boards = await prisma.board.findMany({
       where: isAdmin ? undefined : {
@@ -42,9 +64,21 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { updatedAt: 'desc' },
+      skip,
+      take: limit,
     })
 
-    return NextResponse.json(boards)
+    return NextResponse.json({
+      data: boards,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNextPage: page * limit < totalCount,
+        hasPrevPage: page > 1,
+      },
+    })
   } catch (error) {
     console.error('Get boards error:', error)
     return NextResponse.json(
@@ -67,7 +101,6 @@ export async function POST(req: NextRequest) {
       where: { id: 'global' },
     })
 
-    // If setting doesn't exist, default to true or true depending on schema default. Let's say true.
     if (settings?.allowMemberBoardCreation || settings === null) {
       canCreate = true
     }
@@ -135,7 +168,6 @@ export async function POST(req: NextRequest) {
       })
     } catch (auditError) {
       console.error('Failed to create audit log for board creation:', auditError)
-      // Continue anyway - board was created successfully
     }
 
     return NextResponse.json(board, { status: 201 })

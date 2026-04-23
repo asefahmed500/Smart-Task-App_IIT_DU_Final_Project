@@ -1,5 +1,7 @@
 import { prisma } from './prisma'
 import { getIO } from './socket-server'
+import { sendEmail } from './mail'
+import { triggerWebhooks } from './webhooks'
 
 export type NotificationType =
   | 'TASK_ASSIGNED'
@@ -18,9 +20,15 @@ export async function createNotification(
   type: NotificationType,
   title: string,
   message: string,
-  link?: string
+  link?: string,
+  shouldEmail = false
 ) {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true }
+    })
+
     const notification = await prisma.notification.create({
       data: {
         userId,
@@ -32,10 +40,9 @@ export async function createNotification(
       },
     })
 
-    // Broadcast via Socket.IO if server is available
+    // 1. Broadcast via Socket.IO if server is available
     const io = getIO()
     if (io) {
-      // Emit to user's personal room
       io.to(`user:${userId}`).emit('notification:new', {
         id: notification.id,
         type: notification.type,
@@ -47,11 +54,29 @@ export async function createNotification(
       })
     }
 
+    // 2. Send Email if requested
+    if (shouldEmail && user?.email) {
+      await sendEmail({
+        to: user.email,
+        subject: `[SmartTask] ${title}`,
+        text: `${message}\n\nView here: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${link || ''}`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px;">
+            <h2>${title}</h2>
+            <p>${message}</p>
+            <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${link || ''}" 
+               style="display: inline-block; padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px;">
+              View in SmartTask
+            </a>
+          </div>
+        `
+      })
+    }
+
     return notification
   } catch (error: any) {
     console.error('Failed to create notification:', error)
 
-    // Save as FAILED if possible, for future retry
     try {
       await prisma.notification.create({
         data: {
@@ -67,15 +92,13 @@ export async function createNotification(
     } catch (e) {
       console.error('Record failed notification error:', e)
     }
-    // We don't throw here to avoid breaking the main request flow
   }
 }
 
 /**
- * Notify all participants of a task (e.g. for comments)
- * Excludes the actor who triggered the event
+ * Centralized task event handler: Notifications + Webhooks
  */
-export async function notifyTaskParticipants(
+export async function handleTaskEvent(
   taskId: string,
   actorId: string,
   type: NotificationType,
@@ -86,33 +109,39 @@ export async function notifyTaskParticipants(
   try {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      select: {
-        assigneeId: true,
-        createdById: true,
-        board: {
-          select: { ownerId: true }
-        }
+      include: {
+        board: { select: { id: true, ownerId: true } },
+        createdBy: { select: { id: true } }
       }
     })
 
     if (!task) return
 
-    // Collect candidate user IDs
+    // 1. Trigger Webhooks
+    await triggerWebhooks(task.boardId, type, {
+      taskId,
+      actorId,
+      title,
+      message,
+      taskTitle: task.title
+    })
+
+    // 2. Notify participants
     const userIds = new Set<string>()
     if (task.assigneeId) userIds.add(task.assigneeId)
     if (task.createdById) userIds.add(task.createdById)
     if (task.board.ownerId) userIds.add(task.board.ownerId)
 
-    // Remove the actor
     userIds.delete(actorId)
 
-    // Send notifications
+    const emailTypes: NotificationType[] = ['TASK_ASSIGNED', 'COMMENT_ADDED', 'TASK_BLOCKED']
+
     const promises = Array.from(userIds).map(userId =>
-      createNotification(userId, type, title, message, link)
+      createNotification(userId, type, title, message, link, emailTypes.includes(type))
     )
 
     await Promise.all(promises)
   } catch (error) {
-    console.error('Failed to notify task participants:', error)
+    console.error('Failed to handle task event:', error)
   }
 }

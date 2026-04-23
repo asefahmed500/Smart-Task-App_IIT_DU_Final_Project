@@ -48,7 +48,8 @@ export default function RootLayout({
         waldenburgFH.variable
       )}
     >
-      <body>
+      <body className="relative overflow-x-hidden">
+        <div className="noise" />
         <ReduxProvider>
           <ThemeProvider>
             <TooltipProvider>

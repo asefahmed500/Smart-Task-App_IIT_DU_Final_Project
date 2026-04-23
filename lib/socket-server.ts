@@ -57,3 +57,41 @@ export function broadcastAutomationUpdate(boardId: string, automations: any) {
     io.to(`board:${boardId}`).emit('automations:updated', automations)
   }
 }
+/**
+ * Broadcast a comment update (new/edited/deleted)
+ */
+export function broadcastCommentUpdate(boardId: string, taskId: string) {
+  const io = getIO()
+  if (io) {
+    io.to(`board:${boardId}`).emit('comment:updated', { taskId })
+  }
+}
+
+/**
+ * Broadcast an attachment update
+ */
+export function broadcastAttachmentUpdate(boardId: string, taskId: string) {
+  const io = getIO()
+  if (io) {
+    io.to(`board:${boardId}`).emit('attachment:updated', { taskId })
+  }
+}
+
+/**
+ * Broadcast a dependency update
+ */
+export function broadcastDependencyUpdate(boardId: string, taskId: string) {
+  const io = getIO()
+  if (io) {
+    io.to(`board:${boardId}`).emit('dependency:updated', { taskId })
+  }
+}
+/**
+ * Broadcast a time log update
+ */
+export function broadcastTimeLogUpdate(boardId: string, taskId: string) {
+  const io = getIO()
+  if (io) {
+    io.to(`board:${boardId}`).emit('timelog:updated', { taskId })
+  }
+}

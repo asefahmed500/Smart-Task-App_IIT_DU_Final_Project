@@ -3,26 +3,84 @@
 import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
 import { useGetProfileQuery } from '@/lib/slices/usersApi'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CheckSquare, Clock, TrendingUp, Plus, ArrowRight } from 'lucide-react'
+import { Plus, ArrowRight } from 'lucide-react'
 import PersonalMetrics from '@/components/dashboard/personal-metrics'
 import { useRouter, usePathname } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <Skeleton className="h-10 w-64 mb-2" />
+          <Skeleton className="h-5 w-96" />
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-6">
+              <Skeleton className="h-4 w-20 mb-2" />
+              <Skeleton className="h-8 w-16" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div>
+        <Skeleton className="h-8 w-40 mb-4" />
+        <div className="grid gap-4 md:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="h-5 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-full mb-4" />
+                <Skeleton className="h-8 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function DashboardPage() {
   const router = useRouter()
   const pathname = usePathname()
   const { data: boards, isLoading: boardsLoading } = useGetBoardsQuery()
-  const { data: profile } = useGetProfileQuery()
+  const { data: profile, isLoading: profileLoading } = useGetProfileQuery()
+  const [hasRedirected, setHasRedirected] = useState(false)
 
-  // Collect tasks directly from boards data (boards API includes task count)
-  // For stats, use aggregated counts from board _count fields
+  // Handle role-based redirect
+  const handleRedirect = useCallback(() => {
+    if (hasRedirected || !profile) return
+    setHasRedirected(true)
+    if (profile.role === 'ADMIN') router.replace('/admin')
+    else if (profile.role === 'MANAGER') router.replace('/manager')
+    else if (profile.role === 'MEMBER') router.replace('/member')
+  }, [profile, router, hasRedirected])
+
+  // Redirect on mount once profile is loaded
+  useEffect(() => {
+    handleRedirect()
+  }, [handleRedirect])
+
+  // Show loading skeleton while profile loads to prevent flash
+  if (profileLoading || boardsLoading || !profile) {
+    return <DashboardSkeleton />
+  }
+
+  // Don't render content if not on /dashboard (to prevent showing wrong content during redirect)
+  if (pathname !== '/dashboard') {
+    return null
+  }
+
   const allTasks = boards?.flatMap((board) => board.tasks || []) || []
-
-  // Use shared stats hook
   const stats = useDashboardStats(allTasks)
 
   const roleColor = {
@@ -31,22 +89,8 @@ export default function DashboardPage() {
     MEMBER: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
   }
 
-  // Redirect all roles to their dedicated dashboards
-  useEffect(() => {
-    if (pathname === '/dashboard') {
-      if (profile?.role === 'ADMIN') router.replace('/admin')
-      else if (profile?.role === 'MANAGER') router.replace('/manager')
-      else if (profile?.role === 'MEMBER') router.replace('/member')
-    }
-  }, [profile, pathname, router])
-
-  if (pathname === '/dashboard' && profile?.role) {
-    return null // Will redirect
-  }
-
   return (
     <div className="space-y-8">
-      {/* Welcome Banner - Members only see this */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">
@@ -74,10 +118,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <PersonalMetrics tasks={allTasks} userId={profile?.id || ''} />
 
-      {/* Recent Boards */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Recent Boards</h2>
@@ -87,19 +129,7 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {boardsLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <Card key={i}>
-                <CardContent className="p-6">
-                  <Skeleton className="h-5 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-full mb-4" />
-                  <Skeleton className="h-8 w-24" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : boards && boards.length > 0 ? (
+        {boards && boards.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {boards.slice(0, 6).map((board) => (
               <Card
@@ -131,7 +161,6 @@ export default function DashboardPage() {
               </Card>
             ))}
 
-            {/* Create New Board Card (Admin/Manager only) */}
             {profile?.role !== 'MEMBER' && (
               <Card
                 className="border-dashed hover:bg-muted/50 transition-colors cursor-pointer"

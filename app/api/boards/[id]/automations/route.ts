@@ -7,7 +7,6 @@ interface RouteContext {
   params: Promise<{ id: string }>
 }
 
-// GET /api/boards/:id/automations - List automation rules (all board members)
 export async function GET(req: NextRequest, { params }: RouteContext) {
   const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
@@ -43,7 +42,6 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// POST /api/boards/:id/automations - Create automation rule (Manager/Admin only)
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
   if (authResult instanceof NextResponse) return authResult
@@ -59,7 +57,6 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'name, trigger, and action are required' }, { status: 400 })
     }
 
-    // Verify user has access to this board (owner or manager/admin)
     const board = await prisma.board.findFirst({
       where: {
         id: boardId,
@@ -85,9 +82,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       data: {
         boardId,
         name,
-        trigger: JSON.stringify(trigger),
-        condition: condition ? JSON.stringify(condition) : Prisma.JsonNull,
-        action: JSON.stringify(action),
+        trigger: typeof trigger === 'string' ? trigger : JSON.stringify(trigger),
+        condition: condition ? (typeof condition === 'string' ? condition : JSON.stringify(condition)) : null,
+        action: typeof action === 'string' ? action : JSON.stringify(action),
       }
     })
 
@@ -102,7 +99,6 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       },
     })
 
-    // Broadcast automation update
     const { broadcastAutomationUpdate } = await import('@/lib/socket-server')
     const updatedAutomations = await prisma.automationRule.findMany({
       where: { boardId },

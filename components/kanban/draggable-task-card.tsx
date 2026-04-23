@@ -27,7 +27,6 @@ export default function DraggableTaskCard({
   const { attributes, listeners, setNodeRef, transform, isDragging: internalIsDragging } = useDraggable({
     id: task.id,
     data: task,
-    disabled: isAdmin,
   })
 
   const isDragging = externalIsDragging ?? internalIsDragging

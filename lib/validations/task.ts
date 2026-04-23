@@ -28,7 +28,7 @@ export const updateTaskSchema = z.object({
 
 export const moveTaskSchema = z.object({
   targetColumnId: z.string().min(1, 'Target column ID is required'),
-  newPosition: z.number().int().min(0, 'Position must be non-negative'),
+  newPosition: z.number().min(0, 'Position must be non-negative'),
   version: z.number().int().positive('Version must be positive'),
   override: z.boolean().optional(),
 })

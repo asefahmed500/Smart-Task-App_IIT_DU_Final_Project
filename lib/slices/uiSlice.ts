@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
-type ViewMode = 'board' | 'swimlane' | 'metrics'
+type ViewMode = 'board' | 'swimlane' | 'metrics' | 'calendar'
 
 interface UIState {
   isOnline: boolean

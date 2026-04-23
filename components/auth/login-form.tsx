@@ -35,6 +35,11 @@ export default function LoginForm() {
     try {
       const result = await login(data).unwrap()
 
+      // Save token for socket authentication (since httpOnly cookie is inaccessible to JS)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('auth_token', result.token)
+      }
+
       toast.success('Welcome back!', {
         description: `Logged in as ${result.user.name || result.user.email}`,
       })

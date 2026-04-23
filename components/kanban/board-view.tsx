@@ -7,6 +7,7 @@ import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import Column from './column'
+import AddColumnButton from './add-column-button'
 import CreateTaskDialog from './create-task-dialog'
 import SwimlaneView from './swimlane-view'
 import DraggableTaskCard from './draggable-task-card'
@@ -20,11 +21,22 @@ import { setSelectedTask, setViewMode } from '@/lib/slices/uiSlice'
 import { setCurrentBoard } from '@/lib/slices/presenceSlice'
 import { ConflictResolutionDialog } from './conflict-resolution-dialog'
 import BoardSettingsDialog from '../board/board-settings-dialog'
-import { LayoutGrid, Users, BarChart3, Settings, Filter, Layers, Plus } from 'lucide-react'
+import { LayoutGrid, Users, BarChart3, Settings, Filter, Layers, Plus, Calendar as CalendarIcon, Download } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { emitCursorMove, emitTaskMove, onTaskUpdate, onTaskDelete } from '@/lib/socket'
+import CalendarView from './calendar-view'
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu'
+import { emitCursorMove, emitTaskMove, onTaskUpdate, onTaskDelete, onBoardUpdate, onMemberUpdate, onAutomationUpdate, onCommentUpdate, onAttachmentUpdate, onDependencyUpdate } from '@/lib/socket'
+import { boardsApi } from '@/lib/slices/boardsApi'
+import { tasksApi } from '@/lib/slices/tasksApi'
 import { BoardCursors } from './board-cursors'
 
 interface BoardViewProps {
@@ -89,19 +101,44 @@ export default function BoardView({ boardId }: BoardViewProps) {
     }
   }, [boardId, dispatch])
 
-  // Real-time sync: listen for task updates from other users
+  // Real-time sync: listen for updates from other users
   useEffect(() => {
-    const unsubscribeTaskUpdate = onTaskUpdate(() => {
-      // RTK Query will auto-refetch via cache invalidation
+    const unsubTaskUpdate = onTaskUpdate(() => {
+      dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: 'LIST' }]))
     })
-    const unsubscribeTaskDelete = onTaskDelete(() => {
-      // RTK Query will auto-refetch via cache invalidation
+    const unsubTaskDelete = onTaskDelete(() => {
+      dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: 'LIST' }]))
     })
+    const unsubBoardUpdate = onBoardUpdate(() => {
+      dispatch(boardsApi.util.invalidateTags([{ type: 'Board', id: boardId }, 'Column']))
+    })
+    const unsubMemberUpdate = onMemberUpdate(() => {
+      dispatch(boardsApi.util.invalidateTags([{ type: 'Board', id: boardId }]))
+    })
+    const unsubAutomationUpdate = onAutomationUpdate(() => {
+      dispatch(boardsApi.util.invalidateTags([{ type: 'Board', id: `${boardId}-automations` }]))
+    })
+    const unsubCommentUpdate = onCommentUpdate(({ taskId }) => {
+      dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: taskId }]))
+    })
+    const unsubAttachmentUpdate = onAttachmentUpdate(({ taskId }) => {
+      dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: taskId }]))
+    })
+    const unsubDependencyUpdate = onDependencyUpdate(({ taskId }) => {
+      dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: taskId }]))
+    })
+
     return () => {
-      unsubscribeTaskUpdate()
-      unsubscribeTaskDelete()
+      unsubTaskUpdate()
+      unsubTaskDelete()
+      unsubBoardUpdate()
+      unsubMemberUpdate()
+      unsubAutomationUpdate()
+      unsubCommentUpdate()
+      unsubAttachmentUpdate()
+      unsubDependencyUpdate()
     }
-  }, [boardId])
+  }, [boardId, dispatch])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -129,9 +166,9 @@ export default function BoardView({ boardId }: BoardViewProps) {
 
     if (!over) return
 
-    // Check if user can move tasks (ADMIN cannot move tasks in this implementation)
+    // All authenticated users can move tasks; role-based enforcement is handled server-side
     const userRole = session?.role
-    if (userRole === 'ADMIN') return
+    if (!userRole) return
 
     const taskId = active.id as string
     const overId = over.id as string
@@ -234,11 +271,16 @@ export default function BoardView({ boardId }: BoardViewProps) {
             description: `Current count: ${error.data.currentCount}`,
           })
         }
+      } else if (error?.data?.error === 'Task is blocked') {
+        toast.error('Task is blocked', {
+          description: error.data.message || 'Cannot move this task yet.',
+          duration: 5000,
+        })
       } else if (error?.data?.error === 'Version conflict') {
         setPendingMove({ taskId, targetColumnId, version, newPosition })
         setConflictOpen(true)
       } else {
-        toast.error('Failed to move task')
+        toast.error(error?.data?.error || 'Failed to move task')
       }
     }
   }
@@ -252,7 +294,11 @@ export default function BoardView({ boardId }: BoardViewProps) {
 
   const handleSync = () => {
     setConflictOpen(false)
-    // Logic to refresh board data would go here
+    dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: 'LIST' }]))
+  }
+
+  const handleExport = (format: 'json' | 'csv') => {
+    window.open(`/api/boards/${boardId}/export?format=${format}`, '_blank')
   }
 
   if (boardLoading || columnsLoading || tasksLoading) {
@@ -280,6 +326,29 @@ export default function BoardView({ boardId }: BoardViewProps) {
     )
   }
 
+  if (columns.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold">No columns yet</h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            This board doesn't have any columns. Ask a manager to add some.
+          </p>
+        </div>
+        {(session?.role === 'ADMIN' || session?.role === 'MANAGER') && (
+          <Button
+            onClick={() => setSettingsOpen(true)}
+            variant="outline"
+            className="gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Add Columns
+          </Button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Board Header */}
@@ -300,16 +369,20 @@ export default function BoardView({ boardId }: BoardViewProps) {
         <div className="flex items-center gap-3">
           {/* View Toggles */}
           <Tabs value={viewMode} onValueChange={(v) => dispatch(setViewMode(v as any))}>
-            <TabsList className="bg-[rgba(0,0,0,0.04)] p-1 h-9">
-              <TabsTrigger value="board" className="h-7 text-xs gap-1.5">
+            <TabsList className="bg-[rgba(0,0,0,0.04)] p-1 h-10 rounded-full border border-black/5">
+              <TabsTrigger value="board" className="h-8 rounded-full text-xs gap-1.5 px-4 font-bold">
                 <LayoutGrid className="h-3.5 w-3.5" />
                 Board
               </TabsTrigger>
-              <TabsTrigger value="swimlane" className="h-7 text-xs gap-1.5">
+              <TabsTrigger value="swimlane" className="h-8 rounded-full text-xs gap-1.5 px-4 font-bold">
                 <Layers className="h-3.5 w-3.5" />
                 Swimlane
               </TabsTrigger>
-              <TabsTrigger value="metrics" className="h-7 text-xs gap-1.5">
+              <TabsTrigger value="calendar" className="h-8 rounded-full text-xs gap-1.5 px-4 font-bold">
+                <CalendarIcon className="h-3.5 w-3.5" />
+                Calendar
+              </TabsTrigger>
+              <TabsTrigger value="metrics" className="h-8 rounded-full text-xs gap-1.5 px-4 font-bold">
                 <BarChart3 className="h-3.5 w-3.5" />
                 Metrics
               </TabsTrigger>
@@ -336,12 +409,32 @@ export default function BoardView({ boardId }: BoardViewProps) {
             <Button
               onClick={() => setCreateTaskOpen(true)}
               size="sm"
-              className="gap-2"
+              className="gap-2 rounded-full px-5 h-10 font-bold shadow-lg"
             >
               <Plus className="h-4 w-4" />
               Create Task
             </Button>
           )}
+
+          {/* Export Button */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 rounded-full px-4 h-10 border-black/10 font-bold bg-white/50 backdrop-blur-sm">
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 rounded-2xl p-2">
+              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-black/40 px-3 py-2">Select Format</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleExport('json')} className="rounded-xl px-3 py-2.5 font-bold cursor-pointer">
+                JSON Document
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('csv')} className="rounded-xl px-3 py-2.5 font-bold cursor-pointer">
+                CSV Spreadsheet
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Board Settings - Managers/Admins only */}
           {(session?.role === 'ADMIN' || session?.role === 'MANAGER') && (
@@ -367,7 +460,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
           onDragEnd={handleDragEnd}
         >
           <div 
-            className="flex-1 overflow-x-auto overflow-y-hidden p-6 relative"
+            className="flex-1 overflow-x-auto overflow-y-hidden p-6 relative bg-[radial-gradient(circle_at_50%_50%,#fafafa,var(--color-warm-stone))] dark:bg-[radial-gradient(circle_at_50%_50%,#1a1a1a,#000)]"
             onMouseMove={(e) => {
               const now = Date.now()
               if (now - lastMouseMove.current < 50) return
@@ -379,6 +472,9 @@ export default function BoardView({ boardId }: BoardViewProps) {
               emitCursorMove({ boardId, cursor: { x, y } })
             }}
           >
+            {/* Grain/Noise Texture */}
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
+            
             <BoardCursors />
             <div className="flex gap-4 pb-6 h-full w-max">
               {columns.map((column) => (
@@ -392,6 +488,11 @@ export default function BoardView({ boardId }: BoardViewProps) {
                   activeId={activeId}
                 />
               ))}
+
+              {/* Add Column Button */}
+              {(session?.role === 'ADMIN' || session?.role === 'MANAGER') && (
+                <AddColumnButton boardId={boardId} />
+              )}
             </div>
           </div>
         </DndContext>
@@ -411,6 +512,13 @@ export default function BoardView({ boardId }: BoardViewProps) {
               onClick={() => dispatch(setSelectedTask(task.id))}
             />
           )}
+        />
+      )}
+
+      {viewMode === 'calendar' && (
+        <CalendarView 
+          tasks={tasks || []} 
+          onTaskClick={(taskId) => dispatch(setSelectedTask(taskId))} 
         />
       )}
 

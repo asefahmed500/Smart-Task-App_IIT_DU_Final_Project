@@ -1,200 +1,139 @@
-# AGENTS.md - Developer Guidelines for This Project
+# AGENTS.md - SmartTask Developer Guide
 
-Guidance for AI agents. No Cursor or Copilot rules configured.
-
-## Build & Development Commands
+## Quick Commands
 
 ```bash
-npm run dev          # Start dev server with Turbopack
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint (eslint-config-next + typescript)
-npm run format       # Format code with Prettier (--write)
-npm run typecheck    # TypeScript type checking (tsc --noEmit)
-npx prisma generate  # Generate Prisma client after schema changes
-npx prisma db push   # Push schema to database
-npx prisma studio    # Open database browser
-npm run seed         # Seed database (admin, manager, member users)
+npm run dev          # Dev server (port 3000, falls to 3001 if busy)
+npm run lint        # ESLint
+npm run format      # Prettier --write
+npm run typecheck   # tsc --noEmit
+npx prisma generate && npx prisma db push  # Schema sync (both required)
 ```
 
-**Tests**: No test framework configured.
+**Order matters**: `lint -> format -> typecheck` before commits.
 
 ## Tech Stack
 
-Next.js 16 (App Router), React 19, TypeScript (strict), Tailwind CSS v4, shadcn/ui, Redux Toolkit + RTK Query, Prisma v7 (PostgreSQL), better-auth v1 (JWT), Socket.IO.
+- Next.js 16 (App Router), React 19, TypeScript (strict)
+- Tailwind CSS v4, shadcn/ui
+- Redux Toolkit + RTK Query
+- Prisma v7 (PostgreSQL/Neon), better-auth v1 (JWT)
+- Socket.IO (real-time)
 
 ## Project Structure
 
 ```
-app/
-  (auth)/           # Login, register pages
-  (dashboard)/      # Protected pages (dashboard, board, admin, profile)
-  api/              # Route handlers (auth, boards, tasks, admin, etc.)
-components/
-  ui/               # shadcn/ui components
-  kanban/           # Board, column, task-card, metrics
-  task/             # Task detail sidebar, dependency select
-  layout/           # Navbar, sidebar, right-sidebar
-  admin/            # Users table, boards table, audit log
+app/                    # Pages + API routes (Next.js 16 App Router)
+├── (auth)/            # /login, /register
+├── (dashboard)/       # /admin, /manager, /member, /board/[id]
+├── api/              # 50+ route handlers
+components/          # React components (ui/, kanban/, task/, admin/)
 lib/
-  slices/           # Redux slices + RTK Query APIs
-  automation/       # Engine, triggers, actions
-  metrics/          # Cycle time, lead time, throughput
-  utils/            # cn utility
-prisma/             # Schema (13 models) and seeding
+├── slices/           # Redux + RTK Query APIs
+├── automation/      # Engine, triggers, actions
+├── board-access.ts # Board access helper (CRITICAL for RBAC)
+├── board-roles.ts   # getEffectiveBoardRole() - Board-specific role resolver
+├── session.ts      # Auth helpers (requireApiAuth, etc.)
+└── constants/      # Magic number constants
+prisma/
+└── schema.prisma  # 17 models
 ```
 
-Path alias: `@/*` maps to project root.
+**Path alias**: `@/*` = project root.
 
-## Code Style
+## Database
 
-### Imports
+- Schema: `prisma/schema.prisma`
+- After ANY schema change: `npx prisma generate && npx prisma db push`
+- Check sync: `npx prisma validate && npx prisma db pull`
+- New model = update both commands
 
-Absolute imports via `@/` prefix. Order: external → internal → relative:
+## Auth Flow
+
+- Token stored in `auth_token` cookie (httpOnly, 7-day expiry)
+- Verify with: `requireApiAuth()` → returns `SessionUser`
+- Session helpers: `lib/session.ts` (`requireAuth`, `getApiSession`, `getServerSession`)
+
+## CRITICAL: Board-Specific Role System
+
+**NEVER use platform role (`session.user.role`) for board-level authorization.** Always resolve board-specific role:
 
 ```typescript
-import { useState } from "react"
-import { tasksApi } from "@/lib/slices/tasksApi"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils/cn"
-import { TaskDialog } from "./task-dialog"
+// WRONG - uses platform role
+if (session.user.role === 'MEMBER') { ... }
+
+// CORRECT - uses board-specific role
+const effectiveRole = await getEffectiveBoardRole(session, boardId)
+if (effectiveRole === 'MEMBER') { ... }
+
+// Use verifyBoardAccess for board access checks
+const board = await verifyBoardAccess(userId, boardId)
+if (!board) { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
 ```
 
-### Formatting (Prettier)
+**Helper functions:**
+- `lib/board-roles.ts`: `getEffectiveBoardRole(session, boardId)` → `'ADMIN' | 'MANAGER' | 'MEMBER' | null`
+- `lib/board-access.ts`: `verifyBoardAccess(userId, boardId)` → Board or null
 
-- `semi: false`, `singleQuote: false`, `tabWidth: 2`
-- `trailingComma: "es5"`, `printWidth: 80`
-- Plugin: `prettier-plugin-tailwindcss` (auto-sorts classes)
+## Role-Based Access
 
-### TypeScript
+| Role    | Dashboard | Can Create Board | Can Manage Users |
+|---------|-----------|-----------------|-----------------|
+| ADMIN   | /admin    | Yes             | Yes             |
+| MANAGER | /manager  | Yes             | No              |
+| MEMBER  | /member   | No              | No              |
 
-- Explicit return types for exported functions
-- `interface` for object shapes, `type` for unions/aliases
-- Avoid `any`; use `unknown` when uncertain
-- Strict null checks: `?`, `null`, `undefined` explicit
+**Priority**: Platform ADMIN > Board Owner > BoardMember role.
 
-### Naming
+## Kanban System
 
-- Files: `kebab-case.ts` (components: `task-dialog.tsx`)
-- Components: `PascalCase` (`TaskDetailSidebar`)
-- Hooks: `camelCase` with `use` prefix (`useAppDispatch`)
-- Constants: `SCREAMING_SNAKE_CASE`
-- Interfaces: `PascalCase` (`CreateTaskRequest`)
+- **Version locking**: Every task has `version` field for optimistic concurrency
+- **WIP limits**: Columns have `wipLimit` - members blocked, managers can override with `{ override: true }`
+- **Dependencies**: Blocked tasks cannot move to terminal columns (Done, Review)
+- **Triggers**: `TASK_MOVED`, `TASK_ASSIGNED`, `PRIORITY_CHANGED`, `TASK_STALLED`
 
-### API Routes
-
-Use `requireApiAuth()` for protected routes. Handle errors with proper HTTP status:
+## API Patterns
 
 ```typescript
+// Route params are Promises in Next.js 16
 interface RouteContext {
   params: Promise<{ id: string }>
 }
 
-export async function GET(req: NextRequest, { params }: RouteContext) {
-  const authResult = await requireApiAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const session = authResult
-
-  try {
-    const { id } = await params
-    const task = await prisma.task.findUnique({ where: { id } })
-    if (!task) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 })
-    }
-    return NextResponse.json(task)
-  } catch (error) {
-    console.error("Get task error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
-  }
+export async function PATCH(req: NextRequest, { params }: RouteContext) {
+  const { id } = await params
+  // ...
 }
 ```
 
-### Redux Toolkit (RTK Query)
+## Board Member Management
 
-Create APIs with `createApi`. Register middleware in `lib/store.ts`:
+- Platform ADMINs can access all boards
+- Board Owner is always ADMIN for their board
+- BoardMember role is independent of platform role
+- Use `getEffectiveBoardRole()` not `session.user.role`
 
-```typescript
-export const tasksApi = createApi({
-  reducerPath: "tasksApi",
-  baseQuery: fetchBaseQuery({ baseUrl: "/api", credentials: "include" }),
-  tagTypes: ["Task"],
-  endpoints: (builder) => ({
-    getTasks: builder.query<Task[], string>({
-      query: (boardId) => `/boards/${boardId}/tasks`,
-      providesTags: (result) =>
-        result?.map((task) => ({ type: "Task", id: task.id })) || [],
-    }),
-    updateTask: builder.mutation<Task, { id: string; data: UpdateTaskRequest }>(
-      {
-        query: ({ id, data }) => ({
-          url: `/tasks/${id}`,
-          method: "PATCH",
-          body: data,
-        }),
-        invalidatesTags: (result) => [{ type: "Task", id: result?.id }],
-      }
-    ),
-  }),
-})
+## Common Gotchas
+
+1. **Rate limiter**: Uses hybrid in-memory + Prisma `RateLimit` table
+2. **Dashboard redirect**: Profile loads async - show skeleton until `profileLoading` is false
+3. **Prisma pull resets schema**: Run `prisma db pull` overwrites local schema
+4. **Port conflicts**: `npm run dev` auto-finds port if 3000 busy
+5. **.next cache**: Delete `.next` folder when typecheck generates false errors
+6. **Socket token**: Stored in localStorage for Socket.IO (httpOnly cookie inaccessible to JS)
+
+## Code Style
+
+- Imports: external → `@/` → relative
+- Components: `PascalCase`, files: `kebab-case.tsx`
+- No `any` - use `unknown` if uncertain
+- API errors: return `{ error: "message" }` with proper HTTP status
+- Use constants from `lib/constants/index.ts` for magic numbers
+
+## Pre-commit Checklist
+
+```bash
+npm run lint && npm run format && npm run typecheck
 ```
 
-## Database (Prisma)
-
-Schema: `prisma/schema.prisma`. After schema changes: `npx prisma generate && npx prisma db push`.
-Client: import from `lib/prisma.ts`.
-
-## Authentication
-
-- Server: `lib/auth.ts` (better-auth, JWT via jose)
-- Client: `lib/auth-client.ts`
-- Session helpers (`lib/session.ts`):
-  - `requireAuth()` - Server Components, redirects to `/login`
-  - `requireApiAuth()` - API routes, returns 401 `NextResponse`
-  - `requireRole(roles)` / `requireApiRole(roles)` - Role-based guard
-
-## Role-Based Access
-
-Roles: `ADMIN`, `MANAGER`, `MEMBER`. Use `getEffectiveBoardRole()` for board-level:
-
-```typescript
-import { getEffectiveBoardRole } from "@/lib/board-roles"
-
-const effectiveRole = await getEffectiveBoardRole(session, boardId)
-if (effectiveRole === "MEMBER") {
-  return NextResponse.json(
-    { error: "Only managers and admins can delete" },
-    { status: 403 }
-  )
-}
-```
-
-Priority: Platform `ADMIN` → Board owner → `BoardMember` record.
-
-| Action         | ADMIN | MANAGER | MEMBER       |
-| -------------- | ----- | ------- | ------------ |
-| Manage users   | Yes   | No      | No           |
-| Manage boards  | Yes   | Yes     | Configurable |
-| Manage columns | Yes   | Yes     | No           |
-| Manage tasks   | Yes   | Yes     | Yes (own)    |
-| Override WIP   | Yes   | Yes     | No           |
-
-## Kanban System
-
-- Task movement: version check, WIP limit check, dependency check, automation trigger
-- WIP limits: members blocked, managers can override with `override: true`
-- Blocked tasks cannot move to Done/Review columns
-
-## Key Features
-
-- **Automation Engine** (`lib/automation/`): Triggers (TASK_MOVED, TASK_ASSIGNED), conditions, actions (NOTIFY_USER, AUTO_ASSIGN)
-- **Real-Time** (`lib/socket.ts`): Socket.IO for presence cursors, editing indicators
-- **Undo System**: Middleware in `lib/undo-middleware.ts`, revert handlers track mutations
-- **Offline Support**: `lib/offlineQueue.ts` queues mutations, replays on reconnect
-- **Metrics**: Cycle time (inProgress→Done), lead time (created→Done), throughput heatmap
-
-## Pre-commit
-
-Run before committing: `npm run lint && npm run format && npm run typecheck`
+Tests: None configured.

@@ -11,9 +11,8 @@ import { useState, useEffect } from 'react'
 import DueTimeline from './due-timeline'
 import PresenceStack from './presence-stack'
 import { useAppSelector } from '@/lib/hooks'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { EditingUser } from '@/lib/slices/presenceSlice'
-
-import { useGetSessionQuery } from '@/lib/slices/authApi'
 
 interface TaskCardProps {
   id: string
@@ -34,6 +33,7 @@ interface TaskCardProps {
   focusMode?: boolean
   filterAssignee?: string | null
   isDragging?: boolean
+  totalTimeSpent?: number
   role?: string // Alternative to session query inside for performance if passed down
   onClick?: () => void
 }
@@ -59,10 +59,9 @@ export default function TaskCard({
   focusMode,
   filterAssignee,
   isDragging,
+  totalTimeSpent,
   onClick,
 }: TaskCardProps) {
-  const { data: session } = useGetSessionQuery()
-  const isAdmin = session?.role === 'ADMIN'
 
   const [currentTime, setCurrentTime] = useState(new Date())
   const editingUsers = useAppSelector((state) =>
@@ -95,17 +94,39 @@ export default function TaskCard({
     )
   }
 
+  const formatTotalTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    if (h > 0) return `${h}h ${m}m`
+    return `${m}m`
+  }
+
   return (
-    <Card
-      onClick={onClick}
-      className={cn(
-        'group hover:shadow-md transition-all cursor-pointer relative bg-card border-2 border-border rounded-[14px] shadow-sm',
-        isDragging && 'opacity-50 rotate-1 shadow-xl ring-2 ring-primary/30 scale-[1.02]',
-        isStale && 'border-amber-200/50 bg-amber-50/20 dark:border-amber-900/30 dark:bg-amber-950/20',
-        isBlocked && 'border-red-200/50 bg-red-50/20 dark:border-red-900/30 dark:bg-red-950/20',
-        editingUsers.length > 0 && 'ring-2 ring-blue-500/50'
-      )}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      className="w-full"
     >
+      <Card
+        onClick={onClick}
+        className={cn(
+          'group transition-all duration-300 cursor-pointer relative',
+          'bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-white/20 dark:border-zinc-800/20',
+          'shadow-[0_2px_4px_rgba(0,0,0,0.02),0_1px_1px_rgba(0,0,0,0.01)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08),0_1px_1px_rgba(0,0,0,0.01)]',
+          'rounded-[16px] overflow-hidden',
+          isDragging && 'opacity-50 rotate-1 shadow-2xl ring-2 ring-primary/30 scale-[1.02] z-50',
+          isStale && 'border-amber-200/30 bg-amber-50/10 dark:border-amber-900/20 dark:bg-amber-950/10',
+          isBlocked && 'border-red-200/30 bg-red-50/10 dark:border-red-900/20 dark:bg-red-950/10',
+          editingUsers.length > 0 && 'ring-2 ring-blue-500/30'
+        )}
+      >
+        {/* Glow effect on hover */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+          <div className="absolute -inset-[100%] bg-[radial-gradient(circle_at_50%_50%,rgba(0,0,0,0.03),transparent_70%)] dark:bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.03),transparent_70%)]" />
+        </div>
       {/* Visual Aging Indicator - subtly show cards that haven't moved */}
       {isStale && (
         <div className="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-amber-600/60 font-medium bg-amber-100/30 px-1.5 py-0.5 rounded-full">
@@ -136,9 +157,7 @@ export default function TaskCard({
           <Badge variant="outline" className={cn('text-xs', priorityColors[priority])}>
             {priority}
           </Badge>
-          {!isAdmin && (
-            <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-          )}
+          <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
         {/* Title */}
@@ -177,17 +196,26 @@ export default function TaskCard({
 
         {/* Footer */}
         <div className="flex items-center justify-between mt-3 pt-2 border-t">
-          {/* Assignee */}
-          {assignee ? (
-            <Avatar className="h-6 w-6">
-              <AvatarImage src={assignee.avatar || undefined} alt={assignee.name || 'User'} />
-              <AvatarFallback className="text-xs">{assignee.name?.[0] || 'U'}</AvatarFallback>
-            </Avatar>
-          ) : (
-            <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
-              <span className="text-xs text-muted-foreground">?</span>
-            </div>
-          )}
+          {/* Assignee & Time */}
+          <div className="flex items-center gap-3">
+            {assignee ? (
+              <Avatar className="h-6 w-6">
+                <AvatarImage src={assignee.avatar || undefined} alt={assignee.name || 'User'} />
+                <AvatarFallback className="text-xs">{assignee.name?.[0] || 'U'}</AvatarFallback>
+              </Avatar>
+            ) : (
+              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
+                <span className="text-xs text-muted-foreground">?</span>
+              </div>
+            )}
+
+            {totalTimeSpent != null && totalTimeSpent > 0 && (
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-slate-100 px-1.5 py-0.5 rounded-full font-medium">
+                <Clock className="h-2.5 w-2.5" />
+                <span>{formatTotalTime(totalTimeSpent)}</span>
+              </div>
+            )}
+          </div>
 
           {/* Due Timeline */}
           {dueDate && <DueTimeline dueDate={dueDate} currentTime={currentTime} createdAt={createdAt} />}
@@ -196,6 +224,7 @@ export default function TaskCard({
         {/* Presence Stack */}
         <PresenceStack taskId={id} />
       </CardContent>
-    </Card>
+      </Card>
+    </motion.div>
   )
 }

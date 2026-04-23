@@ -12,6 +12,7 @@ import RightSidebar from '@/components/layout/right-sidebar'
 import CommandPalette from '@/components/command-palette'
 import { UndoKeyboardHandler } from '@/components/undo-toast'
 import { NetworkStatusListener } from '@/components/offline-banner'
+import { ErrorBoundary } from '@/components/error-boundary'
 import type { Role } from '@/lib/slices/roleSlice'
 
 export default function DashboardLayout({
@@ -48,27 +49,29 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <NetworkStatusListener />
-      <UndoKeyboardHandler />
+    <ErrorBoundary>
+      <div className="flex h-screen overflow-hidden bg-background">
+        <NetworkStatusListener />
+        <UndoKeyboardHandler />
 
-      {/* Fixed Left Sidebar — overlays content, uses fixed positioning */}
-      <Sidebar />
+        {/* Fixed Left Sidebar — overlays content, uses fixed positioning */}
+        <Sidebar />
 
-      {/* Main content — shift right when sidebar open using padding-left transition */}
-      <div
-        className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
-        style={{ paddingLeft: sidebarOpen ? 280 : 0 }}
-      >
-        <Navbar />
-        <main className="flex-1 overflow-hidden relative">{children}</main>
+        {/* Main content — shift right when sidebar open using padding-left transition */}
+        <div
+          className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
+          style={{ paddingLeft: sidebarOpen ? 280 : 0 }}
+        >
+          <Navbar />
+          <main className="flex-1 overflow-hidden relative">{children}</main>
+        </div>
+
+        {/* Right Sidebar — fixed on the right, overlays */}
+        {rightSidebarOpen && <RightSidebar />}
+
+        {/* Command Palette */}
+        <CommandPalette />
       </div>
-
-      {/* Right Sidebar — fixed on the right, overlays */}
-      {rightSidebarOpen && <RightSidebar />}
-
-      {/* Command Palette */}
-      <CommandPalette />
-    </div>
+    </ErrorBoundary>
   )
 }

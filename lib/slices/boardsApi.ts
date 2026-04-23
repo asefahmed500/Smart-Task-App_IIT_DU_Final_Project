@@ -108,6 +108,7 @@ export interface UpdateBoardRequest {
   name?: string
   description?: string
   color?: string
+  previousState?: any // Metadata for undo
 }
 
 export interface MetricsPayload {
@@ -140,7 +141,7 @@ export const boardsApi = createApi({
       return headers
     },
   }),
-  tagTypes: ['Board', 'Column', 'Task'],
+  tagTypes: ['Board', 'Column', 'Task', 'Webhook'],
   endpoints: (builder) => ({
     getBoards: builder.query<Board[], void>({
       query: () => '/boards',
@@ -182,7 +183,7 @@ export const boardsApi = createApi({
       query: (boardId) => `/boards/${boardId}/metrics`,
       providesTags: [{ type: 'Task' as const, id: 'LIST' }]
     }),
-    updateColumn: builder.mutation<Column, { id: string; wipLimit?: number | null; name?: string }>({
+    updateColumn: builder.mutation<Column, { id: string; wipLimit?: number | null; name?: string; previousState?: any }>({
       query: ({ id, ...data }) => ({
         url: `/columns/${id}`,
         method: 'PATCH',
@@ -207,6 +208,14 @@ export const boardsApi = createApi({
         body: { columns },
       }),
       invalidatesTags: ['Column'],
+    }),
+    createColumn: builder.mutation<Column, { boardId: string; name: string; wipLimit?: number | null }>({
+      query: ({ boardId, ...data }) => ({
+        url: `/boards/${boardId}/columns`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: (result, error, { boardId }) => [{ type: 'Board', id: boardId }, 'Column'],
     }),
     toggleArchiveBoard: builder.mutation<{ archived: boolean }, { id: string; archived: boolean }>({
       query: ({ id, archived }) => ({
@@ -271,8 +280,52 @@ export const boardsApi = createApi({
       }),
       invalidatesTags: () => [{ type: 'Board', id: 'AUTOMATIONS' }],
     }),
+    getMetricsCounts: builder.query<{ dueToday: number; overdue: number }, void>({
+      query: () => '/metrics/counts',
+      providesTags: ['Task'],
+    }),
+    getBoardWebhooks: builder.query<Webhook[], string>({
+      query: (boardId) => `/boards/${boardId}/webhooks`,
+      providesTags: (result, error, boardId) => 
+        result?.map(w => ({ type: 'Webhook' as const, id: w.id })) || [{ type: 'Webhook', id: boardId }],
+    }),
+    createWebhook: builder.mutation<Webhook, { boardId: string; name: string; url: string; secret?: string; events: string[] }>({
+      query: ({ boardId, ...data }) => ({
+        url: `/boards/${boardId}/webhooks`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: (result, error, arg) => [{ type: 'Webhook', id: arg.boardId }],
+    }),
+    updateWebhook: builder.mutation<Webhook, { id: string; name?: string; url?: string; secret?: string; events?: string[]; isActive?: boolean }>({
+      query: ({ id, ...data }) => ({
+        url: `/webhooks/${id}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: (result) => [{ type: 'Webhook', id: result?.id }],
+    }),
+    deleteWebhook: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/webhooks/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Webhook'],
+    }),
   }),
 })
+
+export interface Webhook {
+  id: string
+  name: string
+  url: string
+  secret: string | null
+  events: string[]
+  isActive: boolean
+  boardId: string
+  createdAt: string
+  updatedAt: string
+}
 
 export const {
   useGetBoardsQuery,
@@ -283,6 +336,7 @@ export const {
   useGetBoardColumnsQuery,
   useGetBoardMetricsQuery,
   useUpdateColumnMutation,
+  useCreateColumnMutation,
   useDeleteColumnMutation,
   useReorderColumnsMutation,
   useToggleArchiveBoardMutation,
@@ -294,4 +348,9 @@ export const {
   useUpdateAutomationMutation,
   useDeleteAutomationMutation,
   useGetBoardAuditQuery,
+  useGetMetricsCountsQuery,
+  useGetBoardWebhooksQuery,
+  useCreateWebhookMutation,
+  useUpdateWebhookMutation,
+  useDeleteWebhookMutation,
 } = boardsApi

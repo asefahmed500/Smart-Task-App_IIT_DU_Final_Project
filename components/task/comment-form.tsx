@@ -36,34 +36,39 @@ export default function CommentForm({ taskId, onCommentAdded }: CommentFormProps
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <Textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Write a comment..."
-        className="min-h-[80px] resize-none"
-        disabled={isLoading}
-      />
-      <div className="flex justify-end">
-        <Button
-          type="submit"
-          size="sm"
-          disabled={!text.trim() || isLoading}
-          className="gap-2"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Sending...
-            </>
-          ) : (
-            <>
-              <Send className="h-4 w-4" />
-              Send
-            </>
-          )}
-        </Button>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="relative group">
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Write a comment..."
+          className="min-h-[100px] resize-none rounded-2xl border-slate-200 bg-white p-4 text-sm transition-all duration-300 focus:ring-primary/20 focus:border-primary/30 group-hover:border-slate-300 shadow-sm"
+          disabled={isLoading}
+        />
+        <div className="absolute bottom-3 right-3">
+          <Button
+            type="submit"
+            size="sm"
+            disabled={!text.trim() || isLoading}
+            className="h-8 rounded-full px-4 gap-2 shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-105 active:scale-95"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Posting...</span>
+              </>
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5" />
+                <span>Post</span>
+              </>
+            )}
+          </Button>
+        </div>
       </div>
+      <p className="text-[10px] text-slate-400 px-1">
+        Markdown is supported (e.g. **bold**, *italic*, [link](url))
+      </p>
     </form>
   )
 }

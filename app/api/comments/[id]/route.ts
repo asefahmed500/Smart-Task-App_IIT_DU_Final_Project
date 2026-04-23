@@ -59,6 +59,10 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       },
     })
 
+    // Broadcast real-time update
+    const { broadcastCommentUpdate } = await import('@/lib/socket-server')
+    broadcastCommentUpdate(comment.task.boardId, comment.taskId)
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Delete comment error:', error)
@@ -84,6 +88,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     const comment = await prisma.comment.findUnique({
       where: { id },
+      include: { task: true }
     })
 
     if (!comment) {
@@ -101,6 +106,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         user: { select: { id: true, name: true, avatar: true } }
       }
     })
+
+    // Broadcast real-time update
+    const { broadcastCommentUpdate } = await import('@/lib/socket-server')
+    broadcastCommentUpdate(comment.task.boardId, comment.taskId)
 
     return NextResponse.json(updated)
   } catch (error) {

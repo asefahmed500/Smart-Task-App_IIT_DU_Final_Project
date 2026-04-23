@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
-import { notifyTaskParticipants } from '@/lib/notifications'
+import { handleTaskEvent } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -77,8 +77,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return c
     })
 
-    // Notify participants (Assignee, Creator, Board Owner)
-    await notifyTaskParticipants(
+    // Notify participants (Assignee, Creator, Board Owner) + Webhooks
+    await handleTaskEvent(
       id,
       session.user.id,
       'COMMENT_ADDED',
@@ -88,8 +88,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     )
 
     // Broadcast task update for real-time activity feed
-    const { broadcastTaskUpdate } = await import('@/lib/socket-server')
-    broadcastTaskUpdate(task.boardId, { taskId: id, comment })
+    const { broadcastCommentUpdate } = await import('@/lib/socket-server')
+    broadcastCommentUpdate(task.boardId, id)
 
     return NextResponse.json(comment)
   } catch (error) {

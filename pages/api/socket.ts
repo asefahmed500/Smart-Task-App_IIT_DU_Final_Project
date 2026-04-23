@@ -1,26 +1,20 @@
 import { Server as NetServer } from 'http'
-import { NextRequest } from 'next/server'
+import { NextApiRequest, NextApiResponse } from 'next'
 import { Server as IOServer } from 'socket.io'
 
-export const dynamic = 'force-dynamic'
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
 
-let io: IOServer
-
-/**
- * Next.js 15+ App Router Socket.IO initialization "hack"
- * This attaches the IO server to the underlying HTTP server.
- */
-export async function GET(req: NextRequest) {
+export default async function SocketHandler(req: NextApiRequest, res: NextApiResponse) {
   // @ts-ignore
-  if (!global.io) {
+  if (!res.socket.server.io) {
     console.log('--- Initializing Socket.IO ---')
 
     // @ts-ignore
-    const httpServer: NetServer = req.socket?.server
-
-    if (!httpServer) {
-      return new Response('HTTP Server not found', { status: 500 })
-    }
+    const httpServer: NetServer = res.socket.server
 
     const ioInstance = new IOServer(httpServer, {
       path: '/api/socket',
@@ -94,18 +88,18 @@ export async function GET(req: NextRequest) {
         socket.to(`board:${boardId}`).emit('task:updated', data)
       })
 
+      socket.on('task:move', ({ boardId, ...data }) => {
+        socket.to(`board:${boardId}`).emit('task:updated', data)
+      })
+
       socket.on('disconnect', () => {
         console.log(`Socket disconnected: ${socket.id}`)
       })
     })
 
     // @ts-ignore
-    global.io = ioInstance
-    io = ioInstance
-  } else {
-    // @ts-ignore
-    io = global.io
+    res.socket.server.io = ioInstance
   }
 
-  return new Response('Socket server initialized', { status: 200 })
+  res.end()
 }

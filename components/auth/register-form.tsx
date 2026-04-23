@@ -25,7 +25,7 @@ function RegisterFormContent() {
   const searchParams = useSearchParams()
   const [registerMutation, { isLoading }] = useRegisterMutation()
   const [sendingVerification, setSendingVerification] = useState(false)
-  const resend = searchParams.get('resend') === 'true'
+  const resend = searchParams?.get('resend') === 'true'
 
   const {
     register: registerField,
@@ -57,7 +57,7 @@ function RegisterFormContent() {
         })
         return false
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to send verification email', {
         description: 'Please try again later.',
       })
@@ -75,19 +75,17 @@ function RegisterFormContent() {
         description: `Welcome ${result.user.name}. Please verify your email.`,
       })
 
-      // Send verification email
       await sendVerificationEmail(data.email)
 
-      // Redirect to email verification page
       router.push('/verify-email-sent')
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { data?: { error?: string } }
       toast.error('Registration failed', {
-        description: error.data?.error || 'Could not create account',
+        description: err.data?.error || 'Could not create account',
       })
     }
   }
 
-  // Handle resend verification email
   if (resend) {
     return (
       <div className="space-y-4">
@@ -204,7 +202,6 @@ function RegisterFormContent() {
   )
 }
 
-// Default export with Suspense boundary for useSearchParams
 export default function RegisterForm() {
   return (
     <Suspense fallback={<div className="animate-pulse space-y-4">

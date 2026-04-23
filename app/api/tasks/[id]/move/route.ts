@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
 import { evaluateAutomations } from '@/lib/automation/engine'
-import { notifyTaskParticipants } from '@/lib/notifications'
+import { handleTaskEvent } from '@/lib/notifications'
 import { getEffectiveBoardRole } from '@/lib/board-roles'
 import { validateRequest } from '@/lib/api/validation-middleware'
 import { moveTaskSchema } from '@/lib/validations/task'
@@ -158,15 +158,15 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     })
 
     // Evaluate automation rules after successful move
-    await evaluateAutomations(existingTask.boardId, 'TASK_MOVED', updated, userId)
+    await evaluateAutomations(existingTask.boardId, 'TASK_MOVED', updated as any, userId)
 
     // Broadcast update via socket
     const { broadcastTaskUpdate } = await import('@/lib/socket-server')
     broadcastTaskUpdate(existingTask.boardId, updated)
 
-    // Notify participants for important stage changes
+    // Notify participants for important stage changes + Webhooks
     if (updated.column?.name.toLowerCase() === 'done' || updated.column?.name.toLowerCase() === 'review') {
-      await notifyTaskParticipants(
+      await handleTaskEvent(
         id,
         userId,
         'TASK_MOVED',

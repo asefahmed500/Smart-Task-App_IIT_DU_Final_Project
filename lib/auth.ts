@@ -5,6 +5,8 @@ import bcrypt from 'bcrypt'
 import { SignJWT, jwtVerify } from 'jose'
 
 import { jwt } from "better-auth/plugins/jwt"
+import { cookies } from 'next/headers'
+import { validateEnv } from './env-validation'
 
 // Get allowed origins for CORS and CSRF
 const getAllowedOrigins = () => {
@@ -43,16 +45,9 @@ export const auth = betterAuth({
   ]
 })
 
-// Enforce secure JWT secret - must be set and at least 64 characters
-if (!process.env.BETTER_AUTH_SECRET) {
-  throw new Error('BETTER_AUTH_SECRET environment variable is required. Set it to a secure random string of at least 64 characters.')
-}
-
-if (process.env.BETTER_AUTH_SECRET.length < 64) {
-  throw new Error(`BETTER_AUTH_SECRET must be at least 64 characters long for security. Current length: ${process.env.BETTER_AUTH_SECRET.length}`)
-}
-
-const JWT_SECRET = new TextEncoder().encode(process.env.BETTER_AUTH_SECRET)
+// Validate environment variables at module load time
+const env = validateEnv()
+const JWT_SECRET = new TextEncoder().encode(env.BETTER_AUTH_SECRET)
 
 export interface User {
   id: string
@@ -65,6 +60,7 @@ export interface User {
 export interface Session {
   user: User
   token: string
+  ipAddress?: string
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -75,23 +71,36 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash)
 }
 
-export async function createToken(user: User): Promise<string> {
-  return new SignJWT({ userId: user.id })
+export async function createToken(user: User, options?: { ipAddress?: string }): Promise<string> {
+  const payload: Record<string, unknown> = { userId: user.id }
+  
+  // Optionally bind IP for additional security (can cause issues with mobile users)
+  if (options?.ipAddress && process.env.NODE_ENV === 'production') {
+    payload.ip = options.ipAddress
+  }
+  
+  return new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
     .sign(JWT_SECRET)
 }
 
-export async function verifyToken(token: string): Promise<{ userId: string } | null> {
+export async function verifyToken(token: string): Promise<{ userId: string; ip?: string } | null> {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET)
-    return { userId: payload.userId as string }
+    return { 
+      userId: payload.userId as string,
+      ip: payload.ip as string | undefined
+    }
   } catch {
     return null
   }
 }
 
+/**
+ * Get session from token - verify and fetch user
+ */
 export async function getSession(token: string): Promise<Session | null> {
   const payload = await verifyToken(token)
   if (!payload) return null
@@ -113,4 +122,30 @@ export async function getSession(token: string): Promise<Session | null> {
     user,
     token,
   }
+}
+
+/**
+ * Revoke all sessions for a user (call when password changes)
+ */
+export async function revokeAllSessions(userId: string): Promise<void> {
+  await prisma.session.deleteMany({ where: { userId } })
+}
+
+/**
+ * Get current IP from request headers
+ * NOTE: Requires headers parameter - cookies are user-controlled and cannot be trusted
+ */
+export async function getClientIp(headers?: Headers): Promise<string> {
+  if (headers) {
+    const forwardedFor = headers.get('x-forwarded-for')
+    const realIp = headers.get('x-real-ip')
+    const cfConnectingIp = headers.get('cf-connecting-ip') // Cloudflare
+
+    const ip = forwardedFor || realIp || cfConnectingIp || 'unknown'
+    return ip.split(',')[0].trim()
+  }
+
+  // Fallback for backward compatibility (but warn)
+  console.warn('[Security] getClientIp called without headers - IP may be unreliable')
+  return 'unknown'
 }
