@@ -18,6 +18,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Note:** The application uses a custom server (`server.cjs`) that integrates Next.js with Socket.IO. This is required for real-time features to work properly.
 
+### Getting Started
+
+**First-time setup:**
+1. Copy `.env.example` to `.env.local` and configure:
+   - `BETTER_AUTH_SECRET` (generate: `openssl rand -base64 64`)
+   - `DATABASE_URL` (PostgreSQL connection string)
+   - `BETTER_AUTH_URL` (typically `http://localhost:3000`)
+   - Optional: Email configuration for notifications
+2. Install dependencies: `npm install`
+3. Generate Prisma client: `npx prisma generate`
+4. Setup database: `npx prisma db push`
+5. Seed data (optional): `npm run seed`
+6. Start development server: `npm run dev`
+
+**Environment validation runs automatically** on startup - missing or invalid environment variables will cause immediate failures with clear error messages.
+
 ## Tech Stack
 
 - **Framework**: Next.js 16.1.7 with App Router, React 19.2
@@ -29,6 +45,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Authentication**: better-auth v1 with email/password
 - **Real-time**: Socket.IO client for presence/collaboration
 - **Validation**: Zod schemas for API request validation
+
+## Recent Security Audit (April 2026)
+
+A comprehensive security audit identified and fixed 7 critical vulnerabilities:
+
+**Fixed Issues:**
+1. Task assignment authorization - Members can now unassign themselves
+2. Authentication IP extraction - Changed from cookies to headers
+3. File upload security - Added double-extension attack prevention
+4. JSON injection prevention - Added Zod validation to automation engine
+5. Environment validation - Comprehensive startup validation implemented
+6. Socket.IO integration - Proper authentication middleware added
+7. Custom server architecture - Replaced default Next.js dev server
+
+**Security Patterns Established:**
+- Always use `getEffectiveBoardRole()` for board operations instead of `session.user.role`
+- Use `path.extname()` for file extension validation, never `.split('.').pop()`
+- Validate JSON before parsing with Zod schemas
+- Read IPs from headers, never from cookies
+- Environment variables must be validated before use
 
 ## Architecture
 
