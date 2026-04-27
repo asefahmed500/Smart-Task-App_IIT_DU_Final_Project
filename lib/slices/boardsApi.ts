@@ -133,18 +133,13 @@ export const boardsApi = createApi({
   reducerPath: 'boardsApi',
   baseQuery: fetchBaseQuery({
     baseUrl: '/api',
-    credentials: 'include',
-    prepareHeaders: (headers, { getState }) => {
-      const state = getState() as RootState
-      const token = state.authApi?.queries
-      // Add auth headers if available
-      return headers
-    },
+    credentials: 'include', // Cookie-based authentication via better-auth
   }),
   tagTypes: ['Board', 'Column', 'Task', 'Webhook'],
   endpoints: (builder) => ({
     getBoards: builder.query<Board[], void>({
       query: () => '/boards',
+      transformResponse: (response: { data: Board[] }) => response.data,
       providesTags: ['Board'],
     }),
     getBoard: builder.query<Board, string>({
@@ -176,8 +171,10 @@ export const boardsApi = createApi({
     }),
     getBoardColumns: builder.query<Column[], string>({
       query: (boardId) => `/boards/${boardId}/columns`,
-      providesTags: (result, error, boardId) =>
-        result?.map(col => ({ type: 'Column' as const, id: col.id })) || [],
+      providesTags: (result, error, boardId) => {
+        if (!result || !Array.isArray(result)) return [{ type: 'Column' as const, id: 'LIST' }]
+        return [{ type: 'Column' as const, id: 'LIST' }, ...result.map(col => ({ type: 'Column' as const, id: col.id }))]
+      },
     }),
     getBoardMetrics: builder.query<MetricsPayload, string>({
       query: (boardId) => `/boards/${boardId}/metrics`,
@@ -251,11 +248,25 @@ export const boardsApi = createApi({
     }),
     getBoardAutomations: builder.query<any[], string>({
       query: (boardId) => `/boards/${boardId}/automations`,
-      providesTags: (result, error, boardId) => [{ type: 'Board', id: `${boardId}-automations` }],
+      transformResponse: (response: any) => {
+        // Handle both direct array and wrapped response
+        return Array.isArray(response) ? response : (response?.data || [])
+      },
+      providesTags: (result, error, boardId) => {
+        if (!result || !Array.isArray(result)) return []
+        return [{ type: 'Board', id: `${boardId}-automations` }]
+      },
     }),
     getBoardAudit: builder.query<any[], string>({
       query: (boardId) => `/boards/${boardId}/audit`,
-      providesTags: (result, error, boardId) => [{ type: 'Board', id: `${boardId}-audit` }],
+      transformResponse: (response: any) => {
+        // Handle both direct array and wrapped response
+        return Array.isArray(response) ? response : (response?.data || [])
+      },
+      providesTags: (result, error, boardId) => {
+        if (!result || !Array.isArray(result)) return []
+        return [{ type: 'Board', id: `${boardId}-audit` }]
+      },
     }),
     createAutomation: builder.mutation<any, { boardId: string; name: string; trigger: any; condition?: any; action: any }>({
       query: ({ boardId, name, trigger, condition, action }) => ({
@@ -286,8 +297,14 @@ export const boardsApi = createApi({
     }),
     getBoardWebhooks: builder.query<Webhook[], string>({
       query: (boardId) => `/boards/${boardId}/webhooks`,
-      providesTags: (result, error, boardId) => 
-        result?.map(w => ({ type: 'Webhook' as const, id: w.id })) || [{ type: 'Webhook', id: boardId }],
+      transformResponse: (response: any) => {
+        // Handle both direct array and wrapped response
+        return Array.isArray(response) ? response : (response?.data || [])
+      },
+      providesTags: (result, error, boardId) => {
+        if (!result || !Array.isArray(result)) return [{ type: 'Webhook', id: boardId }]
+        return result.map(w => ({ type: 'Webhook' as const, id: w.id }))
+      },
     }),
     createWebhook: builder.mutation<Webhook, { boardId: string; name: string; url: string; secret?: string; events: string[] }>({
       query: ({ boardId, ...data }) => ({

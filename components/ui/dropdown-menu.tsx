@@ -194,7 +194,7 @@ function DropdownMenuLabel({
       data-inset={inset}
       className={cn(
         // ElevenLabs dropdown label styling
-        "px-2 py-1.5 text-caption font-medium text-[#777169] data-inset:pl-7",
+        "px-2 py-1.5 text-caption font-medium text-muted-foreground data-inset:pl-7",
         className
       )}
       {...props}

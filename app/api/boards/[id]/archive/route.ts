@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireApiRole } from '@/lib/session'
+import { requireApiAuth } from '@/lib/session'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -8,21 +9,22 @@ interface RouteContext {
 
 // POST /api/boards/:id/archive - Archive or unarchive a board (Manager/Admin only)
 export async function POST(req: NextRequest, { params }: RouteContext) {
-  const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
+  const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
+  const session = authResult
 
   try {
     const { id } = await params
     const body = await req.json()
     const { archived } = body
 
-    const board = await prisma.board.findUnique({
-      where: { id },
-      select: { ownerId: true }
-    })
-
-    if (!board) {
-      return NextResponse.json({ error: 'Board not found' }, { status: 404 })
+    // Check board-level role (not platform role)
+    const effectiveRole = await getEffectiveBoardRole(session, id)
+    if (effectiveRole === null) {
+      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 })
+    }
+    if (effectiveRole !== 'ADMIN' && effectiveRole !== 'MANAGER') {
+      return NextResponse.json({ error: 'Forbidden: Only managers and admins can archive boards' }, { status: 403 })
     }
 
     const updated = await prisma.board.update({

@@ -17,7 +17,7 @@ export default function LoginPage() {
           </Button>
         </Link>
       </div>
-      <div className="mt-6 text-center text-caption text-[#777169]">
+      <div className="mt-6 text-center text-caption text-muted-foreground">
         Don't have an account?{' '}
         <Link href="/register">
           <Button variant="link" className="p-0 h-auto text-caption text-primary underline">

@@ -14,7 +14,7 @@ const envSchema = z.object({
   DIRECT_URL: z.string().url('DIRECT_URL must be a valid URL'),
 
   // Server
-  PORT: z.string().regex(/^\d+$/, 'PORT must be a number').transform(Number).default('3000'),
+  PORT: z.string().regex(/^\d+$/, 'PORT must be a number').transform(Number).default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
   // CORS
@@ -47,7 +47,7 @@ export function validateEnv(): Env {
     return validatedEnv
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errors = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('\n')
+      const errors = error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join('\n')
       throw new Error(`Environment validation failed:\n${errors}`)
     }
     throw error

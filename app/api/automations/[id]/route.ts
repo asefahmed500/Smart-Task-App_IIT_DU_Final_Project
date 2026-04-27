@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireApiAuth, requireApiRole } from '@/lib/session'
+import { requireApiAuth } from '@/lib/session'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
 import { validateRequest } from '@/lib/api/validation-middleware'
 import { updateAutomationSchema } from '@/lib/validations/automation'
 
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
 // PATCH /api/automations/:id - Update an automation rule (Manager/Admin only)
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
+  const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
   const userId = session.user.id
@@ -81,13 +82,13 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Automation rule not found' }, { status: 404 })
     }
 
-    const hasAccess = rule.board.ownerId === userId ||
-      await prisma.boardMember.findFirst({
-        where: { boardId: rule.boardId, userId, role: { in: ['ADMIN', 'MANAGER'] } }
-      })
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden – Only board owners and managers can update automations' }, { status: 403 })
+    // Check board-level role (not platform role)
+    const effectiveRole = await getEffectiveBoardRole(session, rule.boardId)
+    if (effectiveRole === null) {
+      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 })
+    }
+    if (effectiveRole !== 'ADMIN' && effectiveRole !== 'MANAGER') {
+      return NextResponse.json({ error: 'Forbidden: Only managers and admins can update automations' }, { status: 403 })
     }
 
     const updateData: Record<string, unknown> = {}
@@ -132,7 +133,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
 // DELETE /api/automations/:id - Delete an automation rule (Manager/Admin only)
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
+  const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
   const userId = session.user.id
@@ -149,13 +150,13 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Automation rule not found' }, { status: 404 })
     }
 
-    const hasAccess = rule.board.ownerId === userId ||
-      await prisma.boardMember.findFirst({
-        where: { boardId: rule.boardId, userId, role: { in: ['ADMIN', 'MANAGER'] } }
-      })
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Check board-level role (not platform role)
+    const effectiveRole = await getEffectiveBoardRole(session, rule.boardId)
+    if (effectiveRole === null) {
+      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 })
+    }
+    if (effectiveRole !== 'ADMIN' && effectiveRole !== 'MANAGER') {
+      return NextResponse.json({ error: 'Forbidden: Only managers and admins can delete automations' }, { status: 403 })
     }
 
     await prisma.automationRule.delete({ where: { id } })

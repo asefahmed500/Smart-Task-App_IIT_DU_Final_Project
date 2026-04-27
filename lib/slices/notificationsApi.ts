@@ -22,6 +22,7 @@ const notificationsApi = createApi({
     getNotifications: builder.query<Notification[], void>({
       query: () => '/notifications',
       providesTags: ['Notification'],
+      keepUnusedDataFor: 30, // Keep data for 30 seconds after component unmounts
     }),
     markAsRead: builder.mutation<Notification, string>({
       query: (id) => ({

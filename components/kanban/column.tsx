@@ -36,7 +36,7 @@ interface ColumnProps {
   activeId: string | null
 }
 
-function ColumnComponent({ column, boardId, tasks, focusMode, filterAssignee, activeId }: ColumnProps) {
+function ColumnComponent({ column, boardId, tasks = [], focusMode, filterAssignee, activeId }: ColumnProps) {
   const dispatch = useAppDispatch()
   const [updateColumn] = useUpdateColumnMutation()
   const [deleteColumn] = useDeleteColumnMutation()
@@ -162,8 +162,8 @@ function ColumnComponent({ column, boardId, tasks, focusMode, filterAssignee, ac
           )}
         </CardHeader>
 
-        <CardContent className="flex-1 p-3 pt-0">
-          <ScrollArea className="h-full pr-2">
+        <CardContent className="flex-1 p-4">
+          <ScrollArea className="h-full px-2">
             <div
               ref={setNodeRef}
               className={cn(
@@ -310,6 +310,7 @@ export default memo(ColumnComponent, (prev, next) => {
     prev.column.id === next.column.id &&
     prev.tasks.length === next.tasks.length &&
     prev.tasks.map(t => t.id).join(',') === next.tasks.map(t => t.id).join(',') &&
+    prev.tasks.map(t => t.columnId).join(',') === next.tasks.map(t => t.columnId).join(',') &&
     prev.activeId === next.activeId
   )
 })

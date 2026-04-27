@@ -10,7 +10,7 @@ interface PersonalMetricsProps {
   userId: string
 }
 
-export default function PersonalMetrics({ tasks, userId }: PersonalMetricsProps) {
+export default function PersonalMetrics({ tasks = [], userId }: PersonalMetricsProps) {
   const stats = useDashboardStats(tasks, userId)
 
   return (

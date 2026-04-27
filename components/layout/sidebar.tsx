@@ -24,7 +24,7 @@ export default function Sidebar() {
   const pathname = usePathname() ?? ''
   const dispatch = useAppDispatch()
   const { data: session } = useGetSessionQuery()
-  const { data: boards } = useGetBoardsQuery(undefined, {
+  const { data: boards, error: boardsError } = useGetBoardsQuery(undefined, {
     skip: !session, // Skip fetching boards until session is loaded
   })
   const filterDue = useAppSelector((state) => state.ui.filterDue)
@@ -49,7 +49,7 @@ export default function Sidebar() {
 
   const filteredBoards = boards?.filter((board) =>
     board.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  ) || []
 
   const canCreateBoards = userRole === 'MANAGER' || userRole === 'ADMIN'
 
@@ -70,6 +70,15 @@ export default function Sidebar() {
       </div>
 
       <ScrollArea className="flex-1">
+        {/* Error Display */}
+        {boardsError && (
+          <div className="p-3">
+            <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
+              Failed to load boards. Please refresh.
+            </div>
+          </div>
+        )}
+
         {/* Search */}
         <div className="p-3">
           <div className="relative">
@@ -135,7 +144,7 @@ export default function Sidebar() {
           >
             <CheckSquare className="mr-2 h-3.5 w-3.5" />
             All Tasks
-            {boards && (
+            {boards && boards.length > 0 && (
               <Badge variant="secondary" className="ml-auto text-xs">
                 {boards.reduce((sum, b) => sum + (b._count?.tasks || 0), 0)}
               </Badge>

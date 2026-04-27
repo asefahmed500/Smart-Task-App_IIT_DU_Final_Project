@@ -126,7 +126,7 @@ export default function RulesList({ boardId, onEditRule, onCreateRule }: RulesLi
 
       {!rules || rules.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-body-standard text-[#777169]">
+          <p className="text-body-standard text-muted-foreground">
             No automation rules yet. Create one to automate your workflow!
           </p>
         </Card>
@@ -147,7 +147,7 @@ export default function RulesList({ boardId, onEditRule, onCreateRule }: RulesLi
                       <Badge variant="secondary" className="text-xs">Disabled</Badge>
                     )}
                   </div>
-                  <p className="text-caption text-[#777169]">
+                  <p className="text-caption text-muted-foreground">
                     {getTriggerDescription(rule.trigger)}
                     {rule.condition && (
                       <span> and {rule.condition.field} {rule.condition.operator} {rule.condition.value}</span>
@@ -155,7 +155,7 @@ export default function RulesList({ boardId, onEditRule, onCreateRule }: RulesLi
                     → {getActionDescription(rule.action)}
                   </p>
                   {rule.lastFiredAt && (
-                    <p className="text-micro text-[#777169] mt-1">
+                    <p className="text-micro text-muted-foreground mt-1">
                       Last fired {formatDistanceToNow(new Date(rule.lastFiredAt), { addSuffix: true })}
                     </p>
                   )}

@@ -67,6 +67,7 @@ export default function LoginForm() {
           id="email"
           type="email"
           placeholder="you@example.com"
+          autoComplete="email"
           {...register('email')}
           disabled={isLoading}
         />
@@ -81,6 +82,7 @@ export default function LoginForm() {
           id="password"
           type="password"
           placeholder="••••••••"
+          autoComplete="current-password"
           {...register('password')}
           disabled={isLoading}
         />

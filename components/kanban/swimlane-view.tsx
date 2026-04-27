@@ -15,13 +15,13 @@ interface SwimlaneViewProps {
 }
 
 const priorityColors = {
-  LOW: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
-  MEDIUM: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  HIGH: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
-  CRITICAL: 'bg-red-500/10 text-red-500 border-red-500/20',
+  LOW: 'bg-muted/10 text-muted-foreground border-muted/20',
+  MEDIUM: 'bg-secondary/10 text-secondary-foreground border-secondary/20',
+  HIGH: 'bg-accent/10 text-accent-foreground border-accent/20',
+  CRITICAL: 'bg-destructive/10 text-destructive border-destructive/20',
 }
 
-export default function SwimlaneView({ tasks, columns, groupBy, renderTaskCard }: SwimlaneViewProps) {
+export default function SwimlaneView({ tasks = [], columns, groupBy, renderTaskCard }: SwimlaneViewProps) {
   const groupedData = useMemo(() => {
     const groups = new Map<string, Task[]>()
 

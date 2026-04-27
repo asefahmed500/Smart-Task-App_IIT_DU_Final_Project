@@ -244,10 +244,28 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
                   <h3 className="text-body-medium font-medium">No-Code Automations</h3>
                   <p className="text-caption text-muted-foreground">Set up rules to automate your workflow</p>
                 </div>
-                <AutomationBuilder 
-                  boardId={board.id} 
+                <AutomationBuilder
+                  boardId={board.id}
                   members={board.members}
                 />
+              </TabsContent>
+
+              <TabsContent value="webhooks" className="m-0 space-y-6">
+                <div className="space-y-1 mb-4">
+                  <h3 className="text-body-medium font-medium">Webhooks</h3>
+                  <p className="text-caption text-muted-foreground">Configure external integrations to receive board events</p>
+                </div>
+                <div className="text-center py-12">
+                  <Link className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h4 className="text-body-medium font-medium mb-2">No webhooks configured</h4>
+                  <p className="text-caption text-muted-foreground mb-6">
+                    Add webhooks to send real-time updates to external services when tasks are created, updated, or moved.
+                  </p>
+                  <Button variant="outline" className="gap-2">
+                    <Link className="h-4 w-4" />
+                    Add Webhook
+                  </Button>
+                </div>
               </TabsContent>
 
               <TabsContent value="activity" className="m-0 space-y-6">

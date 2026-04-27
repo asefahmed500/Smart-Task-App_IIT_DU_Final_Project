@@ -56,17 +56,34 @@ export const tasksApi = createApi({
   endpoints: (builder) => ({
     getTasks: builder.query<Task[], string>({
       query: (boardId) => `/boards/${boardId}/tasks`,
-      providesTags: (result, error, boardId) => [
-        { type: 'Task' as const, id: 'LIST' },
-        ...(result?.map(task => ({ type: 'Task' as const, id: task.id })) || [])
-      ],
+      transformResponse: (response: { data: Task[] }) => response.data,
+      providesTags: (result, error, boardId) => {
+        if (!result || !Array.isArray(result)) return [{ type: 'Task' as const, id: 'LIST' }]
+        return [
+          { type: 'Task' as const, id: 'LIST' },
+          ...result.map(task => ({ type: 'Task' as const, id: task.id }))
+        ]
+      },
     }),
     getAssignedTasks: builder.query<Task[], void>({
       query: () => '/tasks/assigned',
-      providesTags: (result) => [
-        { type: 'Task' as const, id: 'LIST' },
-        ...(result?.map(task => ({ type: 'Task' as const, id: task.id })) || [])
-      ],
+      providesTags: (result) => {
+        if (!result || !Array.isArray(result)) return [{ type: 'Task' as const, id: 'LIST' }]
+        return [
+          { type: 'Task' as const, id: 'LIST' },
+          ...result.map(task => ({ type: 'Task' as const, id: task.id }))
+        ]
+      },
+    }),
+    getDashboardTasks: builder.query<Task[], void>({
+      query: () => '/tasks/dashboard',
+      providesTags: (result) => {
+        if (!result || !Array.isArray(result)) return [{ type: 'Task' as const, id: 'LIST' }]
+        return [
+          { type: 'Task' as const, id: 'LIST' },
+          ...result.map(task => ({ type: 'Task' as const, id: task.id }))
+        ]
+      },
     }),
     getTask: builder.query<Task, string>({
       query: (taskId) => `/tasks/${taskId}`,
@@ -78,7 +95,7 @@ export const tasksApi = createApi({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: ['Task', 'Board'],
+      invalidatesTags: [{ type: 'Task', id: 'LIST' }, 'Board'],
     }),
     updateTask: builder.mutation<Task, { id: string; data: UpdateTaskRequest }>({
       query: ({ id, data }) => ({
@@ -86,7 +103,7 @@ export const tasksApi = createApi({
         method: 'PATCH',
         body: data,
       }),
-      invalidatesTags: (result) => [{ type: 'Task', id: result?.id }, 'Board'],
+      invalidatesTags: (result) => [{ type: 'Task', id: 'LIST' }, { type: 'Task', id: result?.id }, 'Board'],
     }),
     moveTask: builder.mutation<Task, MoveTaskRequest>({
       query: ({ taskId, ...data }) => ({
@@ -94,7 +111,7 @@ export const tasksApi = createApi({
         method: 'PATCH',
         body: data,
       }),
-      invalidatesTags: (result) => [{ type: 'Task', id: result?.id }, 'Board'],
+      invalidatesTags: (result) => [{ type: 'Task', id: 'LIST' }, { type: 'Task', id: result?.id }, 'Board'],
     }),
     assignTask: builder.mutation<Task, { id: string; assigneeId: string | null }>({
       query: ({ id, assigneeId }) => ({
@@ -102,14 +119,14 @@ export const tasksApi = createApi({
         method: 'PATCH',
         body: { assigneeId },
       }),
-      invalidatesTags: (result) => [{ type: 'Task', id: result?.id }, 'Board'],
+      invalidatesTags: (result) => [{ type: 'Task', id: 'LIST' }, { type: 'Task', id: result?.id }, 'Board'],
     }),
     deleteTask: builder.mutation<void, string>({
       query: (id) => ({
         url: `/tasks/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Task', 'Board'],
+      invalidatesTags: [{ type: 'Task', id: 'LIST' }, 'Board'],
     }),
     getTaskAudit: builder.query<any[], string>({
       query: (taskId) => `/tasks/${taskId}/audit`,
@@ -160,8 +177,10 @@ export const tasksApi = createApi({
     }),
     searchTasks: builder.query<Task[], string>({
       query: (q) => `/tasks/search?q=${encodeURIComponent(q)}`,
-      providesTags: (result) => 
-        result?.map(task => ({ type: 'Task' as const, id: task.id })) || [],
+      providesTags: (result) => {
+        if (!result || !Array.isArray(result)) return []
+        return result.map(task => ({ type: 'Task' as const, id: task.id }))
+      },
     }),
     getAttachments: builder.query<any[], string>({
       query: (taskId) => `/tasks/${taskId}/attachments`,
@@ -220,6 +239,7 @@ export const {
   useAddAttachmentMutation,
   useDeleteAttachmentMutation,
   useGetAssignedTasksQuery,
+  useGetDashboardTasksQuery,
   useGetTimeLogsQuery,
   useLogTimeMutation,
 } = tasksApi

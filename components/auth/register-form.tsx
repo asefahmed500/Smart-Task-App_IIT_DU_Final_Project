@@ -148,6 +148,7 @@ function RegisterFormContent() {
         <Input
           id="name"
           placeholder="John Doe"
+          autoComplete="name"
           {...registerField('name')}
           disabled={isLoading}
         />
@@ -162,6 +163,7 @@ function RegisterFormContent() {
           id="email"
           type="email"
           placeholder="you@example.com"
+          autoComplete="email"
           {...registerField('email')}
           disabled={isLoading}
         />
@@ -176,6 +178,7 @@ function RegisterFormContent() {
           id="password"
           type="password"
           placeholder="••••••••"
+          autoComplete="new-password"
           {...registerField('password')}
           disabled={isLoading}
         />

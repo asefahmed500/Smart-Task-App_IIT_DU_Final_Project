@@ -56,7 +56,7 @@ export function NetworkStatusListener() {
               </div>
               <div>
                 <p className="text-body-standard font-medium text-black">Offline Mode</p>
-                <p className="text-caption text-[#777169]">
+                <p className="text-caption text-muted-foreground">
                   {queueSize > 0 
                     ? `${queueSize} action${queueSize > 1 ? 's' : ''} queued for sync` 
                     : 'Changes will be saved locally'}

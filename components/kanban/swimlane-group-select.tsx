@@ -17,7 +17,7 @@ const GROUP_OPTIONS = [
 export default function SwimlaneGroupSelect({ value, onChange }: SwimlaneGroupSelectProps) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-caption text-[#777169]">Group by:</span>
+      <span className="text-caption text-muted-foreground">Group by:</span>
       <div className="inline-flex bg-muted rounded-lg p-1">
         {GROUP_OPTIONS.map((option) => (
           <Button

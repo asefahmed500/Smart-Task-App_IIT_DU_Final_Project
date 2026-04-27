@@ -14,10 +14,13 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
   try {
     const { id: boardId } = await params
-    
+
     const effectiveRole = await getEffectiveBoardRole(session, boardId)
-    if (effectiveRole !== 'MANAGER' && effectiveRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Only managers and admins can manage webhooks' }, { status: 403 })
+    if (effectiveRole === null) {
+      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 })
+    }
+    if (effectiveRole === 'MEMBER') {
+      return NextResponse.json({ error: 'Forbidden: Only managers and admins can manage webhooks' }, { status: 403 })
     }
 
     const webhooks = await prisma.webhook.findMany({
@@ -47,8 +50,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     }
 
     const effectiveRole = await getEffectiveBoardRole(session, boardId)
-    if (effectiveRole !== 'MANAGER' && effectiveRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Only managers and admins can manage webhooks' }, { status: 403 })
+    if (effectiveRole === null) {
+      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 })
+    }
+    if (effectiveRole === 'MEMBER') {
+      return NextResponse.json({ error: 'Forbidden: Only managers and admins can manage webhooks' }, { status: 403 })
     }
 
     const webhook = await prisma.webhook.create({

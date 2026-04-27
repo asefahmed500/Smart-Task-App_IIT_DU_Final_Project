@@ -36,7 +36,7 @@ export function ConflictResolutionDialog({
           <DialogTitle className="text-display-hero group-hover:text-primary transition-colors text-center font-waldenburg font-normal">
             Version Conflict Detect
           </DialogTitle>
-          <DialogDescription className="text-center text-body-standard text-[#777169] pt-2">
+          <DialogDescription className="text-center text-body-standard text-muted-foreground pt-2">
             This task was modified by another team member while you were viewing it. To prevent data loss, you must resolve the conflict.
           </DialogDescription>
         </DialogHeader>
@@ -44,7 +44,7 @@ export function ConflictResolutionDialog({
         <div className="py-6 space-y-4">
           <div className="p-4 bg-[rgba(0,0,0,0.02)] border border-[rgba(0,0,0,0.05)] rounded-[16px]">
             <p className="text-caption font-medium mb-1">Recommended Action</p>
-            <p className="text-body-standard text-[#777169]">
+            <p className="text-body-standard text-muted-foreground">
               Refresh the task data to see the latest changes before reapplying your update.
             </p>
           </div>

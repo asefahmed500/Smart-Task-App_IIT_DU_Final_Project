@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import type { TransportOptions } from 'nodemailer'
 
 // Email configuration
 interface EmailConfig {
@@ -9,6 +10,9 @@ interface EmailConfig {
     user: string
     pass: string
   }
+  tls?: {
+    rejectUnauthorized?: boolean
+  }
 }
 
 // Create transporter
@@ -16,13 +20,17 @@ let transporter: nodemailer.Transporter | null = null
 
 export function getEmailTransporter(): nodemailer.Transporter {
   if (!transporter) {
-    const config: EmailConfig = {
+    const config: EmailConfig & TransportOptions = {
       host: process.env.EMAIL_HOST || 'smtp.gmail.com',
       port: Number(process.env.EMAIL_PORT) || 587,
       secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for other ports
       auth: {
         user: process.env.EMAIL_USER || '',
         pass: process.env.EMAIL_PASS || '',
+      },
+      // Add TLS configuration for better compatibility
+      tls: {
+        rejectUnauthorized: false, // Allow self-signed certificates during development
       },
     }
 
@@ -32,6 +40,8 @@ export function getEmailTransporter(): nodemailer.Transporter {
     transporter.verify((error, success) => {
       if (error) {
         console.error('Email transporter verification failed:', error)
+        console.error('Error code:', (error as any).code)
+        console.error('Error command:', (error as any).command)
       } else {
         console.log('Email server is ready to send messages')
       }
@@ -97,6 +107,9 @@ export async function sendVerificationEmail(
     return true
   } catch (error) {
     console.error('Failed to send verification email:', error)
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.error('Email error details:', error.message)
+    }
     return false
   }
 }
@@ -160,6 +173,12 @@ export async function sendPasswordResetEmail(
     return true
   } catch (error) {
     console.error('Failed to send password reset email:', error)
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.error('Email error details:', error.message)
+    }
+    if (error && typeof error === 'object' && 'code' in error) {
+      console.error('Email error code:', error.code)
+    }
     return false
   }
 }

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { BoardCard } from '@/components/dashboard/board-card'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
+import { useGetDashboardTasksQuery } from '@/lib/slices/tasksApi'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -16,6 +17,7 @@ export default function ManagerDashboardPage() {
   const router = useRouter()
   const { data: boards, isLoading } = useGetBoardsQuery()
   const { data: session } = useGetSessionQuery()
+  const { data: dashboardTasks } = useGetDashboardTasksQuery()
 
   useEffect(() => {
     if (session && session.role !== 'MANAGER') {
@@ -31,8 +33,8 @@ export default function ManagerDashboardPage() {
     return member && (member.role === 'ADMIN' || member.role === 'MANAGER')
   }) || []
 
-  // Collect tasks from boards.tasks included data (avoids illegal hook-in-loop pattern)
-  const allTasks = managedBoards.flatMap((board) => board.tasks || [])
+  // Use dashboard tasks endpoint - board.tasks is not included in boards API response
+  const allTasks = dashboardTasks || []
 
   const totalMembers = managedBoards.reduce((sum, board) => sum + (board.members?.length || 0), 0)
 
@@ -59,7 +61,7 @@ export default function ManagerDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display-hero font-waldenburg font-light">Manager Dashboard</h1>
-          <p className="text-body text-[#777169] mt-2">Overview of your teams and boards</p>
+          <p className="text-body text-muted-foreground mt-2">Overview of your teams and boards</p>
         </div>
         <Button className="rounded-[9999px]" onClick={() => router.push('/dashboard/new')}>
           <Plus className="h-4 w-4 mr-2" />
@@ -127,7 +129,7 @@ export default function ManagerDashboardPage() {
 
           {managedBoards.length === 0 && (
             <Card className="p-12 col-span-full text-center rounded-[20px]">
-              <p className="text-body-standard text-[#777169]">
+              <p className="text-body-standard text-muted-foreground">
                 You don't manage any boards yet. Create one to get started!
               </p>
               <Button className="mt-4 rounded-[9999px]" onClick={() => router.push('/dashboard/new')}>

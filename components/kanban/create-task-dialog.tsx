@@ -34,10 +34,10 @@ interface CreateTaskDialogProps {
 
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const
 const PRIORITY_COLORS = {
-  LOW: 'bg-blue-500/10 text-blue-600',
-  MEDIUM: 'bg-yellow-500/10 text-yellow-600',
-  HIGH: 'bg-orange-500/10 text-orange-600',
-  CRITICAL: 'bg-red-500/10 text-red-600',
+  LOW: 'bg-primary/10 text-primary',
+  MEDIUM: 'bg-secondary/10 text-secondary-foreground',
+  HIGH: 'bg-accent/10 text-accent-foreground',
+  CRITICAL: 'bg-destructive/10 text-destructive',
 }
 
 export default function CreateTaskDialog({

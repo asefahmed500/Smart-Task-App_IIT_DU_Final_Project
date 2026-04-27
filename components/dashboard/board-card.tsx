@@ -32,15 +32,15 @@ export function BoardCard({ board, onClick }: BoardCardProps) {
           <h3 className="text-body font-medium">{board.name}</h3>
         </div>
         {board.archived && (
-          <span className="text-caption text-[#777169]">Archived</span>
+          <span className="text-caption text-muted-foreground">Archived</span>
         )}
       </div>
       {board.description && (
-        <p className="text-caption text-[#777169] line-clamp-2 mb-4">
+        <p className="text-caption text-muted-foreground line-clamp-2 mb-4">
           {board.description}
         </p>
       )}
-      <div className="flex items-center gap-4 text-caption text-[#777169]">
+      <div className="flex items-center gap-4 text-caption text-muted-foreground">
         <span>{board._count?.members || board.members?.length || 0} members</span>
         <span>{board._count?.tasks || 0} tasks</span>
       </div>

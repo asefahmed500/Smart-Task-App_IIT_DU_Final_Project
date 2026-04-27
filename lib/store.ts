@@ -14,6 +14,31 @@ import { socketMiddleware } from '@/lib/socket-middleware'
 import { undoMiddleware } from '@/lib/undo-middleware'
 import { createOfflineMiddleware } from '@/lib/offlineQueue'
 
+/**
+ * RTK Query Error Logger Middleware
+ * Logs all RTK Query rejections (failed requests) to console for debugging
+ * Note: Aborted queries are expected behavior and not logged
+ */
+const rtkQueryErrorLogger = () => (next: any) => (action: any) => {
+  if (action.type.endsWith('/rejected')) {
+    const errorMessage = action.error?.message || action.payload?.data || action.payload
+
+    // Don't log expected aborts - these happen when components unmount or queries are deduplicated
+    if (errorMessage === 'Aborted due to condition callback returning false.') {
+      return next(action)
+    }
+
+    console.error('🔴 RTK Query Error:', {
+      type: action.type,
+      status: action.error?.status || action.payload?.status,
+      error: errorMessage,
+      endpoint: action.meta?.arg?.endpointName,
+      request: action.meta?.arg?.originalArgs,
+    })
+  }
+  return next(action)
+}
+
 export const makeStore = () => {
   const store = configureStore({
     reducer: {
@@ -30,6 +55,7 @@ export const makeStore = () => {
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware()
+        .concat(rtkQueryErrorLogger)
         .concat(authApi.middleware)
         .concat(boardsApi.middleware)
         .concat(tasksApi.middleware)

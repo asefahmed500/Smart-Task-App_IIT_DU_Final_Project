@@ -4,13 +4,15 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "node server.cjs",
+    "dev": "npx tsx -r dotenv/config server.ts dotenv_config_path=.env.local",
     "build": "next build",
-    "start": "node server.cjs",
+    "start": "npx tsx -r dotenv/config server.ts dotenv_config_path=.env.local",
+    "check-users": "npx tsx -r dotenv/config scripts/check-users.ts dotenv_config_path=.env.local",
+    "check-boards": "npx tsx -r dotenv/config scripts/check-member-boards.ts dotenv_config_path=.env.local",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "npx tsx -r dotenv/config prisma/seed.ts dotenv_config_path=.env.local"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -11,7 +11,7 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
         "flex field-sizing-content min-h-16 w-full rounded-[8px] border border-[rgba(0,0,0,0.08)] bg-white px-3 py-2 text-body-standard text-black transition-colors",
         // Inset border shadow for subtle edge definition
         "shadow-[rgba(0,0,0,0.075)_0px_0px_0px_0.5px_inset]",
-        "placeholder:text-[#777169]",
+        "placeholder:text-muted-foreground",
         // Focus states
         "focus-visible:border-[rgba(0,0,0,0.15)] focus-visible:ring-2 focus-visible:ring-black/10 focus-visible:ring-offset-0",
         // Disabled states

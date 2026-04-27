@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
 import { createNotification } from '@/lib/notifications'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -11,7 +12,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
-  
+  const userId = session.user.id
+
   try {
     const { id } = await params
     const body = await req.json()
@@ -28,6 +30,32 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     // Identify which is blocking which
     const blockerId = type === 'BLOCKS' ? id : linkedTaskId
     const blockingId = type === 'BLOCKS' ? linkedTaskId : id
+
+    // Fetch both tasks to verify board access
+    const [blockerTask, blockingTask] = await Promise.all([
+      prisma.task.findUnique({
+        where: { id: blockerId },
+        select: { id: true, boardId: true }
+      }),
+      prisma.task.findUnique({
+        where: { id: blockingId },
+        select: { id: true, boardId: true }
+      })
+    ])
+
+    if (!blockerTask || !blockingTask) {
+      return NextResponse.json({ error: 'One or both tasks not found' }, { status: 404 })
+    }
+
+    // Check board access for both tasks
+    const [blockerRole, blockingRole] = await Promise.all([
+      getEffectiveBoardRole(session, blockerTask.boardId),
+      getEffectiveBoardRole(session, blockingTask.boardId)
+    ])
+
+    if (!blockerRole || !blockingRole) {
+      return NextResponse.json({ error: 'Forbidden: You do not have access to one or both boards' }, { status: 403 })
+    }
 
     // See if exists
     const exists = await prisma.taskBlock.findUnique({
@@ -63,7 +91,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         action: 'DEPENDENCY_ADDED',
         entityType: 'Task',
         entityId: id,
-        actorId: session.user.id,
+        actorId: userId,
+        boardId: blockerTask.boardId,
         changes: { type, linkedTaskId, blockerId, blockingId },
       },
     })
@@ -97,7 +126,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
   const userId = session.user.id
-  
+
   try {
     const { id } = await params
     const body = await req.json()
@@ -109,6 +138,46 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
     const blockerId = type === 'BLOCKS' ? id : linkedTaskId
     const blockingId = type === 'BLOCKS' ? linkedTaskId : id
+
+    // Fetch the dependency to get board info before deleting
+    const dependency = await prisma.taskBlock.findUnique({
+      where: {
+        blockerId_blockingId: {
+          blockerId,
+          blockingId
+        }
+      }
+    })
+
+    if (!dependency) {
+      return NextResponse.json({ error: 'Dependency not found' }, { status: 404 })
+    }
+
+    // Fetch both tasks to verify board access
+    const [blockerTask, blockingTask] = await Promise.all([
+      prisma.task.findUnique({
+        where: { id: blockerId },
+        select: { id: true, boardId: true }
+      }),
+      prisma.task.findUnique({
+        where: { id: blockingId },
+        select: { id: true, boardId: true }
+      })
+    ])
+
+    if (!blockerTask || !blockingTask) {
+      return NextResponse.json({ error: 'One or both tasks not found' }, { status: 404 })
+    }
+
+    // Check board access for both tasks
+    const [blockerRole, blockingRole] = await Promise.all([
+      getEffectiveBoardRole(session, blockerTask.boardId),
+      getEffectiveBoardRole(session, blockingTask.boardId)
+    ])
+
+    if (!blockerRole || !blockingRole) {
+      return NextResponse.json({ error: 'Forbidden: You do not have access to one or both boards' }, { status: 403 })
+    }
 
     await prisma.taskBlock.delete({
       where: {
@@ -137,6 +206,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
         entityType: 'Task',
         entityId: id,
         actorId: userId,
+        boardId: blockerTask.boardId,
         changes: { type, linkedTaskId },
       },
     })

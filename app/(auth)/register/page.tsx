@@ -10,7 +10,7 @@ export default function RegisterPage() {
       description="Set up your Smart Task Manager account"
     >
       <RegisterForm />
-      <div className="mt-6 text-center text-caption text-[#777169]">
+      <div className="mt-6 text-center text-caption text-muted-foreground">
         Already have an account?{' '}
         <Link href="/login">
           <Button variant="link" className="p-0 h-auto text-caption text-black underline">

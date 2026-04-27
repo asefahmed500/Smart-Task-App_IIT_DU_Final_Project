@@ -12,10 +12,10 @@ export default function AuditLogViewer() {
   const { data: auditLogs, isLoading } = useGetPlatformAuditQuery()
 
   const getActionColor = (action: string) => {
-    if (action.includes('CREATE')) return 'bg-green-500/10 text-green-500'
-    if (action.includes('DELETE')) return 'bg-red-500/10 text-red-500'
-    if (action.includes('UPDATE')) return 'bg-blue-500/10 text-blue-500'
-    return 'bg-gray-500/10 text-gray-500'
+    if (action.includes('CREATE')) return 'bg-green-600/10 text-green-600'
+    if (action.includes('DELETE')) return 'bg-destructive/10 text-destructive'
+    if (action.includes('UPDATE')) return 'bg-primary/10 text-primary'
+    return 'bg-muted/10 text-muted-foreground'
   }
 
   return (

@@ -48,6 +48,7 @@ export const adminApi = createApi({
   endpoints: (builder) => ({
     getUsers: builder.query<User[], void>({
       query: () => '/users',
+      transformResponse: (response: { data: User[] }) => response.data,
       providesTags: ['User'],
     }),
     createUser: builder.mutation<User, CreateUserData>({

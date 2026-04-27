@@ -39,10 +39,10 @@ interface TaskCardProps {
 }
 
 const priorityColors: Record<Priority, string> = {
-  LOW: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  MEDIUM: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  HIGH: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
-  CRITICAL: 'bg-red-500/10 text-red-500 border-red-500/20',
+  LOW: 'bg-primary/10 text-primary border-primary/20',
+  MEDIUM: 'bg-secondary/10 text-secondary-foreground border-secondary/20',
+  HIGH: 'bg-accent/10 text-accent-foreground border-accent/20',
+  CRITICAL: 'bg-destructive/10 text-destructive border-destructive/20',
 }
 
 export default function TaskCard({
@@ -119,8 +119,8 @@ export default function TaskCard({
           'rounded-[16px] overflow-hidden',
           isDragging && 'opacity-50 rotate-1 shadow-2xl ring-2 ring-primary/30 scale-[1.02] z-50',
           isStale && 'border-amber-200/30 bg-amber-50/10 dark:border-amber-900/20 dark:bg-amber-950/10',
-          isBlocked && 'border-red-200/30 bg-red-50/10 dark:border-red-900/20 dark:bg-red-950/10',
-          editingUsers.length > 0 && 'ring-2 ring-blue-500/30'
+          isBlocked && 'border-destructive/30 bg-destructive/10 dark:border-destructive/20 dark:bg-destructive/10',
+          editingUsers.length > 0 && 'ring-2 ring-primary/30'
         )}
       >
         {/* Glow effect on hover */}
@@ -141,7 +141,7 @@ export default function TaskCard({
           {editingUsers.slice(0, 3).map((user: EditingUser) => (
             <div
               key={user.userId}
-              className="flex items-center gap-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full shadow-sm"
+              className="flex items-center gap-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full shadow-sm"
               title={`${user.userName} is editing`}
             >
               <Edit2 className="h-2.5 w-2.5" />
@@ -210,7 +210,7 @@ export default function TaskCard({
             )}
 
             {totalTimeSpent != null && totalTimeSpent > 0 && (
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-slate-100 px-1.5 py-0.5 rounded-full font-medium">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full font-medium">
                 <Clock className="h-2.5 w-2.5" />
                 <span>{formatTotalTime(totalTimeSpent)}</span>
               </div>

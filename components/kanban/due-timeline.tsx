@@ -33,12 +33,12 @@ export default function DueTimeline({ dueDate, currentTime, createdAt }: DueTime
   if (diff < 0) {
     const overdueDays = Math.abs(dayDiff)
     text = overdueDays === 0 ? 'Overdue - was due today' : overdueDays === 1 ? 'Overdue - was due yesterday' : `Overdue by ${overdueDays} days`
-    colorClass = 'text-red-500 bg-red-500/10 border-red-500/20'
+    colorClass = 'text-destructive bg-destructive/10 border-destructive/20'
     progress = 100
   } else if (dayDiff === 0) {
     const hoursRemaining = Math.max(0, Math.floor(diff / (1000 * 60 * 60)))
     text = hoursRemaining === 0 ? 'Due now' : `Due today (${hoursRemaining}h left)`
-    colorClass = 'text-orange-600 bg-orange-500/10 border-orange-500/20 shadow-[0_0_10px_rgba(249,115,22,0.1)]'
+    colorClass = 'text-accent-foreground bg-accent/10 border-accent/20 shadow-[0_0_10px_rgba(0,0,0,0.1)]'
   } else if (dayDiff === 1) {
     text = 'Due tomorrow'
     colorClass = 'text-amber-600 bg-amber-500/10 border-amber-500/20'
@@ -61,11 +61,11 @@ export default function DueTimeline({ dueDate, currentTime, createdAt }: DueTime
         )}
       </div>
       {createdAt && (
-        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-[rgba(0,0,0,0.03)]">
-          <div 
+        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden border border-border">
+          <div
             className={cn(
               "h-full transition-all duration-1000 rounded-full",
-              dayDiff < 0 ? "bg-red-500" : dayDiff === 0 ? "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" : dayDiff <= 7 ? "bg-yellow-500" : "bg-green-500"
+              dayDiff < 0 ? "bg-destructive" : dayDiff === 0 ? "bg-accent shadow-[0_0_8px_rgba(0,0,0,0.4)]" : dayDiff <= 7 ? "bg-yellow-500" : "bg-green-500"
             )}
             style={{ width: `${progress}%` }}
           />

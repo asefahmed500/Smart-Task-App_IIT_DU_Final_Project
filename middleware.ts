@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl
   const isPublicRoute = url.pathname === '/' || url.pathname.startsWith('/landing')
-  const isAuthRoute = url.pathname.startsWith('/login') || url.pathname.startsWith('/register')
+  const isAuthRoute = url.pathname.startsWith('/login') || url.pathname.startsWith('/register') || url.pathname.startsWith('/reset-password')
 
   // Allow public routes
   if (isPublicRoute || isAuthRoute) {

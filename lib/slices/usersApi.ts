@@ -39,8 +39,10 @@ export const usersApi = createApi({
     }),
     getUserBoards: builder.query<Board[], void>({
       query: () => '/boards',
-      providesTags: (result) =>
-        result?.map((board) => ({ type: 'Board' as const, id: board.id })) || [],
+      providesTags: (result) => {
+        if (!result || !Array.isArray(result)) return []
+        return result.map((board) => ({ type: 'Board' as const, id: board.id }))
+      },
     }),
     getUserActivity: builder.query<any[], void>({
       query: () => '/activity',

@@ -34,7 +34,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
-import { emitCursorMove, emitTaskMove, onTaskUpdate, onTaskDelete, onBoardUpdate, onMemberUpdate, onAutomationUpdate, onCommentUpdate, onAttachmentUpdate, onDependencyUpdate } from '@/lib/socket'
+import { emitCursorMove, emitTaskMove, onTaskUpdate, onTaskMove, onTaskDelete, onBoardUpdate, onMemberUpdate, onAutomationUpdate, onCommentUpdate, onAttachmentUpdate, onDependencyUpdate } from '@/lib/socket'
 import { boardsApi } from '@/lib/slices/boardsApi'
 import { tasksApi } from '@/lib/slices/tasksApi'
 import { BoardCursors } from './board-cursors'
@@ -46,9 +46,9 @@ interface BoardViewProps {
 export default function BoardView({ boardId }: BoardViewProps) {
   const dispatch = useDispatch()
 
-  const { data: board, isLoading: boardLoading } = useGetBoardQuery(boardId)
-  const { data: columns, isLoading: columnsLoading } = useGetBoardColumnsQuery(boardId)
-  const { data: rawTasks, isLoading: tasksLoading } = useGetTasksQuery(boardId)
+  const { data: board, isLoading: boardLoading, error: boardError } = useGetBoardQuery(boardId)
+  const { data: columns, isLoading: columnsLoading, error: columnsError } = useGetBoardColumnsQuery(boardId)
+  const { data: rawTasks, isLoading: tasksLoading, error: tasksError } = useGetTasksQuery(boardId)
   const [moveTask] = useMoveTaskMutation()
 
   const viewMode = useAppSelector((state) => state.ui.viewMode)
@@ -106,6 +106,9 @@ export default function BoardView({ boardId }: BoardViewProps) {
     const unsubTaskUpdate = onTaskUpdate(() => {
       dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: 'LIST' }]))
     })
+    const unsubTaskMove = onTaskMove(() => {
+      dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: 'LIST' }]))
+    })
     const unsubTaskDelete = onTaskDelete(() => {
       dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: 'LIST' }]))
     })
@@ -130,6 +133,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
 
     return () => {
       unsubTaskUpdate()
+      unsubTaskMove()
       unsubTaskDelete()
       unsubBoardUpdate()
       unsubMemberUpdate()
@@ -318,6 +322,16 @@ export default function BoardView({ boardId }: BoardViewProps) {
     )
   }
 
+  if (boardError || columnsError || tasksError) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-4 py-3">
+          Failed to load board data. Please refresh the page.
+        </div>
+      </div>
+    )
+  }
+
   if (!board || !columns) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -477,7 +491,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
             
             <BoardCursors />
             <div className="flex gap-4 pb-6 h-full w-max">
-              {columns.map((column) => (
+              {columns?.map((column) => (
                 <Column
                   key={column.id}
                   column={column}
@@ -500,7 +514,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
 
       {viewMode === 'swimlane' && (
         <SwimlaneView
-          columns={columns}
+          columns={columns || []}
           tasks={tasks || []}
           groupBy={swimlaneGroupBy}
           renderTaskCard={(task) => (

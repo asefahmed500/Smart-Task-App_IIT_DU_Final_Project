@@ -64,7 +64,7 @@ export default function DependencySelectDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <p className="text-body-standard text-[#777169]">
+          <p className="text-body-standard text-muted-foreground">
             Select a task that must be completed before <strong>{task.title}</strong> can be moved to Done.
           </p>
 
@@ -85,7 +85,7 @@ export default function DependencySelectDialog({
           </div>
 
           {availableBlockers.length === 0 && (
-            <p className="text-caption text-[#777169]">
+            <p className="text-caption text-muted-foreground">
               No available tasks. Tasks must be in different columns.
             </p>
           )}

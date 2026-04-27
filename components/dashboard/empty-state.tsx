@@ -20,7 +20,7 @@ export function EmptyState({ title, description, actionLabel, onAction, icon }: 
         </div>
       )}
       <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-body-standard text-[#777169] mb-4">
+      <p className="text-body-standard text-muted-foreground mb-4">
         {description}
       </p>
       {actionLabel && onAction && (

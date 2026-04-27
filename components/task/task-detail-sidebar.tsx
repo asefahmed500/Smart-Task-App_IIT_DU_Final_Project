@@ -60,10 +60,10 @@ interface TaskDetailSidebarProps {
 }
 
 const priorityColors: Record<string, string> = {
-  LOW: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  MEDIUM: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  HIGH: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
-  CRITICAL: 'bg-red-500/10 text-red-500 border-red-500/20',
+  LOW: 'bg-primary/10 text-primary border-primary/20',
+  MEDIUM: 'bg-secondary/10 text-secondary-foreground border-secondary/20',
+  HIGH: 'bg-accent/10 text-accent-foreground border-accent/20',
+  CRITICAL: 'bg-destructive/10 text-destructive border-destructive/20',
 }
 
 const priorityOrder: Record<string, number> = {
@@ -498,7 +498,7 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
 
             <TabsContent value="dependencies" className="mt-0 space-y-4">
               <div className="flex items-center justify-between">
-                <p className="text-caption text-[#777169]">Manage tasks that block this one.</p>
+                <p className="text-caption text-muted-foreground">Manage tasks that block this one.</p>
                 <Button variant="outline" size="sm" onClick={() => setIsDepDialogOpen(true)}>
                   <Link2 className="h-4 w-4 mr-1" /> Add
                 </Button>
@@ -507,7 +507,7 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
               <div className="space-y-4">
                 {task.blockers && task.blockers.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-caption text-[#777169] uppercase tracking-wider font-semibold">Blocked by ({task.blockers.length})</Label>
+                    <Label className="text-caption text-muted-foreground uppercase tracking-wider font-semibold">Blocked by ({task.blockers.length})</Label>
                     {task.blockers.filter((b: any) => b.blocker).map(({ blocker }: any) => (
                       <div key={blocker.id} className="p-3 bg-red-50 border border-red-100 rounded-[8px] flex items-center justify-between gap-2 group">
                         <div className="flex items-center gap-2">
@@ -531,7 +531,7 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
 
                 {task.blocking && task.blocking.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-caption text-[#777169] uppercase tracking-wider font-semibold">Blocking ({task.blocking.length})</Label>
+                    <Label className="text-caption text-muted-foreground uppercase tracking-wider font-semibold">Blocking ({task.blocking.length})</Label>
                     {task.blocking.filter((b: any) => b.blocking).map(({ blocking }: any) => (
                       <div key={blocking.id} className="p-3 bg-amber-50 border border-amber-100 rounded-[8px] flex items-center gap-2">
                         <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
@@ -544,7 +544,7 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                 {(!task.blockers || task.blockers.length === 0) && (!task.blocking || task.blocking.length === 0) && (
                   <div className="text-center py-6">
                      <Link2 className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                     <p className="text-body-standard text-[#777169]">No dependencies linked.</p>
+                     <p className="text-body-standard text-muted-foreground">No dependencies linked.</p>
                   </div>
                 )}
               </div>

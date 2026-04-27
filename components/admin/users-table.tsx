@@ -18,8 +18,8 @@ import { useState, useMemo } from 'react'
 
 const roleColors = {
   ADMIN: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-  MANAGER: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  MEMBER: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+  MANAGER: 'bg-primary/10 text-primary border-primary/20',
+  MEMBER: 'bg-muted/10 text-muted-foreground border-muted/20',
 }
 
 interface User {
@@ -167,7 +167,7 @@ export default function UsersTable() {
       {/* Search and Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#777169]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name or email..."
             value={searchQuery}
@@ -205,7 +205,7 @@ export default function UsersTable() {
 
       {/* Results Count and Page Size Selector */}
       <div className="flex items-center justify-between mb-2">
-        <div className="text-caption text-[#777169]">
+        <div className="text-caption text-muted-foreground">
           Showing {paginatedUsers.length} of {filteredUsers.length} users
           {filteredUsers.length !== (users?.length || 0) && ` (filtered from ${users?.length || 0} total)`}
         </div>
@@ -238,7 +238,7 @@ export default function UsersTable() {
           <TableBody>
             {paginatedUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-body-standard text-[#777169] py-8">
+                <TableCell colSpan={7} className="text-center text-body-standard text-muted-foreground py-8">
                   {searchQuery || roleFilter !== 'ALL' || statusFilter !== 'ALL'
                     ? 'No users match your filters'
                     : 'No users found'}
@@ -315,7 +315,7 @@ export default function UsersTable() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
-          <div className="text-caption text-[#777169]">
+          <div className="text-caption text-muted-foreground">
             Page {currentPage} of {totalPages}
           </div>
           <div className="flex items-center gap-2">
@@ -358,7 +358,7 @@ export default function UsersTable() {
                 </Avatar>
                 <div>
                   <p className="text-body font-medium">{selectedUser.name || 'Unnamed'}</p>
-                  <p className="text-caption text-[#777169]">{selectedUser.email}</p>
+                  <p className="text-caption text-muted-foreground">{selectedUser.email}</p>
                 </div>
               </div>
               <div className="space-y-2">

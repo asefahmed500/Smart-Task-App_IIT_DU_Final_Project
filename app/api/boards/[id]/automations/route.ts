@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireApiAuth, requireApiRole } from '@/lib/session'
+import { requireApiAuth } from '@/lib/session'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
 import { Prisma } from '@prisma/client'
 
 interface RouteContext {
@@ -11,19 +12,18 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
-  const userId = session.user.id
 
   try {
     const { id: boardId } = await params
 
-    const board = await prisma.board.findFirst({
-      where: {
-        id: boardId,
-        OR: [
-          { ownerId: userId },
-          { members: { some: { userId } } }
-        ]
-      },
+    // Check board-level role (all members can view automations)
+    const effectiveRole = await getEffectiveBoardRole(session, boardId)
+    if (effectiveRole === null) {
+      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 })
+    }
+
+    const board = await prisma.board.findUnique({
+      where: { id: boardId },
       include: {
         automationRules: {
           orderBy: { createdAt: 'desc' }
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 }
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
-  const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
+  const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
   const userId = session.user.id
@@ -57,25 +57,22 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'name, trigger, and action are required' }, { status: 400 })
     }
 
-    const board = await prisma.board.findFirst({
-      where: {
-        id: boardId,
-        OR: [
-          { ownerId: userId },
-          {
-            members: {
-              some: {
-                userId,
-                role: { in: ['ADMIN', 'MANAGER'] }
-              }
-            }
-          }
-        ]
-      }
+    // Check board-level role (not platform role)
+    const effectiveRole = await getEffectiveBoardRole(session, boardId)
+    if (effectiveRole === null) {
+      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 })
+    }
+    if (effectiveRole !== 'ADMIN' && effectiveRole !== 'MANAGER') {
+      return NextResponse.json({ error: 'Forbidden: Only managers and admins can create automations' }, { status: 403 })
+    }
+
+    const board = await prisma.board.findUnique({
+      where: { id: boardId },
+      select: { id: true }
     })
 
     if (!board) {
-      return NextResponse.json({ error: 'Board not found or insufficient permissions' }, { status: 404 })
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 })
     }
 
     const rule = await prisma.automationRule.create({

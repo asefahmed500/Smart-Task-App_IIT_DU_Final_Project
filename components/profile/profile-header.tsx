@@ -14,8 +14,8 @@ interface ProfileHeaderProps {
 
 const roleColors = {
   ADMIN: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-  MANAGER: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  MEMBER: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+  MANAGER: 'bg-primary/10 text-primary border-primary/20',
+  MEMBER: 'bg-muted/10 text-muted-foreground border-muted/20',
 }
 
 export default function ProfileHeader({ userId }: ProfileHeaderProps) {

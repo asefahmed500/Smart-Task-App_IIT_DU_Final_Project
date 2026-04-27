@@ -119,7 +119,7 @@ export default function Navbar() {
               <SelectValue placeholder="Select a board" />
             </SelectTrigger>
             <SelectContent>
-              {boards.map((board) => (
+              {boards?.map((board) => (
                 <SelectItem key={board.id} value={board.id}>
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: board.color }} />
@@ -238,7 +238,7 @@ export default function Navbar() {
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
                 <p className="text-nav font-medium text-black">{session?.name || 'User'}</p>
-                <p className="text-caption text-[#777169]">{session?.email || 'user@example.com'}</p>
+                <p className="text-caption text-muted-foreground">{session?.email || 'user@example.com'}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuItem onClick={() => router.push('/profile')}>

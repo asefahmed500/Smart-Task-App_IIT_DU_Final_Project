@@ -85,7 +85,7 @@ export default function ThroughputCalendar({ boardId, days = 90 }: ThroughputCal
           <h3 className="text-section-heading font-waldenburg font-light">Throughput Calendar</h3>
           <p className="text-[10px] text-muted-foreground uppercase opacity-60">Past 90 days activity</p>
         </div>
-        <div className="text-caption text-[#777169] flex items-center gap-2">
+        <div className="text-caption text-muted-foreground flex items-center gap-2">
           <span className="font-medium bg-[rgba(0,0,0,0.04)] px-2 py-1 rounded">Avg: {getAvgThroughput()}</span>
           <span className="opacity-60">tasks / day</span>
         </div>
@@ -103,7 +103,7 @@ export default function ThroughputCalendar({ boardId, days = 90 }: ThroughputCal
         {/* Day labels */}
         <div className="flex ml-10 mb-2">
           {weekDays.map((day) => (
-            <div key={day} className="flex-1 text-center text-[10px] font-medium text-[#777169] opacity-70">
+            <div key={day} className="flex-1 text-center text-[10px] font-medium text-muted-foreground opacity-70">
               {day}
             </div>
           ))}
@@ -112,7 +112,7 @@ export default function ThroughputCalendar({ boardId, days = 90 }: ThroughputCal
         {/* Calendar grid */}
         {weeks.map((week, weekIndex) => (
           <div key={weekIndex} className="flex items-center gap-1.5">
-            <div className="w-10 text-[9px] font-medium text-[#777169] text-right pr-2 uppercase opacity-60">
+            <div className="w-10 text-[9px] font-medium text-muted-foreground text-right pr-2 uppercase opacity-60">
               {new Date(new Date().setDate(new Date().getDate() - (days - 1 - weekIndex * 7))).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </div>
             {week.map((day) => (
@@ -137,7 +137,7 @@ export default function ThroughputCalendar({ boardId, days = 90 }: ThroughputCal
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-end gap-3 mt-6 text-[10px] font-medium text-[#777169]">
+      <div className="flex items-center justify-end gap-3 mt-6 text-[10px] font-medium text-muted-foreground">
         <span className="opacity-60">Less</span>
         <div className="flex gap-1">
           <div className="w-3.5 h-3.5 rounded-sm bg-[#ebedf0] border border-[rgba(0,0,0,0.04)]" />

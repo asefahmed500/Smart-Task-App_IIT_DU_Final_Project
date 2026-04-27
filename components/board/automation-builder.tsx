@@ -191,7 +191,7 @@ export default function AutomationBuilder({ boardId, members }: AutomationBuilde
           ) : (
             <div className="text-center py-12">
                <Zap className="h-10 w-10 text-muted-foreground opacity-20 mx-auto mb-2" />
-               <p className="text-caption text-[#777169]">No automations defined for this board</p>
+               <p className="text-caption text-muted-foreground">No automations defined for this board</p>
             </div>
           )}
         </ScrollArea>

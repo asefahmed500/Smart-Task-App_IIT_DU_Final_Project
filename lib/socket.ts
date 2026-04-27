@@ -9,20 +9,20 @@ const BASE_RECONNECT_DELAY = CONSTANTS.SOCKET_RECONNECT_DELAY
 export const initSocket = () => {
   if (!socket) {
     // Get auth token from cookie for Socket.IO authentication
+    // Note: better-auth uses cookies, but Socket.IO needs the token in auth handshake
+    // The server will validate the session cookie directly
     const getAuthToken = () => {
-      if (typeof window !== 'undefined') {
-        return localStorage.getItem('auth_token')
-      }
-      return null
+      // Cookies are automatically sent by the browser
+      // We don't need to manually extract them for Socket.IO
+      return null // Server middleware validates session cookie
     }
 
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
-      path: '/socket.io/',
+    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
+      path: '/api/socket',
       addTrailingSlash: false,
       transports: ['websocket', 'polling'],
-      auth: {
-        token: getAuthToken(),
-      },
+      // Note: Cookies are automatically sent by the browser
+      // No auth token needed in handshake - server validates session cookie
       // Reconnection configuration with exponential backoff
       reconnection: true,
       reconnectionDelay: BASE_RECONNECT_DELAY,
@@ -127,6 +127,12 @@ export const onTaskUpdate = (callback: (data: any) => void) => {
   const socket = getSocket()
   socket?.on('task:updated', callback)
   return () => socket?.off('task:updated', callback)
+}
+
+export const onTaskMove = (callback: (data: any) => void) => {
+  const socket = getSocket()
+  socket?.on('task:moved', callback)
+  return () => socket?.off('task:moved', callback)
 }
 
 export const onCursorMove = (callback: (data: any) => void) => {

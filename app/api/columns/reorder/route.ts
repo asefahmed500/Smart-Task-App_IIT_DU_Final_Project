@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireApiRole } from '@/lib/session'
+import { requireApiAuth } from '@/lib/session'
+import { getEffectiveBoardRole } from '@/lib/board-roles'
 
 // POST /api/columns/reorder - Reorder board columns (Manager/Admin only)
 export async function POST(req: NextRequest) {
-  const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
+  const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
   const session = authResult
   const userId = session.user.id
@@ -24,13 +25,12 @@ export async function POST(req: NextRequest) {
       include: { board: { include: { members: true } } }
     })
 
-    const hasAccess = columnsToReorder.every(col =>
-      col.board.ownerId === userId ||
-      col.board.members.some((m: { userId: string }) => m.userId === userId)
-    )
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Check board-level role for each column's board
+    for (const col of columnsToReorder) {
+      const effectiveRole = await getEffectiveBoardRole(session, col.boardId)
+      if (effectiveRole === null || effectiveRole === 'MEMBER') {
+        return NextResponse.json({ error: 'Forbidden: Only managers and admins can reorder columns' }, { status: 403 })
+      }
     }
 
     // Update all column positions in a transaction

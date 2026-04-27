@@ -23,12 +23,25 @@ import { onNotification, getSocket } from '@/lib/socket'
 export default function NotificationCenter() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const { data: notifications, isLoading, refetch } = useGetNotificationsQuery()
+  const { data: notifications, isLoading, isError, refetch } = useGetNotificationsQuery()
   const [markAsRead] = useMarkAsReadMutation()
   const [deleteNotification] = useDeleteNotificationMutation()
   const [markAllAsRead] = useMarkAllAsReadMutation()
 
   const unreadCount = notifications?.filter((n: any) => !n.read).length || 0
+
+  // Listen for real-time notifications
+  // Note: refetch excluded from deps - RTK Query's refetch is stable
+  useEffect(() => {
+    const cleanup = onNotification((notification) => {
+      refetch()
+    })
+
+    return () => {
+      cleanup?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Listen for real-time notifications
   // Note: refetch excluded from deps - RTK Query's refetch is stable
@@ -103,9 +116,9 @@ export default function NotificationCenter() {
 
             <ScrollArea className="flex-1">
               {isLoading ? (
-                <div className="p-4 text-center text-caption text-[#777169]">Loading...</div>
+                <div className="p-4 text-center text-caption text-muted-foreground">Loading...</div>
               ) : !notifications || notifications.length === 0 ? (
-                <div className="p-8 text-center text-caption text-[#777169]">
+                <div className="p-8 text-center text-caption text-muted-foreground">
                   No notifications yet
                 </div>
               ) : (
@@ -147,8 +160,8 @@ export default function NotificationCenter() {
                           </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-body font-medium">{notification.title}</p>
-                          <p className="text-caption text-[#777169] mt-1">{notification.message}</p>
-                          <p className="text-micro text-[#777169] mt-2">
+                          <p className="text-caption text-muted-foreground mt-1">{notification.message}</p>
+                          <p className="text-micro text-muted-foreground mt-2">
                             {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                           </p>
                         </div>

@@ -18,7 +18,7 @@ export function StatCard({ icon: Icon, label, value, iconColor, iconBgColor }: S
           <Icon className={cn('h-5 w-5', iconColor)} />
         </div>
         <div>
-          <p className="text-caption text-[#777169]">{label}</p>
+          <p className="text-caption text-muted-foreground">{label}</p>
           <p className="text-section-heading font-waldenburg font-light">{value}</p>
         </div>
       </div>

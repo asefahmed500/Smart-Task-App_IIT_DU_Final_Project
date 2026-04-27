@@ -24,9 +24,10 @@ interface CalendarViewProps {
   onTaskClick: (taskId: string) => void
 }
 
-export default function CalendarView({ tasks, onTaskClick }: CalendarViewProps) {
+export default function CalendarView({ tasks = [], onTaskClick }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
 
+  const tasksWithDueDates = tasks.filter(t => t.dueDate)
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
   const startDate = startOfWeek(monthStart)
@@ -95,7 +96,18 @@ export default function CalendarView({ tasks, onTaskClick }: CalendarViewProps) 
 
       {/* Calendar Grid */}
       <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-7 h-full min-h-[600px]">
+        {tasksWithDueDates.length === 0 ? (
+          <div className="flex items-center justify-center h-full min-h-[400px]">
+            <div className="text-center">
+              <CalendarIcon className="h-12 w-12 text-black/20 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-black/60 mb-2">No Tasks with Due Dates</h3>
+              <p className="text-sm text-black/40">
+                Tasks with due dates will appear on the calendar.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-7 h-full min-h-[600px]">
           {calendarDays.map((day, idx) => {
             const dateKey = format(day, 'yyyy-MM-dd')
             const dayTasks = tasksByDay[dateKey] || []
@@ -146,6 +158,7 @@ export default function CalendarView({ tasks, onTaskClick }: CalendarViewProps) 
             )
           })}
         </div>
+        )}
       </div>
     </div>
   )

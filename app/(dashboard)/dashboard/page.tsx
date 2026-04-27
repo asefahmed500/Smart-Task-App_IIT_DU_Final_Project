@@ -2,6 +2,7 @@
 
 import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
 import { useGetProfileQuery } from '@/lib/slices/usersApi'
+import { useGetDashboardTasksQuery } from '@/lib/slices/tasksApi'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -52,36 +53,58 @@ function DashboardSkeleton() {
 export default function DashboardPage() {
   const router = useRouter()
   const pathname = usePathname()
-  const { data: boards, isLoading: boardsLoading } = useGetBoardsQuery()
+  const { data: boards, isLoading: boardsLoading, error: boardsError } = useGetBoardsQuery()
   const { data: profile, isLoading: profileLoading } = useGetProfileQuery()
+  const { data: dashboardTasks, isLoading: tasksLoading } = useGetDashboardTasksQuery()
   const [hasRedirected, setHasRedirected] = useState(false)
 
   // Handle role-based redirect
   const handleRedirect = useCallback(() => {
     if (hasRedirected || !profile) return
+
+    const targetPath = profile.role === 'ADMIN' ? '/admin'
+      : profile.role === 'MANAGER' ? '/manager'
+      : '/member'
+
+    // Don't redirect if already on target path
+    if (pathname === targetPath) {
+      setHasRedirected(true)
+      return
+    }
+
     setHasRedirected(true)
-    if (profile.role === 'ADMIN') router.replace('/admin')
-    else if (profile.role === 'MANAGER') router.replace('/manager')
-    else if (profile.role === 'MEMBER') router.replace('/member')
-  }, [profile, router, hasRedirected])
+    router.replace(targetPath)
+  }, [profile, router, hasRedirected, pathname])
 
   // Redirect on mount once profile is loaded
   useEffect(() => {
     handleRedirect()
   }, [handleRedirect])
 
+  // Calculate tasks for stats (must be before early returns to satisfy Rules of Hooks)
+  const allTasks = dashboardTasks || []
+  const stats = useDashboardStats(allTasks)
+
   // Show loading skeleton while profile loads to prevent flash
-  if (profileLoading || boardsLoading || !profile) {
+  if (profileLoading || boardsLoading || tasksLoading || !profile) {
     return <DashboardSkeleton />
   }
 
-  // Don't render content if not on /dashboard (to prevent showing wrong content during redirect)
-  if (pathname !== '/dashboard') {
-    return null
+  // Show error if boards failed to load
+  if (boardsError) {
+    return (
+      <div className="container max-w-7xl mx-auto px-6 py-8">
+        <div className="text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-4 py-3">
+          Failed to load boards. Please refresh the page.
+        </div>
+      </div>
+    )
   }
 
-  const allTasks = boards?.flatMap((board) => board.tasks || []) || []
-  const stats = useDashboardStats(allTasks)
+  // Return loading skeleton if not on /dashboard (prevents flicker during redirect)
+  if (pathname !== '/dashboard') {
+    return <DashboardSkeleton />
+  }
 
   const roleColor = {
     ADMIN: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
@@ -90,13 +113,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="container max-w-7xl mx-auto space-y-8 px-6 py-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-display-hero font-waldenburg font-light">
             Welcome back, {profile?.name || 'User'}!
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-body text-muted-foreground">
             {profile?.role === 'MEMBER'
               ? 'Here are your assigned tasks and boards.'
               : 'Here is what is happening with your tasks today.'}

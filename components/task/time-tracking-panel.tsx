@@ -133,7 +133,7 @@ export function TimeTrackingPanel({ taskId, totalTimeSpent }: TimeTrackingPanelP
           <div className="text-[42px] font-waldenburg font-light tracking-tighter text-[#1a1a1a]">
             {runningLog ? formatDuration(elapsed) : "00m 00s"}
           </div>
-          <p className="text-caption text-[#777169] mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             Total recorded: {formatTotalTime(totalTimeSpent)}
           </p>
         </div>
@@ -164,7 +164,7 @@ export function TimeTrackingPanel({ taskId, totalTimeSpent }: TimeTrackingPanelP
             onClick={() => setIsManualDialogOpen(true)}
             className="h-12 w-12 rounded-full border-[#f1efe9] hover:bg-[#f1efe9]"
           >
-            <Plus className="h-5 w-5 text-[#777169]" />
+            <Plus className="h-5 w-5 text-muted-foreground" />
           </Button>
         </div>
       </div>
@@ -172,8 +172,8 @@ export function TimeTrackingPanel({ taskId, totalTimeSpent }: TimeTrackingPanelP
       {/* Logs Section */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center gap-2 mb-4 px-1">
-          <History className="h-4 w-4 text-[#777169]" />
-          <h3 className="text-caption uppercase tracking-widest font-bold text-[#777169]">History</h3>
+          <History className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-caption uppercase tracking-widest font-bold text-muted-foreground">History</h3>
         </div>
 
         <ScrollArea className="flex-1 -mx-4 px-4">
@@ -209,7 +209,7 @@ export function TimeTrackingPanel({ taskId, totalTimeSpent }: TimeTrackingPanelP
             ) : (
               <div className="text-center py-10 opacity-40">
                 <Clock className="h-8 w-8 mx-auto mb-2" />
-                <p className="text-body-standard text-[#777169]">No time logs yet</p>
+                <p className="text-body-standard text-muted-foreground">No time logs yet</p>
               </div>
             )}
           </div>
@@ -225,7 +225,7 @@ export function TimeTrackingPanel({ taskId, totalTimeSpent }: TimeTrackingPanelP
           <div className="space-y-6 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-caption font-bold text-[#777169]">Hours</Label>
+                <Label className="text-caption font-bold text-muted-foreground">Hours</Label>
                 <Input 
                   type="number" 
                   min="0" 
@@ -235,7 +235,7 @@ export function TimeTrackingPanel({ taskId, totalTimeSpent }: TimeTrackingPanelP
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-caption font-bold text-[#777169]">Minutes</Label>
+                <Label className="text-caption font-bold text-muted-foreground">Minutes</Label>
                 <Input 
                   type="number" 
                   min="0" 
@@ -247,7 +247,7 @@ export function TimeTrackingPanel({ taskId, totalTimeSpent }: TimeTrackingPanelP
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-caption font-bold text-[#777169]">Description (Optional)</Label>
+              <Label className="text-caption font-bold text-muted-foreground">Description (Optional)</Label>
               <Textarea 
                 value={manualDescription} 
                 onChange={(e) => setManualDescription(e.target.value)}
