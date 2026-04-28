@@ -5,6 +5,7 @@ import { Plus, X, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCreateColumnMutation } from '@/lib/slices/boardsApi'
+import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -13,6 +14,10 @@ interface AddColumnButtonProps {
 }
 
 export default function AddColumnButton({ boardId }: AddColumnButtonProps) {
+  const { data: session } = useGetSessionQuery()
+  const canManage = session?.role === 'ADMIN' || session?.role === 'MANAGER'
+
+  if (!canManage) return null
   const [isEditing, setIsEditing] = useState(false)
   const [name, setName] = useState('')
   const [createColumn, { isLoading }] = useCreateColumnMutation()

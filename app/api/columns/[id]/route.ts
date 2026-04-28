@@ -75,7 +75,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         columns: { orderBy: { position: 'asc' } }
       }
     })
-    if (updatedBoard) broadcastBoardUpdate(column.board.id, updatedBoard)
+    if (updatedBoard) broadcastBoardUpdate(column.board.id, updatedBoard as any)
 
     return NextResponse.json(updated)
   } catch (error) {
@@ -151,7 +151,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
         columns: { orderBy: { position: 'asc' } }
       }
     })
-    if (updatedBoard) broadcastBoardUpdate(column.board.id, updatedBoard)
+    if (updatedBoard) broadcastBoardUpdate(column.board.id, updatedBoard as any)
 
     return NextResponse.json({ success: true })
   } catch (error) {

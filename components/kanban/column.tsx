@@ -25,7 +25,7 @@ import CreateTaskDialog from './create-task-dialog'
 import DraggableTaskCard from './draggable-task-card'
 import { useAppDispatch } from '@/lib/hooks'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
-import { setSelectedTask } from '@/lib/slices/uiSlice'
+import { setSelectedTask, setRightSidebarOpen } from '@/lib/slices/uiSlice'
 
 interface ColumnProps {
   column: ColumnType & { _count?: { tasks: number } }
@@ -183,7 +183,10 @@ function ColumnComponent({ column, boardId, tasks = [], focusMode, filterAssigne
                     focusMode={focusMode}
                     filterAssignee={filterAssignee}
                     isDragging={activeId === task.id}
-                    onClick={() => dispatch(setSelectedTask(task.id))}
+                    onClick={() => {
+                      dispatch(setSelectedTask(task.id))
+                      dispatch(setRightSidebarOpen(true))
+                    }}
                   />
                 ))}
               </SortableContext>

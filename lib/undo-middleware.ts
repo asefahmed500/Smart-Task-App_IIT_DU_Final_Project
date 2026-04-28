@@ -1,6 +1,7 @@
-import { Middleware } from '@reduxjs/toolkit'
+import { Middleware, UnknownAction } from '@reduxjs/toolkit'
 import { pushState } from '@/lib/slices/undoSlice'
 import { revertAction } from './undo/revert-handlers'
+import type { RootState } from './store'
 
 // Actions that should be tracked in undo history
 const TRACKED_ACTIONS = [
@@ -22,10 +23,12 @@ const CLEAR_ACTIONS = [
   'auth/logout/fulfilled',
 ]
 
-export const undoMiddleware: Middleware = (store) => (next) => (action: any) => {
+export const undoMiddleware: Middleware = (store) => (next) => (action) => {
+  const typedAction = action as UnknownAction
+
   // 1. Check if this is an UNDO request
-  if (action.type === 'undo/undo') {
-    const state = store.getState() as any
+  if (typedAction.type === 'undo/undo') {
+    const state = store.getState() as RootState
     const lastPresent = state.undo.present
     
     if (lastPresent) {
@@ -39,17 +42,18 @@ export const undoMiddleware: Middleware = (store) => (next) => (action: any) => 
   const result = next(action)
 
   // 2. Clear history on logout
-  if (CLEAR_ACTIONS.some((clearAction) => action.type?.includes?.(clearAction))) {
+  if (CLEAR_ACTIONS.some((clearAction) => typedAction.type?.includes?.(clearAction))) {
     return next({ type: 'undo/clearHistory' })
   }
 
   // 3. Track mutations for undo (skip if the action itself was a revert)
-  if (!action.meta?.isRevert && TRACKED_ACTIONS.some((tracked) => action.type?.endsWith?.(tracked))) {
+  const meta = typedAction.meta as { isRevert?: boolean } | undefined
+  if (!meta?.isRevert && TRACKED_ACTIONS.some((tracked) => typedAction.type?.endsWith?.(tracked))) {
     // Store the action with its result for replay
     next(pushState({
-      type: action.type,
-      payload: action.payload,
-      meta: action.meta,
+      type: typedAction.type,
+      payload: typedAction.payload,
+      meta: typedAction.meta,
       timestamp: Date.now(),
     }))
   }

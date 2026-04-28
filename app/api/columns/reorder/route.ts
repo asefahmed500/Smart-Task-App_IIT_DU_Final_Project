@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
           columns: { orderBy: { position: 'asc' } }
         }
       })
-      if (board) broadcastBoardUpdate(boardId, board)
+      if (board) broadcastBoardUpdate(boardId, board as any)
     }
 
     return NextResponse.json({ success: true })

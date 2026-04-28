@@ -1,23 +1,24 @@
 'use client'
 
 import { useState } from 'react'
-import { 
-  useGetBoardWebhooksQuery, 
-  useCreateWebhookMutation, 
-  useUpdateWebhookMutation, 
+import {
+  useGetBoardWebhooksQuery,
+  useCreateWebhookMutation,
+  useUpdateWebhookMutation,
   useDeleteWebhookMutation,
-  Webhook 
+  Webhook
 } from '@/lib/slices/boardsApi'
+import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { 
-  Globe, 
-  Plus, 
-  Trash2, 
-  ExternalLink, 
-  ShieldCheck, 
+import {
+  Globe,
+  Plus,
+  Trash2,
+  ExternalLink,
+  ShieldCheck,
   Activity,
   Loader2,
   Check,
@@ -43,6 +44,9 @@ interface WebhookSettingsProps {
 }
 
 export default function WebhookSettings({ boardId }: WebhookSettingsProps) {
+  const { data: session } = useGetSessionQuery()
+  const canManage = session?.role === 'ADMIN' || session?.role === 'MANAGER'
+
   const { data: webhooks, isLoading } = useGetBoardWebhooksQuery(boardId)
   const [createWebhook, { isLoading: isCreating }] = useCreateWebhookMutation()
   const [updateWebhook] = useUpdateWebhookMutation()
@@ -108,7 +112,7 @@ export default function WebhookSettings({ boardId }: WebhookSettingsProps) {
           <h3 className="text-lg font-bold tracking-tight">External Integrations</h3>
           <p className="text-sm text-muted-foreground">Receive real-time payloads when events happen on this board.</p>
         </div>
-        {!isAdding && (
+        {!isAdding && canManage && (
           <Button onClick={() => setIsAdding(true)} className="rounded-full gap-2 shadow-sm font-bold">
             <Plus className="h-4 w-4" />
             Add Webhook
@@ -216,22 +220,26 @@ export default function WebhookSettings({ boardId }: WebhookSettingsProps) {
                  </div>
 
                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="rounded-full h-8 w-8 text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDelete(webhook.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="rounded-full h-8 w-8"
-                      onClick={() => updateWebhook({ id: webhook.id, isActive: !webhook.isActive })}
-                    >
-                      <Settings2 className="h-4 w-4" />
-                    </Button>
+                    {canManage && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-full h-8 w-8 text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDelete(webhook.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-full h-8 w-8"
+                          onClick={() => updateWebhook({ id: webhook.id, isActive: !webhook.isActive })}
+                        >
+                          <Settings2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                  </div>
                </div>
                

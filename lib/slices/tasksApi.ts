@@ -19,7 +19,8 @@ export interface UpdateTaskRequest {
   dueDate?: string | null
   labels?: string[]
   isBlocked?: boolean
-  previousState?: any // Metadata for undo
+  previousState?: unknown // Metadata for undo
+  isRevert?: boolean
 }
 
 export interface MoveTaskRequest {
@@ -30,6 +31,7 @@ export interface MoveTaskRequest {
   override?: boolean
   fromColumnId?: string // Metadata for undo
   fromPosition?: number // Metadata for undo
+  isRevert?: boolean
 }
 
 export interface AssignTaskRequest {
@@ -44,6 +46,23 @@ export interface CommentPayload {
   user: { id: string; name: string | null; avatar: string | null }
   taskId: string
   userId: string
+}
+
+export interface TimeLog {
+  id: string
+  taskId: string
+  userId: string
+  startTime: string
+  endTime: string | null
+  duration: number | null
+  description: string | null
+  createdAt: string
+  updatedAt: string
+  user?: {
+    id: string
+    name: string | null
+    avatar: string | null
+  }
 }
 
 export const tasksApi = createApi({
@@ -128,7 +147,7 @@ export const tasksApi = createApi({
       }),
       invalidatesTags: [{ type: 'Task', id: 'LIST' }, 'Board'],
     }),
-    getTaskAudit: builder.query<any[], string>({
+    getTaskAudit: builder.query<import('./boardsApi').AuditLogEntry[], string>({
       query: (taskId) => `/tasks/${taskId}/audit`,
       providesTags: () => [{ type: 'Task', id: 'audit' }],
     }),
@@ -159,7 +178,7 @@ export const tasksApi = createApi({
       }),
       invalidatesTags: (result, error, { taskId }) => [{ type: 'Task', id: `COMMENTS_${taskId}` }]
     }),
-    addTaskDependency: builder.mutation<any, { taskId: string; linkedTaskId: string; type: 'BLOCKS' | 'IS_BLOCKED_BY' }>({
+    addTaskDependency: builder.mutation<unknown, { taskId: string; linkedTaskId: string; type: 'BLOCKS' | 'IS_BLOCKED_BY' }>({
       query: ({ taskId, ...body }) => ({
         url: `/tasks/${taskId}/dependencies`,
         method: 'POST',
@@ -182,7 +201,7 @@ export const tasksApi = createApi({
         return result.map(task => ({ type: 'Task' as const, id: task.id }))
       },
     }),
-    getAttachments: builder.query<any[], string>({
+    getAttachments: builder.query<TaskAttachment[], string>({
       query: (taskId) => `/tasks/${taskId}/attachments`,
       providesTags: (result, error, taskId) => [{ type: 'Task', id: `ATTACHMENTS_${taskId}` }]
     }),
@@ -201,11 +220,11 @@ export const tasksApi = createApi({
       }),
       invalidatesTags: (result, error, { taskId }) => [{ type: 'Task', id: taskId }, { type: 'Task', id: `ATTACHMENTS_${taskId}` }]
     }),
-    getTimeLogs: builder.query<any[], string>({
+    getTimeLogs: builder.query<TimeLog[], string>({
       query: (taskId) => `/tasks/${taskId}/time-logs`,
       providesTags: (result, error, taskId) => [{ type: 'Task', id: `TIME_LOGS_${taskId}` }]
     }),
-    logTime: builder.mutation<any, { taskId: string; action: 'start' | 'stop' | 'manual'; description?: string; duration?: number }>({
+    logTime: builder.mutation<TimeLog, { taskId: string; action: 'start' | 'stop' | 'manual'; description?: string; duration?: number }>({
       query: ({ taskId, ...body }) => ({
         url: `/tasks/${taskId}/time-logs`,
         method: 'POST',

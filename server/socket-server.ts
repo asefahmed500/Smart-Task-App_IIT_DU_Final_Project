@@ -1,12 +1,11 @@
 /**
  * Standalone Socket.IO Server for SmartTask
- * Run with: node server/socket-server.js
+ * Run with: npx tsx server/socket-server.ts
  */
-
-const { Server } = require('socket.io')
-const { createServer } = require('http')
-const { parse } = require('cookie')
-const next = require('next')
+import { Server } from 'socket.io'
+import { createServer } from 'http'
+import next from 'next'
+import { getSession } from '../lib/auth'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = 'localhost'
@@ -17,14 +16,20 @@ const handle = app.getRequestHandler()
 
 // Create HTTP server
 const httpServer = createServer(async (req, res) => {
-  // Handle Socket.IO requests
-  if (req.url === '/socket.io/') {
-    // Let Socket.IO handle it
-    return false
-  }
+  try {
+    // Handle Socket.IO requests
+    if (req.url?.startsWith('/socket.io/')) {
+      // Let Socket.IO handle it
+      return
+    }
 
-  // Handle Next.js requests
-  await handle(req, res)
+    // Handle Next.js requests
+    await handle(req, res)
+  } catch (err) {
+    console.error('Server error:', err)
+    res.statusCode = 500
+    res.end('Internal Server Error')
+  }
 })
 
 // Initialize Socket.IO
@@ -39,28 +44,16 @@ const io = new Server(httpServer, {
   },
 })
 
-// Better Auth session validation
-async function validateSession(token) {
-  try {
-    const { getSession } = require('./lib/auth.ts')
-    const session = await getSession(token)
-    return session
-  } catch (err) {
-    console.error('Session validation error:', err)
-    return null
-  }
-}
-
 // Socket.IO authentication middleware
 io.use(async (socket, next) => {
   try {
-    const token = socket.handshake.auth.token || socket.handshake.headers.authorization
+    const token = (socket.handshake.auth.token as string) || (socket.handshake.headers.authorization as string)
 
     if (!token) {
       return next(new Error('Authentication error: No token provided'))
     }
 
-    const session = await validateSession(token)
+    const session = await getSession(token)
 
     if (!session) {
       return next(new Error('Authentication error: Invalid token'))
@@ -70,6 +63,7 @@ io.use(async (socket, next) => {
     socket.data.userId = session.user.id
     next()
   } catch (err) {
+    console.error('Socket auth error:', err)
     return next(new Error('Authentication error'))
   }
 })
@@ -85,29 +79,29 @@ io.on('connection', (socket) => {
     console.log(`🔔 User ${userId} joined notification room`)
   }
 
-  socket.on('board:join', ({ boardId }) => {
+  socket.on('board:join', ({ boardId }: { boardId: string }) => {
     socket.join(`board:${boardId}`)
     console.log(`📋 User joined board: ${boardId}`)
   })
 
-  socket.on('board:leave', ({ boardId }) => {
+  socket.on('board:leave', ({ boardId }: { boardId: string }) => {
     socket.leave(`board:${boardId}`)
     console.log(`🚪 User left board: ${boardId}`)
   })
 
-  socket.on('presence:cursor', ({ boardId, ...data }) => {
+  socket.on('presence:cursor', ({ boardId, ...data }: { boardId: string; [key: string]: unknown }) => {
     socket.to(`board:${boardId}`).emit('presence:cursor', data)
   })
 
-  socket.on('presence:editing:start', ({ boardId, ...data }) => {
+  socket.on('presence:editing:start', ({ boardId, ...data }: { boardId: string; [key: string]: unknown }) => {
     socket.to(`board:${boardId}`).emit('presence:editing:start', data)
   })
 
-  socket.on('presence:editing:stop', ({ boardId, ...data }) => {
+  socket.on('presence:editing:stop', ({ boardId, ...data }: { boardId: string; [key: string]: unknown }) => {
     socket.to(`board:${boardId}`).emit('presence:editing:stop', data)
   })
 
-  socket.on('task:update', ({ boardId, ...data }) => {
+  socket.on('task:update', ({ boardId, ...data }: { boardId: string; [key: string]: unknown }) => {
     socket.to(`board:${boardId}`).emit('task:updated', data)
   })
 

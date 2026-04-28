@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Board not found' }, { status: 404 })
     }
 
-    const hasAccess = board.ownerId === userId || board.members.some(m => m.userId === userId)
+    const hasAccess = board.ownerId === userId || board.members.some((m: { userId: string }) => m.userId === userId)
     if (!hasAccess) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

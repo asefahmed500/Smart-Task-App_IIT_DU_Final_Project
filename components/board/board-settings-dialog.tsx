@@ -32,6 +32,7 @@ import AutomationBuilder from './automation-builder'
 import MembersList from './members-list'
 import MemberInviteDialog from './member-invite-dialog'
 import BoardActivityFeed from './board-activity-feed'
+import WebhookSettings from './webhook-settings'
 
 interface BoardSettingsDialogProps {
   board: Board
@@ -104,36 +105,40 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
             </h2>
             <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical" className="flex-1 flex flex-col">
               <TabsList className="bg-transparent flex-col h-auto p-0 gap-1 items-stretch">
-                <TabsTrigger 
-                  value="general" 
+                <TabsTrigger
+                  value="general"
                   className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
                 >
                   <Settings className="h-4 w-4 mr-2" />
                   General
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="members" 
+                <TabsTrigger
+                  value="members"
                   className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
                 >
                   <Users className="h-4 w-4 mr-2" />
                   Members
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="automations" 
-                  className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
-                >
-                  <Zap className="h-4 w-4 mr-2" />
-                  Automations
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="webhooks" 
-                  className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
-                >
-                  <Link className="h-4 w-4 mr-2" />
-                  Webhooks
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="activity" 
+                {isManager && (
+                  <TabsTrigger
+                    value="automations"
+                    className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
+                  >
+                    <Zap className="h-4 w-4 mr-2" />
+                    Automations
+                  </TabsTrigger>
+                )}
+                {isManager && (
+                  <TabsTrigger
+                    value="webhooks"
+                    className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
+                  >
+                    <Link className="h-4 w-4 mr-2" />
+                    Webhooks
+                  </TabsTrigger>
+                )}
+                <TabsTrigger
+                  value="activity"
                   className="justify-start px-3 h-10 data-[state=active]:bg-card data-[state=active]:shadow-sm border-none"
                 >
                   <History className="h-4 w-4 mr-2" />
@@ -250,22 +255,8 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
                 />
               </TabsContent>
 
-              <TabsContent value="webhooks" className="m-0 space-y-6">
-                <div className="space-y-1 mb-4">
-                  <h3 className="text-body-medium font-medium">Webhooks</h3>
-                  <p className="text-caption text-muted-foreground">Configure external integrations to receive board events</p>
-                </div>
-                <div className="text-center py-12">
-                  <Link className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h4 className="text-body-medium font-medium mb-2">No webhooks configured</h4>
-                  <p className="text-caption text-muted-foreground mb-6">
-                    Add webhooks to send real-time updates to external services when tasks are created, updated, or moved.
-                  </p>
-                  <Button variant="outline" className="gap-2">
-                    <Link className="h-4 w-4" />
-                    Add Webhook
-                  </Button>
-                </div>
+              <TabsContent value="webhooks" className="m-0">
+                <WebhookSettings boardId={board.id} />
               </TabsContent>
 
               <TabsContent value="activity" className="m-0 space-y-6">

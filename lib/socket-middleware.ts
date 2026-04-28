@@ -1,6 +1,6 @@
 'use client'
 
-import { Middleware } from '@reduxjs/toolkit'
+import { Middleware, UnknownAction } from '@reduxjs/toolkit'
 import {
   userJoined,
   userLeft,
@@ -21,6 +21,7 @@ import {
   onAttachmentUpdate,
   onDependencyUpdate,
   onTimeLogUpdate,
+  disconnectSocket,
 } from '@/lib/socket'
 import { tasksApi } from '@/lib/slices/tasksApi'
 import { boardsApi } from '@/lib/slices/boardsApi'
@@ -30,58 +31,70 @@ let cursorCleanup: (() => void) | null = null
 let taskCleanup: (() => void) | null = null
 let boardCleanup: (() => void) | null = null
 
-export const socketMiddleware: Middleware = (store) => (next) => (action: any) => {
+interface SocketPayload {
+  type: string
+  userId?: string
+  taskId?: string
+  id?: string
+  user?: import('@/lib/slices/presenceSlice').LiveUser
+  cursor?: { x: number; y: number }
+}
+
+export const socketMiddleware: Middleware = (store) => (next) => (action) => {
   const { dispatch } = store
 
-  if (action.type === 'ui/setCurrentBoard' || action.type === 'presence/setCurrentBoard') {
-    const boardId = action.payload
-    
-    // Cleanup previous listeners
-    if (presenceCleanup) presenceCleanup()
-    if (cursorCleanup) cursorCleanup()
-    if (taskCleanup) taskCleanup()
-    if (boardCleanup) boardCleanup()
+  const typedAction = action as UnknownAction & { payload?: { boardId?: string } }
+
+  if (typedAction.type === 'boards/setBoardId' || typedAction.type === 'boards/joinBoard') {
+    const boardId = typedAction.payload?.boardId
 
     if (boardId) {
       const socket = getSocket()
       socket.emit('board:join', { boardId })
 
-      presenceCleanup = onPresenceUpdate((data: any) => {
-        if (data.type === 'join') next(userJoined(data.user))
-        else if (data.type === 'leave') next(userLeft(data.userId))
+      presenceCleanup = onPresenceUpdate((data) => {
+        const payload = data as SocketPayload
+        if (payload.type === 'join' && payload.user) next(userJoined(payload.user))
+        else if (payload.type === 'leave') next(userLeft(payload.userId || ''))
       })
 
-      cursorCleanup = onCursorMove((data: any) => {
-        if (data.type === 'move') next(userCursorMoved({ userId: data.userId, cursor: data.cursor }))
-        else if (data.type === 'editing:start') next(userStartedEditing({ userId: data.userId, taskId: data.taskId }))
-        else if (data.type === 'editing:stop') next(userStoppedEditing(data.userId))
+      cursorCleanup = onCursorMove((data) => {
+        const payload = data as SocketPayload
+        if (payload.type === 'move') next(userCursorMoved({ userId: payload.userId || '', cursor: payload.cursor || { x: 0, y: 0 } }))
+        else if (payload.type === 'editing:start') next(userStartedEditing({ userId: payload.userId || '', taskId: payload.taskId || '' }))
+        else if (payload.type === 'editing:stop') next(userStoppedEditing(payload.userId || ''))
       })
 
       // Real-time task updates
-      const unsubTaskUpdate = onTaskUpdate((data: any) => {
-        dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: data.id }, 'Board']))
+      const unsubTaskUpdate = onTaskUpdate((data) => {
+        const payload = data as { id: string }
+        dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: payload.id }, 'Board']))
       })
 
-      const unsubTaskDelete = onTaskDelete((taskId: string) => {
+      const unsubTaskDelete = onTaskDelete(() => {
         dispatch(tasksApi.util.invalidateTags(['Task', 'Board']))
       })
 
-      const unsubCommentUpdate = onCommentUpdate((data: any) => {
-        dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: `COMMENTS_${data.taskId}` }]))
+      const unsubCommentUpdate = onCommentUpdate((data) => {
+        const payload = data as { taskId: string }
+        dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: `COMMENTS_${payload.taskId}` }]))
       })
 
-      const unsubAttachmentUpdate = onAttachmentUpdate((data: any) => {
-        dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: `ATTACHMENTS_${data.taskId}` }]))
+      const unsubAttachmentUpdate = onAttachmentUpdate((data) => {
+        const payload = data as { taskId: string }
+        dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: `ATTACHMENTS_${payload.taskId}` }]))
       })
 
-      const unsubDependencyUpdate = onDependencyUpdate((data: any) => {
-        dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: data.taskId }]))
+      const unsubDependencyUpdate = onDependencyUpdate((data) => {
+        const payload = data as { taskId: string }
+        dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: payload.taskId }]))
       })
 
-      const unsubTimeLogUpdate = onTimeLogUpdate((data: any) => {
+      const unsubTimeLogUpdate = onTimeLogUpdate((data) => {
+        const payload = data as { taskId: string }
         dispatch(tasksApi.util.invalidateTags([
-          { type: 'Task', id: data.taskId },
-          { type: 'Task', id: `TIME_LOGS_${data.taskId}` }
+          { type: 'Task', id: payload.taskId },
+          { type: 'Task', id: `TIME_LOGS_${payload.taskId}` }
         ]))
       })
 
@@ -95,9 +108,10 @@ export const socketMiddleware: Middleware = (store) => (next) => (action: any) =
       }
 
       // Real-time board structure updates
-      const unsubBoardUpdate = (data: any) => {
-        if (data?.id) {
-          dispatch(boardsApi.util.invalidateTags([{ type: 'Board', id: data.id }]))
+      const unsubBoardUpdate = (data: unknown) => {
+        const payload = data as { id?: string }
+        if (payload?.id) {
+          dispatch(boardsApi.util.invalidateTags([{ type: 'Board', id: payload.id }]))
         } else {
           dispatch(boardsApi.util.invalidateTags(['Board']))
         }
@@ -121,14 +135,13 @@ export const socketMiddleware: Middleware = (store) => (next) => (action: any) =
     }
   }
 
-  if (action.type === 'auth/logout/fulfilled') {
+  if (typedAction.type === 'auth/logout/fulfilled') {
     if (presenceCleanup) presenceCleanup()
     if (cursorCleanup) cursorCleanup()
     if (taskCleanup) taskCleanup()
     if (boardCleanup) boardCleanup()
     getSocket().emit('board:leave')
     // Disconnect socket on logout to prevent memory leaks
-    const { disconnectSocket } = require('@/lib/socket')
     disconnectSocket()
   }
 

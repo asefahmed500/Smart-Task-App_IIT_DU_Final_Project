@@ -91,7 +91,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       const endTime = new Date()
       const duration = Math.floor((endTime.getTime() - runningLog.startTime.getTime()) / 1000)
 
-      log = await prisma.$transaction(async (tx) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      log = await prisma.$transaction(async (tx: any) => {
         const updatedLog = await tx.timeLog.update({
           where: { id: runningLog.id },
           data: {
@@ -117,7 +118,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         return NextResponse.json({ error: 'Duration is required for manual log' }, { status: 400 })
       }
 
-      log = await prisma.$transaction(async (tx) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      log = await prisma.$transaction(async (tx: any) => {
         const newLog = await tx.timeLog.create({
           data: {
             taskId: id,
@@ -157,7 +159,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       }
     })
     if (updatedTask) {
-      broadcastTaskUpdate(task.boardId, updatedTask)
+      broadcastTaskUpdate(task.boardId, updatedTask as any)
     }
 
     return NextResponse.json(log)

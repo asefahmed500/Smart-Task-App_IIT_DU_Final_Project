@@ -6,11 +6,20 @@ import { AppDispatch } from '@/lib/store'
  * Maps a successful mutation action to its inverse operation
  * and dispatches the corresponding API call.
  */
-export async function revertAction(dispatch: AppDispatch, pastAction: any) {
-  const { type, payload, meta } = pastAction
+interface RevertibleAction {
+  type: string
+  payload: unknown
+  meta: {
+    arg: unknown
+    isRevert?: boolean
+  }
+}
+
+export async function revertAction(dispatch: AppDispatch, pastAction: unknown) {
+  const { type, payload, meta } = pastAction as RevertibleAction
 
   if (type.includes('task/moveTask')) {
-    const { taskId, fromColumnId, fromPosition } = meta.arg
+    const { taskId, fromColumnId, fromPosition } = meta.arg as { taskId: string; fromColumnId: string; fromPosition: number }
 
     if (!fromColumnId || fromPosition === undefined) {
       console.error('Cannot revert move: missing fromColumnId or fromPosition in meta.arg', meta.arg)
@@ -22,15 +31,14 @@ export async function revertAction(dispatch: AppDispatch, pastAction: any) {
         taskId,
         targetColumnId: fromColumnId,
         newPosition: fromPosition,
-        version: payload.version,
+        version: (payload as { version: number }).version,
         isRevert: true,
-      } as any)
+      })
     )
   }
 
   if (type.includes('task/updateTask')) {
-    const { id } = meta.arg
-    const previousData = meta.arg.previousState
+    const { id, previousState: previousData } = meta.arg as { id: string; previousState: any }
     
     if (previousData) {
       await dispatch(
@@ -40,25 +48,24 @@ export async function revertAction(dispatch: AppDispatch, pastAction: any) {
             ...previousData,
             isRevert: true,
           }
-        } as any)
+        })
       )
     }
   }
 
   if (type.includes('task/assignTask')) {
-    const { id } = meta.arg
-    const previousAssigneeId = meta.arg.previousAssigneeId
+    const { id, previousAssigneeId } = meta.arg as { id: string; previousAssigneeId: string | null }
     
     await dispatch(
       tasksApi.endpoints.assignTask.initiate({
         id,
         assigneeId: previousAssigneeId,
-      } as any)
+      })
     )
   }
 
   if (type.includes('task/deleteTask')) {
-    const taskData = payload
+    const taskData = payload as any
     await dispatch(
       tasksApi.endpoints.createTask.initiate({
         boardId: taskData.boardId,
@@ -76,14 +83,14 @@ export async function revertAction(dispatch: AppDispatch, pastAction: any) {
   }
 
   if (type.includes('task/createTask')) {
-    const taskId = payload.id
+    const taskId = (payload as { id: string }).id
     await dispatch(tasksApi.endpoints.deleteTask.initiate(taskId))
   }
 
   // Board Reverts
   if (type.includes('boards/updateBoard')) {
-    const { id } = meta.arg
-    const previousData = meta.arg.data.previousState
+    const { id, data } = meta.arg as { id: string; data: { previousState: any } }
+    const previousData = data.previousState
     
     if (previousData) {
       await dispatch(
@@ -93,15 +100,14 @@ export async function revertAction(dispatch: AppDispatch, pastAction: any) {
             ...previousData,
             isRevert: true,
           }
-        } as any)
+        })
       )
     }
   }
 
   // Column Reverts
   if (type.includes('columns/updateColumn')) {
-    const { id } = meta.arg
-    const previousData = meta.arg.previousState
+    const { id, previousState: previousData } = meta.arg as { id: string; previousState: any }
     
     if (previousData) {
       await dispatch(
@@ -109,18 +115,18 @@ export async function revertAction(dispatch: AppDispatch, pastAction: any) {
           id,
           ...previousData,
           isRevert: true,
-        } as any)
+        })
       )
     }
   }
 
   if (type.includes('columns/createColumn')) {
-    const columnId = payload.id
+    const columnId = (payload as { id: string }).id
     await dispatch(boardsApi.endpoints.deleteColumn.initiate(columnId))
   }
 
   if (type.includes('columns/deleteColumn')) {
-    const columnData = meta.arg.previousState
+    const columnData = (meta.arg as { previousState: any }).previousState
     if (columnData) {
       await dispatch(
         boardsApi.endpoints.createColumn.initiate({

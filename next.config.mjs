@@ -1,9 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
-    const allowedOrigins = process.env.ALLOWED_ORIGIN?.split(',') || ['http://localhost:3000']
     const cspScriptSrc = process.env.NODE_ENV === 'production'
-      ? "'self'"
+      ? "'self' 'unsafe-inline'"
       : "'self' 'unsafe-eval' 'unsafe-inline'"
 
     return [

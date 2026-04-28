@@ -98,7 +98,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         columns: { orderBy: { position: 'asc' } }
       }
     })
-    if (board) broadcastBoardUpdate(boardId, board)
+    if (board) broadcastBoardUpdate(boardId, board as any)
 
     return NextResponse.json(column, { status: 201 })
   } catch (error) {

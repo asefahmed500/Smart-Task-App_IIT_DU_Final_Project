@@ -79,14 +79,27 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       })
 
       if (taskCount >= targetColumn.wipLimit) {
-        // Members are hard blocked. Managers/Admins are blocked unless override is true.
-        if (!isManagerOrAdmin || !override) {
+        // Members are hard blocked - cannot override
+        if (!isManagerOrAdmin) {
           return NextResponse.json(
             {
               error: 'WIP limit exceeded',
               wipLimit: targetColumn.wipLimit,
               currentCount: taskCount,
-              requiresOverride: isManagerOrAdmin // Send this back so UI knows a manager can override
+              requiresOverride: false // Members cannot override
+            },
+            { status: 409 }
+          )
+        }
+
+        // Managers/Admins blocked unless they explicitly override
+        if (!override) {
+          return NextResponse.json(
+            {
+              error: 'WIP limit exceeded',
+              wipLimit: targetColumn.wipLimit,
+              currentCount: taskCount,
+              requiresOverride: true // Managers/admins can override
             },
             { status: 409 }
           )
@@ -101,13 +114,13 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
             include: { blocker: { include: { column: true } } }
         })
         
-        const incompleteBlockers = blockers.filter(b => !b.blocker.column.isTerminal)
+        const incompleteBlockers = blockers.filter((b: any) => !b.blocker.column.isTerminal) // eslint-disable-line @typescript-eslint/no-explicit-any
         
         if (incompleteBlockers.length > 0) {
             return NextResponse.json(
                 { 
                   error: 'Task is blocked', 
-                  message: `Cannot finish task while it is blocked by: ${incompleteBlockers.map(b => b.blocker.title).join(', ')}`
+                  message: `Cannot finish task while it is blocked by: ${incompleteBlockers.map((b: any) => b.blocker.title).join(', ')}` // eslint-disable-line @typescript-eslint/no-explicit-any
                 },
                 { status: 409 }
             )
@@ -115,7 +128,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     }
 
     // Update task position and column in transaction
-    const updated = await prisma.$transaction(async (tx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updated = await prisma.$transaction(async (tx: any) => {
       // Update task
       const task = await tx.task.update({
         where: { id },
@@ -146,7 +160,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           boardId: existingTask.boardId,
           changes: {
             fromColumnId: existingTask.columnId,
-            fromColumnName: existingTask.board.columns.find(c => c.id === existingTask.columnId)?.name,
+            fromColumnName: existingTask.board.columns.find((c: { id: string; name: string }) => c.id === existingTask.columnId)?.name,
             toColumnId: targetColumnId,
             toColumnName: targetColumn?.name,
             newPosition,
@@ -160,23 +174,39 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     // Evaluate automation rules after successful move
     await evaluateAutomations(existingTask.boardId, 'TASK_MOVED', updated as any, userId)
 
-    // Broadcast update via socket
+    // CRITICAL: Refetch task after automation to get latest state
+    // Automations may have updated assignee, priority, labels, etc.
+    const finalTask = await prisma.task.findUnique({
+      where: { id },
+      include: {
+        assignee: {
+          select: { id: true, name: true, avatar: true, role: true },
+        },
+        column: true,
+      },
+    })
+
+    if (!finalTask) {
+      return NextResponse.json({ error: 'Task not found after automation' }, { status: 500 })
+    }
+
+    // Broadcast update via socket with final state
     const { broadcastTaskUpdate } = await import('@/lib/socket-server')
-    broadcastTaskUpdate(existingTask.boardId, updated)
+    broadcastTaskUpdate(existingTask.boardId, finalTask as any)
 
     // Notify participants for important stage changes + Webhooks
-    if (updated.column?.name.toLowerCase() === 'done' || updated.column?.name.toLowerCase() === 'review') {
+    if (finalTask.column?.name.toLowerCase() === 'done' || finalTask.column?.name.toLowerCase() === 'review') {
       await handleTaskEvent(
         id,
         userId,
         'TASK_MOVED',
         'Task Status Update',
-        `Task "${updated.title}" moved to ${updated.column.name}`,
+        `Task "${finalTask.title}" moved to ${finalTask.column.name}`,
         `/board/${existingTask.boardId}?task=${id}`
       )
     }
 
-    return NextResponse.json(updated)
+    return NextResponse.json(finalTask)
   } catch (error) {
     console.error('Move task error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

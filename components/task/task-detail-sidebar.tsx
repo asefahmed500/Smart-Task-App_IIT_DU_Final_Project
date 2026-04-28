@@ -2,7 +2,7 @@
 
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { useGetTaskQuery, useGetTaskAuditQuery, useUpdateTaskMutation, useGetTaskCommentsQuery, useAddCommentMutation, useDeleteCommentMutation, useUpdateCommentMutation, useAddTaskDependencyMutation, useRemoveTaskDependencyMutation, useDeleteTaskMutation, useAddAttachmentMutation, useDeleteAttachmentMutation } from '@/lib/slices/tasksApi'
-import { useGetBoardsQuery, type Priority } from '@/lib/slices/boardsApi'
+import { useGetBoardsQuery, type Priority, type BoardMember, type AuditLogEntry, type Task } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { cn } from '@/lib/utils/cn'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -180,8 +180,9 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
       toast.success('Task deleted')
       dispatch(setSelectedTask(null))
       dispatch(setRightSidebarOpen(false))
-    } catch (error: any) {
-      toast.error(error.data?.error || 'Failed to delete task')
+    } catch (error: unknown) {
+      const apiError = error as { data?: { error?: string } }
+      toast.error(apiError.data?.error || 'Failed to delete task')
     }
   }
 
@@ -294,7 +295,7 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {activeBoard?.members?.map((m: any) => (
+                        {activeBoard?.members?.map((m: BoardMember) => (
                           <SelectItem key={m.userId} value={m.userId}>
                             {m.user.name || m.user.email}
                           </SelectItem>
@@ -508,19 +509,19 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                 {task.blockers && task.blockers.length > 0 && (
                   <div className="space-y-2">
                     <Label className="text-caption text-muted-foreground uppercase tracking-wider font-semibold">Blocked by ({task.blockers.length})</Label>
-                    {task.blockers.filter((b: any) => b.blocker).map(({ blocker }: any) => (
-                      <div key={blocker.id} className="p-3 bg-red-50 border border-red-100 rounded-[8px] flex items-center justify-between gap-2 group">
+                    {task.blockers.filter((b) => b.blocker).map(({ blocker }) => (
+                      <div key={blocker?.id} className="p-3 bg-red-50 border border-red-100 rounded-[8px] flex items-center justify-between gap-2 group">
                         <div className="flex items-center gap-2">
                           <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
                           <div>
-                            <p className="text-body-standard font-medium text-red-900 line-clamp-1">{blocker.title}</p>
+                            <p className="text-body-standard font-medium text-red-900 line-clamp-1">{blocker?.title}</p>
                           </div>
                         </div>
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => removeDependency({ taskId: task.id, linkedTaskId: blocker.id, type: 'IS_BLOCKED_BY' })}
+                          onClick={() => blocker && removeDependency({ taskId: task.id, linkedTaskId: blocker.id, type: 'IS_BLOCKED_BY' })}
                         >
                           <Trash2 className="h-3.5 w-3.5 text-red-500" />
                         </Button>
@@ -532,10 +533,10 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
                 {task.blocking && task.blocking.length > 0 && (
                   <div className="space-y-2">
                     <Label className="text-caption text-muted-foreground uppercase tracking-wider font-semibold">Blocking ({task.blocking.length})</Label>
-                    {task.blocking.filter((b: any) => b.blocking).map(({ blocking }: any) => (
-                      <div key={blocking.id} className="p-3 bg-amber-50 border border-amber-100 rounded-[8px] flex items-center gap-2">
+                    {task.blocking.filter((b) => b.blocking).map(({ blocking }) => (
+                      <div key={blocking?.id} className="p-3 bg-amber-50 border border-amber-100 rounded-[8px] flex items-center gap-2">
                         <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                          <p className="text-body-standard font-medium text-amber-900 line-clamp-1">{blocking.title}</p>
+                          <p className="text-body-standard font-medium text-amber-900 line-clamp-1">{blocking?.title}</p>
                       </div>
                     ))}
                   </div>
@@ -564,28 +565,29 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
               <div className="space-y-6 flex-1 flex flex-col min-h-0">
                 <FileUpload taskId={taskId} />
                 <div className="flex-1 min-h-0">
-                   <AttachmentList taskId={taskId} />
+                   <AttachmentList taskId={taskId} boardId={task?.boardId} />
                 </div>
               </div>
             </TabsContent>
 
             <TabsContent value="time" className="mt-0 h-[calc(100vh-140px)] flex flex-col">
-              <TimeTrackingPanel taskId={taskId} totalTimeSpent={(task as any).totalTimeSpent ?? 0} />
+              <TimeTrackingPanel taskId={taskId} totalTimeSpent={(task as Task & { totalTimeSpent?: number }).totalTimeSpent ?? 0} />
             </TabsContent>
 
             <TabsContent value="activity" className="mt-0 flex-1 overflow-hidden">
                <ScrollArea className="h-[calc(100vh-140px)] px-4 pb-8">
                 {auditLog && auditLog.length > 0 ? (
                   <div className="relative space-y-8 py-4 before:absolute before:inset-0 before:ml-3 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-slate-100 before:via-slate-100 before:to-transparent">
-                    {auditLog.map((log: any) => {
+                    {auditLog.map((log: AuditLogEntry) => {
+                      const changes = typeof log.changes === 'string' ? (JSON.parse(log.changes) as Record<string, string>) : (log.changes as unknown as Record<string, string>)
                       const actionSentences: Record<string, string> = {
                         'TASK_CREATED': 'created this task',
-                        'TASK_MOVED': `moved task to ${log.changes?.to_column_name || 'new column'}`,
-                        'TASK_ASSIGNED': log.targetId === log.actorId ? 'self-assigned this task' : `assigned task to ${log.target?.name || 'someone'}`,
+                        'TASK_MOVED': `moved task to ${changes?.to_column_name || 'new column'}`,
+                        'TASK_ASSIGNED': log.actorId === log.actorId ? 'self-assigned this task' : `assigned task to ${log.actor?.name || 'someone'}`,
                         'TASK_UPDATED': 'updated task details',
                         'COMMENT_ADDED': 'commented on this task',
                         'COMMENT_DELETED': 'deleted a comment',
-                        'DEPENDENCY_ADDED': `linked a dependency: ${log.changes?.type === 'BLOCKS' ? 'Blocks' : 'Is blocked by'}`,
+                        'DEPENDENCY_ADDED': `linked a dependency: ${changes?.type === 'BLOCKS' ? 'Blocks' : 'Is blocked by'}`,
                         'DEPENDENCY_REMOVED': 'removed a task dependency',
                       }
 

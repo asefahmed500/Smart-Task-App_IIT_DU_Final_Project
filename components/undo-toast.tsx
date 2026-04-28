@@ -44,6 +44,7 @@ export function UndoKeyboardHandler() {
         e.preventDefault()
         if (future.length > 0) {
           dispatch(redo())
+          
           toast.success('Redo successful', {
             icon: <Redo className="h-4 w-4" />,
             action: {

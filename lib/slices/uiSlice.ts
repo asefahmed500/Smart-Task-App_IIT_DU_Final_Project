@@ -14,7 +14,7 @@ interface UIState {
   theme: 'light' | 'dark' | 'system'
   filterAssignee: string | null
   filterDue: 'today' | 'overdue' | 'stale' | 'all'
-  offlineQueue: Array<{ action: string; data: any; timestamp: number }>
+  offlineQueue: Array<{ action: string; data: unknown; timestamp: number }>
 }
 
 const initialState: UIState = {
@@ -82,7 +82,7 @@ const uiSlice = createSlice({
     setFilterDue: (state, action: PayloadAction<'today' | 'overdue' | 'stale' | 'all'>) => {
       state.filterDue = action.payload
     },
-    addToOfflineQueue: (state, action: PayloadAction<{ action: string; data: any }>) => {
+    addToOfflineQueue: (state, action: PayloadAction<{ action: string; data: unknown }>) => {
       state.offlineQueue.push({
         ...action.payload,
         timestamp: Date.now(),

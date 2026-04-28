@@ -124,7 +124,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       where: { boardId: id },
       include: { user: { select: { id: true, name: true, email: true, avatar: true, isActive: true } } }
     })
-    broadcastMemberUpdate(id, updatedMembers)
+    broadcastMemberUpdate(id, updatedMembers as any)
 
     return NextResponse.json(member)
   } catch (error) {
@@ -203,7 +203,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       where: { boardId },
       include: { user: { select: { id: true, name: true, email: true, avatar: true, isActive: true } } }
     })
-    broadcastMemberUpdate(boardId, updatedMembers)
+    broadcastMemberUpdate(boardId, updatedMembers as any)
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -290,7 +290,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       where: { boardId },
       include: { user: { select: { id: true, name: true, email: true, avatar: true, isActive: true } } }
     })
-    broadcastMemberUpdate(boardId, updatedMembers)
+    broadcastMemberUpdate(boardId, updatedMembers as any)
 
     return NextResponse.json(member)
   } catch (error) {

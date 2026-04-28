@@ -1,6 +1,15 @@
 import { Server as NetServer } from 'http'
+import type { Socket } from 'net'
 import { NextApiRequest, NextApiResponse } from 'next'
 import { Server as IOServer } from 'socket.io'
+
+type NextApiResponseWithSocket = NextApiResponse & {
+  socket: Socket & {
+    server: NetServer & {
+      io?: IOServer
+    }
+  }
+}
 
 export const config = {
   api: {
@@ -8,12 +17,10 @@ export const config = {
   },
 }
 
-export default async function SocketHandler(req: NextApiRequest, res: NextApiResponse) {
-  // @ts-ignore
+export default async function SocketHandler(req: NextApiRequest, res: NextApiResponseWithSocket) {
   if (!res.socket.server.io) {
     console.log('--- Initializing Socket.IO ---')
 
-    // @ts-ignore
     const httpServer: NetServer = res.socket.server
 
     const ioInstance = new IOServer(httpServer, {
@@ -97,7 +104,6 @@ export default async function SocketHandler(req: NextApiRequest, res: NextApiRes
       })
     })
 
-    // @ts-ignore
     res.socket.server.io = ioInstance
   }
 

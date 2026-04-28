@@ -1,12 +1,12 @@
 'use client'
 
-import { createStore } from 'redux'
+import { UnknownAction } from '@reduxjs/toolkit'
 import { Middleware } from '@reduxjs/toolkit'
 
 interface QueuedAction {
   id: string
   timestamp: number
-  action: any
+  action: UnknownAction
   retryCount: number
 }
 
@@ -44,17 +44,17 @@ function saveQueue(queue: QueuedAction[]) {
 // Create offline middleware
 export function createOfflineMiddleware(): Middleware {
   return (store) => (next) => (action) => {
-    const state = store.getState() as any
+    const state = store.getState() as { ui: { isOnline: boolean } }
     const isOnline = state.ui?.isOnline ?? true
 
     // If offline and action is a mutation, queue it
-    if (!isOnline && shouldQueueAction(action)) {
+    if (!isOnline && shouldQueueAction(action as UnknownAction)) {
       const queue = loadQueue()
       if (queue.length < MAX_QUEUE_SIZE) {
         const queuedAction: QueuedAction = {
           id: `${Date.now()}-${Math.random()}`,
           timestamp: Date.now(),
-          action,
+          action: action as UnknownAction,
           retryCount: 0,
         }
         queue.push(queuedAction)
@@ -64,7 +64,7 @@ export function createOfflineMiddleware(): Middleware {
         store.dispatch({
           type: 'offline/actionQueued',
           payload: { actionId: queuedAction.id, action },
-        })
+        } as UnknownAction)
 
         // Still pass through for optimistic UI updates
         return next(action)
@@ -76,19 +76,20 @@ export function createOfflineMiddleware(): Middleware {
 }
 
 // Check if action should be queued
-function shouldQueueAction(action: any): boolean {
+function shouldQueueAction(action: UnknownAction): boolean {
   if (!action.type) return false
 
   // RTK Query mutation patterns: tasksApi/createTask/pending, boardsApi/updateBoard/pending, etc.
   const mutationPrefixes = ['tasksApi/', 'boardsApi/', 'columnsApi/', 'adminApi/', 'usersApi/']
-  const isMutationAction = action.type.endsWith('/pending') &&
+  const isMutationAction = typeof action.type === 'string' && 
+                         action.type.endsWith('/pending') &&
                          mutationPrefixes.some(prefix => action.type.startsWith(prefix))
 
   return isMutationAction
 }
 
 // Replay queued actions when back online
-export async function replayQueue(store: any) {
+export async function replayQueue(store: { dispatch: (action: UnknownAction) => Promise<unknown> | unknown }) {
   const queue = loadQueue()
   if (queue.length === 0) return
 

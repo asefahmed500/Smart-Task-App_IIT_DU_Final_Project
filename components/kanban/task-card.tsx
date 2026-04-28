@@ -3,8 +3,10 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
 import { Priority } from '@/lib/slices/boardsApi'
-import { GripVertical, AlertCircle, Edit2, Clock } from 'lucide-react'
+import { GripVertical, AlertCircle, Edit2, Clock, MoreVertical, Trash2, User, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { useState, useEffect } from 'react'
@@ -60,6 +62,7 @@ export default function TaskCard({
   filterAssignee,
   isDragging,
   totalTimeSpent,
+  role,
   onClick,
 }: TaskCardProps) {
 
@@ -157,7 +160,35 @@ export default function TaskCard({
           <Badge variant="outline" className={cn('text-xs', priorityColors[priority])}>
             {priority}
           </Badge>
-          <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="flex items-center gap-1">
+            <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onClick && onClick(); }}>
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  Edit Task
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                  <User className="mr-2 h-4 w-4" />
+                  Assign
+                </DropdownMenuItem>
+                {(role === 'ADMIN' || role === 'MANAGER') && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={(e) => e.stopPropagation()} className="text-destructive">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Task
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Title */}

@@ -10,6 +10,7 @@
     "check-users": "npx tsx -r dotenv/config scripts/check-users.ts dotenv_config_path=.env.local",
     "check-boards": "npx tsx -r dotenv/config scripts/check-member-boards.ts dotenv_config_path=.env.local",
     "lint": "eslint",
+    "postinstall": "prisma generate",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "seed": "npx tsx -r dotenv/config prisma/seed.ts dotenv_config_path=.env.local"

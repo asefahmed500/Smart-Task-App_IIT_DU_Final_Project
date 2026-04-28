@@ -80,7 +80,7 @@ export default function PlatformStats() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {stats?.roleDistribution?.find((r: any) => r.role === 'ADMIN')?.count || 0}
+            {stats?.roleDistribution?.find((r) => r.role === 'ADMIN')?.count || 0}
           </div>
           <p className="text-xs text-muted-foreground">
             Platform admins

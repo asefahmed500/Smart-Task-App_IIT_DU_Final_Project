@@ -29,7 +29,7 @@ export default function ManagerDashboardPage() {
   const managedBoards = boards?.filter((board) => {
     const userId = session?.id
     if (board.ownerId === userId) return true
-    const member = board.members.find((m: any) => m.userId === userId)
+    const member = board.members.find((m) => m.userId === userId)
     return member && (member.role === 'ADMIN' || member.role === 'MANAGER')
   }) || []
 

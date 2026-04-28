@@ -34,8 +34,18 @@ export interface SystemSettings {
   platformName: string
   allowMemberBoardCreation: boolean
   defaultWipLimit: number
-  allowedColors: any
+  allowedColors: string[]
   updatedAt: string
+}
+
+export interface PlatformStats {
+  totalUsers: number
+  activeUsers: number
+  totalBoards: number
+  totalTasks: number
+  statusBreakdown: { status: string; count: number }[]
+  priorityBreakdown: { priority: string; count: number }[]
+  roleDistribution: { role: string; count: number }[]
 }
 
 export const adminApi = createApi({
@@ -74,10 +84,10 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['User'],
     }),
-    getPlatformAudit: builder.query<any[], void>({
+    getPlatformAudit: builder.query<unknown[], void>({
       query: () => '/audit',
     }),
-    getPlatformStats: builder.query<any, void>({
+    getPlatformStats: builder.query<PlatformStats, void>({
       query: () => '/stats',
     }),
     resetUserPassword: builder.mutation<{ success: boolean; message?: string; resetUrl?: string; token?: string }, string>({

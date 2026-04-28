@@ -74,7 +74,7 @@ export async function createNotification(
     }
 
     return notification
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to create notification:', error)
 
     try {
@@ -86,7 +86,7 @@ export async function createNotification(
           message,
           link,
           status: 'FAILED',
-          lastError: error.message || String(error),
+          lastError: error instanceof Error ? error.message : String(error),
         }
       })
     } catch (e) {
@@ -110,7 +110,10 @@ export async function handleTaskEvent(
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       include: {
-        board: { select: { id: true, ownerId: true } },
+        board: {
+          select: { id: true, ownerId: true },
+          include: { members: { select: { userId: true } } }
+        },
         createdBy: { select: { id: true } }
       }
     })
@@ -126,11 +129,13 @@ export async function handleTaskEvent(
       taskTitle: task.title
     })
 
-    // 2. Notify participants
+    // 2. Notify participants: assignee, creator, board owner, AND all board members
     const userIds = new Set<string>()
     if (task.assigneeId) userIds.add(task.assigneeId)
     if (task.createdById) userIds.add(task.createdById)
     if (task.board.ownerId) userIds.add(task.board.ownerId)
+    // Add all board members
+    task.board.members.forEach((member) => userIds.add(member.userId))
 
     userIds.delete(actorId)
 

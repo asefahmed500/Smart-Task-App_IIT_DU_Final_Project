@@ -11,7 +11,7 @@ import { validateEnv } from './env-validation'
 // Get allowed origins for CORS and CSRF
 const getAllowedOrigins = () => {
   const allowed = process.env.ALLOWED_ORIGIN?.split(',') || ['http://localhost:3000']
-  return allowed.map(o => o.trim())
+  return allowed.map((o: string) => o.trim())
 }
 
 export const auth = betterAuth({

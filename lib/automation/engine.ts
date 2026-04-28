@@ -3,6 +3,7 @@ import { executeTrigger } from './triggers'
 import { executeAction } from './actions'
 import type { Task } from '@/lib/slices/boardsApi'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 
 export interface AutomationTrigger {
   type: 'TASK_MOVED' | 'TASK_ASSIGNED' | 'PRIORITY_CHANGED' | 'TASK_STALLED'
@@ -52,6 +53,22 @@ export interface AutomationRule {
   enabled: boolean
   trigger: AutomationTrigger
   condition?: AutomationCondition
+  action: AutomationAction
+  lastFiredAt?: string | null
+  createdAt: string
+}
+
+interface ParsedRule {
+  rule: {
+    id: string
+    boardId: string
+    name: string
+    trigger: string
+    condition: string | null
+    action: string
+  }
+  trigger: AutomationTrigger
+  condition: AutomationCondition | null
   action: AutomationAction
 }
 
@@ -111,8 +128,8 @@ export async function evaluateAutomations(
     }
 
     // Parse all rules once with validation
-    const parsedRules = rules
-      .map(rule => {
+    const parsedRules: ParsedRule[] = rules
+      .map((rule) => {
         try {
           const trigger = safeJSONParse(
             rule.trigger as string,
@@ -130,16 +147,21 @@ export async function evaluateAutomations(
             { type: 'NOTIFY_USER' } // fallback
           )
 
-          return { rule, trigger, condition, action }
+          return { 
+            rule: rule as unknown as ParsedRule['rule'], 
+            trigger, 
+            condition, 
+            action 
+          }
         } catch (error) {
           console.error(`[Security] Failed to parse automation rule ${rule.id}:`, error)
           return null
         }
       })
-      .filter((rule): rule is NonNullable<typeof rule> => rule !== null)
+      .filter((rule): rule is ParsedRule => rule !== null)
 
     // Filter rules where trigger matches (parallel evaluation)
-    const matchingRules = parsedRules.filter(({ trigger }) => 
+    const matchingRules = parsedRules.filter(({ trigger }) =>
       executeTrigger(trigger, eventType, taskData)
     )
 
@@ -154,7 +176,7 @@ export async function evaluateAutomations(
     }
 
     // Execute actions and batch updates
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const promises = readyToFire.map(async ({ rule, action }) => {
         try {
           await executeAction(action, taskData, rule.boardId, actorId)
@@ -207,16 +229,19 @@ export async function evaluateAutomations(
 /**
  * Evaluate a condition against task data with security validation
  */
-async function evaluateCondition(condition: AutomationCondition, taskData: Partial<Task>): Promise<boolean> {
+/**
+ * Evaluate a condition against task data with security validation
+ */
+function evaluateCondition(condition: AutomationCondition, taskData: Partial<Task>): boolean {
   const { field, operator, value } = condition
 
   // Security: Validate field and operator against whitelist
-  if (!ALLOWED_CONDITION_FIELDS.includes(field as any)) {
+  if (!ALLOWED_CONDITION_FIELDS.includes(field as (typeof ALLOWED_CONDITION_FIELDS)[number])) {
     console.error(`[Security] Invalid automation condition field: ${field}`)
     return false
   }
 
-  if (!ALLOWED_CONDITION_OPERATORS.includes(operator as any)) {
+  if (!ALLOWED_CONDITION_OPERATORS.includes(operator as (typeof ALLOWED_CONDITION_OPERATORS)[number])) {
     console.error(`[Security] Invalid automation condition operator: ${operator}`)
     return false
   }
@@ -229,7 +254,9 @@ async function evaluateCondition(condition: AutomationCondition, taskData: Parti
     case 'NEQ':
       return taskValue !== value
     case 'CONTAINS':
-      return Array.isArray(taskValue) ? taskValue.includes(value) : String(taskValue).includes(String(value))
+      return Array.isArray(taskValue) 
+        ? taskValue.includes(String(value)) 
+        : String(taskValue).includes(String(value))
     case 'GT':
       return Number(taskValue) > Number(value)
     case 'LT':
@@ -241,7 +268,7 @@ async function evaluateCondition(condition: AutomationCondition, taskData: Parti
     case 'EMPTY':
       return !taskValue || (Array.isArray(taskValue) && taskValue.length === 0)
     case 'NOT_EMPTY':
-      return taskValue && (!Array.isArray(taskValue) || taskValue.length > 0)
+      return !!taskValue && (!Array.isArray(taskValue) || taskValue.length > 0)
     default:
       return false
   }
@@ -250,14 +277,17 @@ async function evaluateCondition(condition: AutomationCondition, taskData: Parti
 /**
  * Get a field value from task data with safe defaults
  */
-function getTaskFieldValue(task: Partial<Task>, field: string): any {
+/**
+ * Get a field value from task data with safe defaults
+ */
+function getTaskFieldValue(task: Partial<Task>, field: string): string | number | string[] | null {
   switch (field) {
     case 'priority':
-      return task.priority
+      return task.priority || null
     case 'assigneeId':
-      return task.assigneeId
+      return task.assigneeId || null
     case 'columnId':
-      return task.columnId
+      return task.columnId || null
     case 'label':
       return task.labels || []
     case 'daysSinceLastMove':

@@ -1,4 +1,5 @@
 import { AutomationTrigger } from './engine'
+import type { Task } from '@/lib/slices/boardsApi'
 
 // Whitelisted trigger types for security
 export const ALLOWED_TRIGGER_TYPES = [
@@ -18,12 +19,12 @@ export const ALLOWED_TRIGGER_TYPES = [
 export async function executeTrigger(
   trigger: AutomationTrigger,
   eventType: string,
-  taskData: any
+  taskData: Partial<Task>
 ): Promise<boolean> {
   const { type, value } = trigger
 
   // Security: Validate trigger type against whitelist
-  if (!ALLOWED_TRIGGER_TYPES.includes(type as any)) {
+  if (!ALLOWED_TRIGGER_TYPES.includes(type as typeof ALLOWED_TRIGGER_TYPES[number])) {
     console.error(`[Security] Invalid automation trigger type: ${type}`)
     return false
   }

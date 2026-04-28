@@ -28,7 +28,7 @@ export class ApiError extends Error {
  */
 export class ApiErrorResponse {
   static error(message: string, status: number = 500, code?: string, details?: unknown): NextResponse {
-    const body: any = { error: message }
+    const body: { error: string; code?: string; details?: unknown } = { error: message }
     if (code) body.code = code
     if (details) body.details = details
 
@@ -87,51 +87,44 @@ export class ApiErrorResponse {
 /**
  * Wrap an API handler with try-catch error handling
  */
-export function withErrorHandling<T extends (
-  req: NextRequest,
-  context?: { params: Promise<any> }
-) => Promise<NextResponse>>(
-  handler: T
-): T {
-  return (async (req: NextRequest, context?: { params: Promise<any> }) => {
+export function withErrorHandling<TParams = Record<string, string>>(
+  handler: (req: NextRequest, context: { params: Promise<TParams> }) => Promise<NextResponse>
+) {
+  return async (req: NextRequest, context: { params: Promise<TParams> }) => {
     try {
       return await handler(req, context)
     } catch (error) {
       return ApiErrorResponse.handle(error)
     }
-  }) as T
+  }
 }
 
 /**
  * Combine auth and error handling middleware
  */
-export function withAuthAndError<T extends (
-  req: NextRequest,
-  context?: { params: Promise<any> }
-) => Promise<NextResponse>>(
-  handler: T
-): T {
+export function withAuthAndError<TParams = Record<string, string>>(
+  handler: (req: NextRequest, context: { params: Promise<TParams> }) => Promise<NextResponse>
+) {
   return withErrorHandling(handler)
 }
 
 /**
  * Combine role auth and error handling middleware
  */
-export function withAuthRoleAndError<T extends (
-  req: NextRequest,
-  context?: { params: Promise<any> }
-) => Promise<NextResponse>>(
+export function withAuthRoleAndError<TParams = Record<string, string>>(
   allowedRoles: ('ADMIN' | 'MANAGER' | 'MEMBER')[],
-  handler: T
-): T {
-  return withErrorHandling(
-    (async (req: NextRequest, context?: { params: Promise<any> }) => {
+  handler: (req: NextRequest, context: { params: Promise<TParams> }) => Promise<NextResponse>
+) {
+  return withErrorHandling<TParams>(
+    async (req: NextRequest, context: { params: Promise<TParams> }) => {
       const authResult = await requireApiRole(allowedRoles)
       if (authResult instanceof NextResponse) return authResult
 
-      ;(req as any).session = authResult
+      // @ts-expect-error - session is added to request for downstream handlers
+      req.session = authResult
 
       return handler(req, context)
-    }) as T
+    }
   )
 }
+

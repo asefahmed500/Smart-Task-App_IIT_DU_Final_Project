@@ -117,7 +117,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     // Broadcast board update
     const { broadcastBoardUpdate } = await import('@/lib/socket-server')
-    broadcastBoardUpdate(id, updated)
+    broadcastBoardUpdate(id, updated as any)
 
     return NextResponse.json(updated)
   } catch (error) {

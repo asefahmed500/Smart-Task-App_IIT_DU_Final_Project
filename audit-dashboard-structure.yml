@@ -1,0 +1,27 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e152]:
+    - generic [ref=e154]:
+      - img [ref=e156]
+      - generic [ref=e158]: Something went wrong
+    - generic [ref=e159]:
+      - paragraph [ref=e160]: We encountered an unexpected error. You can try refreshing the page or go back to the dashboard.
+      - group [ref=e161]:
+        - generic "Error Details" [ref=e162] [cursor=pointer]
+      - generic [ref=e163]:
+        - button "Try Again" [ref=e164]:
+          - img
+          - text: Try Again
+        - button "Go to Dashboard" [ref=e165]
+  - region "Notifications alt+T"
+  - generic [ref=e28] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e37]:
+      - img [ref=e38]
+    - generic [ref=e166]:
+      - button "Open issues overlay" [ref=e167]:
+        - generic [ref=e168]:
+          - generic [ref=e169]: "0"
+          - generic [ref=e170]: "1"
+        - generic [ref=e171]: Issue
+      - button "Collapse issues badge" [ref=e172]:
+        - img [ref=e173]
+  - alert [ref=e41]

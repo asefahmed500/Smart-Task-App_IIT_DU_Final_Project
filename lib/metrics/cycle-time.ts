@@ -25,9 +25,9 @@ export async function calculateCycleTime(boardId: string) {
     return Math.round((completed - started) / (1000 * 60 * 60 * 24) * 10) / 10 // in days
   })
 
-  cycleTimes.sort((a, b) => a - b)
+  cycleTimes.sort((a: number, b: number) => a - b)
 
-  const avg = cycleTimes.reduce((sum, t) => sum + t, 0) / cycleTimes.length
+  const avg = cycleTimes.reduce((sum: number, t: number) => sum + t, 0) / cycleTimes.length
   const median = cycleTimes[Math.floor(cycleTimes.length / 2)]
   const p95 = cycleTimes[Math.floor(cycleTimes.length * 0.95)]
 

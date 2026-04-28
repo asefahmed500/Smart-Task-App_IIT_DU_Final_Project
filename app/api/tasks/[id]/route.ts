@@ -113,14 +113,25 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     const effectiveRole = await getEffectiveBoardRole(session, existingTask.boardId)
 
-    // MEMBER: can only self-assign (or unassign self); cannot assign to others
+    // Assignment logic based on role
     let finalAssigneeId = assigneeId
     if (effectiveRole === 'MEMBER' && assigneeId !== undefined) {
-      if (assigneeId === null || assigneeId === userId) {
-        // Allow self-assignment and self-unassignment
-        finalAssigneeId = assigneeId
+      // MEMBERS can only:
+      // 1. Claim unassigned tasks (assign to themselves)
+      // 2. Unassign themselves from tasks
+      // Cannot reassign tasks that belong to others
+      const isCurrentlyAssignedToUser = existingTask.assigneeId === userId
+      const isTryingToAssignToSelf = assigneeId === userId
+      const isTryingToUnassignSelf = assigneeId === null && isCurrentlyAssignedToUser
+
+      if (isTryingToAssignToSelf && !existingTask.assigneeId) {
+        // Claiming an unassigned task - OK
+        finalAssigneeId = userId
+      } else if (isTryingToUnassignSelf) {
+        // Unassigning self - OK
+        finalAssigneeId = null
       } else {
-        // Deny assigning to others - keep existing assignment
+        // All other cases - keep existing assignment
         finalAssigneeId = existingTask.assigneeId
       }
     }
@@ -190,7 +201,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     // Broadcast update via socket
     const { broadcastTaskUpdate } = await import('@/lib/socket-server')
-    broadcastTaskUpdate(existingTask.boardId, updated)
+    broadcastTaskUpdate(existingTask.boardId, updated as any)
 
     return NextResponse.json(updated)
   } catch (error) {

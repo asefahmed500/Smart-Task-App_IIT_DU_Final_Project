@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**User Preference:** This project owner often uses `/caveman` mode for terse, direct communication. The mode can be toggled with `/caveman full|lite|ultra` or disabled with "stop caveman" / "normal mode". When in caveman mode, drop filler words, articles, and pleasantries while keeping all technical substance accurate.
+
 ## Commands
 
 - `npm run dev` - Start development server with Socket.IO integration (uses `server.ts` with tsx)
@@ -105,6 +107,13 @@ Priority order for determining a user's effective role on a board:
 **Routing Note:** `/dashboard` redirects users based on role (ADMIN→`/admin`, MANAGER→`/manager`, MEMBER→`/member`). Members should always use `/member` for their dashboard.
 
 **Middleware Protection:** `middleware.ts` protects routes by checking for `auth_token` cookie. API routes are excluded from middleware (they handle their own auth via `requireApiAuth()` and `requireApiRole()` - returning 401/403 JSON responses instead of redirects).
+
+**Feature Permissions Reference:**
+See `FEATURE_PERMISSIONS.md` for complete breakdown of all features and role-based access control. Includes:
+- Quick reference matrix table
+- Detailed permissions for 40+ features across 10 categories
+- API route file references
+- Security patterns and critical implementation notes
 
 ### Library Organization
 `lib/` directory structure:
@@ -411,6 +420,32 @@ socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
 
 ### Security Features
 
+**UI Role Guards Pattern:**
+
+For client-side components that show/hide features based on user role, use this pattern:
+
+```typescript
+import { useGetSessionQuery } from '@/lib/slices/authApi'
+
+const { data: session } = useGetSessionQuery()
+const canManage = session?.role === 'ADMIN' || session?.role === 'MANAGER'
+
+// Early return for MEMBER-only components
+if (!canManage) return null
+
+// OR conditional rendering
+{canManage && <Button>Delete</Button>}
+```
+
+**Components with role guards (April 2026):**
+- `add-column-button.tsx` - Hides from MEMBERS
+- `board-settings-dialog.tsx` - Hides Automations/Webhooks tabs from MEMBERS
+- `automation-builder.tsx` - Create/Delete buttons gated
+- `webhook-settings.tsx` - All action buttons gated
+- `task-card.tsx` - Delete option in menu gated
+
+**Note:** UI guards are for UX only. API routes must always enforce permissions independently.
+
 **CRITICAL: Always use board-level role checks for board operations:**
 
 For any board-related API route (tasks, columns, members, automations, webhooks), use `getEffectiveBoardRole()` from `lib/board-roles.ts`:
@@ -487,6 +522,18 @@ After successful task mutations, call `evaluateAutomations(boardId, eventType, t
 
 ### Performance Optimization Patterns
 
+**Prop-Drilling Session Data for Performance:**
+When components need role or session data for UI rendering (like hiding/showing buttons), pass `session?.role` as a prop instead of querying the session inside the component. This avoids redundant RTK Query calls.
+
+Example from TaskCard:
+```typescript
+// In parent component (draggable-task-card.tsx):
+<TaskCard role={session?.role} ... />
+
+// In TaskCard - receives role as prop:
+role?: string // Alternative to session query inside for performance
+```
+
 **React Hooks Rules:**
 Hooks must be called before any conditional returns or early returns. Violating this causes "React has detected a change in the order of Hooks" errors.
 
@@ -524,6 +571,43 @@ When testing Socket.IO connections, ensure `auth_token` cookie is set. The serve
 Use the helper scripts:
 - `npm run check-users` - List all users with roles
 - `npm run check-boards` - Show board memberships for `asefahmed500@gmail.com` (modify script for other users)
+
+**Browser Testing:**
+When testing UI changes, prefer manual browser testing over scripts/curl. Key areas to verify:
+- Task cards show correct data (assignee, priority, labels)
+- Drag & drop works smoothly between columns
+- Permission-based UI (MANAGER/ADMIN see Delete, MEMBER doesn't)
+- Real-time updates via Socket.IO work correctly
+
+---
+
+## Recent UI Changes (April 2026)
+
+**Permission-Based UI Guards:**
+- Add Column button - only visible to MANAGER/ADMIN
+- Board Settings tabs - Automations/Webhooks hidden from MEMBERS
+- WebhookSettings component now integrated in Board Settings (was placeholder)
+- Automation Builder - Create/Delete buttons gated by role
+- Webhook Settings - Add/Delete/Toggle buttons gated by role
+- Task Card menu - Delete option only shows for MANAGER/ADMIN
+
+**Task Card Menu:**
+- Export button removed from board view header
+- Task cards now have a 3-dot "More" menu on hover with:
+  - Edit Task (opens sidebar)
+  - Assign (for self-assignment)
+  - Delete Task (MANAGER/ADMIN only)
+- Clicking task card opens sidebar directly
+
+**Role-Based Display:**
+- `role` prop is passed to child components for permission-based UI
+- Session data prop-drilled for performance (avoid redundant queries)
+- Attachment delete button now shows for MANAGERs/ADMINs too
+
+**Logical Consistency Improvements:**
+- Task assignment: MEMBERS can claim/unassign themselves; cannot touch others' assignments
+- WIP limits: Clear separation between MEMBER hard blocks and MANAGER override requirements
+- Comments: Full CRUD API now available (create, read, update, delete)
 
 ---
 
@@ -692,40 +776,65 @@ const rtkQueryErrorLogger = () => (next: any) => (action: any) => {
 
 ## Known Issues & Bugs
 
-### Critical: Board View Cache Invalidation
+### Fixed: UI Permission Guards (April 2026)
 
-**Status**: Unfixed - High Priority
+**Previously**: MEMBERS could see management buttons (Add Column, Create Automation, Add Webhook, etc.) that would fail with permission errors when clicked.
 
-**Issue**: Task updates save successfully to database, but board view task cards show stale data until page refresh.
+**Fix Applied**: Added role-based UI guards to all management components:
+- `add-column-button.tsx` - Early return if !canManage
+- `board-settings-dialog.tsx` - Conditional tab rendering
+- `automation-builder.tsx` - Role checks on Create/Delete buttons
+- `webhook-settings.tsx` - Role checks on all action buttons
 
-**Symptoms**:
-1. User edits task (changes priority, assignee, etc.)
-2. API call succeeds: `PATCH /api/tasks/{id}` returns 200 OK
-3. Task detail sidebar shows correct updated data
-4. Swimlane view shows correct updated data
-5. **Board view task cards still show old data** (stale cache)
+### Fixed: Board View Cache Invalidation (April 2026)
 
-**Root Cause**: RTK Query cache not properly invalidating task list queries after individual task updates.
+**Previously**: Task updates saved successfully but board view task cards showed stale data until page refresh.
 
-**Files Affected**:
-- `lib/slices/tasksApi.ts` - `updateTask` mutation needs proper `invalidatesTags`
+**Fix Applied**: The `updateTask` mutation in `lib/slices/tasksApi.ts` now includes `{ type: 'Task', id: 'LIST' }` in `invalidatesTags`, which properly refreshes all task queries across the app.
 
-**Fix Required**:
 ```typescript
-// In lib/slices/tasksApi.ts, updateTask mutation:
-invalidatesTags: (result, error, arg) => [
-  { type: 'Task', id: arg }, // Individual task
-  { type: 'Task', id: 'LIST' }, // ALL task lists (critical!)
-  { type: 'Board', id: arg?.boardId }, // Board containing the task
-],
+// Current implementation (correct):
+invalidatesTags: (result) => [{ type: 'Task', id: 'LIST' }, { type: 'Task', id: result?.id }, 'Board'],
 ```
 
-**Testing**:
-1. Login as any user
-2. Edit a task (change priority LOW→CRITICAL)
-3. Save changes
-4. Verify task card on board view updates immediately
-5. Also verify: Swimlane view, Calendar view
+### Fixed: Role Prop Not Passed to TaskCard (April 2026)
+
+**Previously**: The `role` prop wasn't passed from `DraggableTaskCard` to `TaskCard`, causing MANAGER/ADMIN users to not see the Delete option in task card menu.
+
+**Fix Applied**: `draggable-task-card.tsx` now passes `role={session?.role}` to TaskCard. Note: `totalTimeSpent` prop exists in TaskCard interface but is not yet in the Task model - this is a planned feature not yet implemented.
+
+### Fixed: Task Assignment Logic (April 2026)
+
+**Previously**: Task assignment was inconsistent - MEMBERS who had tasks assigned to them by MANAGERs couldn't reassign or unassign themselves.
+
+**Fix Applied**: Updated `app/api/tasks/[id]/route.ts` with logical assignment rules:
+- MEMBERS can claim unassigned tasks (assign to themselves)
+- MEMBERS can unassign themselves from tasks
+- MEMBERS cannot modify tasks assigned to others
+- MANAGERs/ADMINs can assign to anyone
+
+### Fixed: Attachment Delete Permissions (April 2026)
+
+**Previously**: Only attachment owners could delete attachments, even though the API allowed MANAGERs/ADMINs to delete.
+
+**Fix Applied**: Updated `attachment-list.tsx` to show delete button for owners AND MANAGERs/ADMINs using `canManage` check.
+
+### Fixed: WIP Override Logic (April 2026)
+
+**Previously**: WIP limit override condition was confusing - `if (!isManagerOrAdmin || !override)`.
+
+**Fix Applied**: Split into two clear conditions in `app/api/tasks/[id]/move/route.ts`:
+- MEMBERS are hard blocked (cannot override)
+- MANAGERs/ADMINs blocked unless `override=true`
+- `requiresOverride` flag now correctly indicates who can override
+
+### Fixed: Comment Update API Missing (April 2026)
+
+**Previously**: Frontend had comment update functionality but no backend API route existed.
+
+**Fix Applied**: Created `app/api/comments/[id]/route.ts` with PATCH and DELETE endpoints:
+- PATCH: Edit own comments
+- DELETE: Delete own comments (or MANAGERs/ADMINs can delete any)
 
 ---
 

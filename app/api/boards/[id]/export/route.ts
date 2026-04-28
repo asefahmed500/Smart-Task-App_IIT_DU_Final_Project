@@ -46,8 +46,8 @@ export async function GET(
     }
 
     if (format === "csv") {
-      const tasks = fullBoard.columns.flatMap((col: { name: string; tasks: any[] }) =>
-        col.tasks.map((task) => ({
+      const tasks = fullBoard.columns.flatMap((col: { name: string; tasks: typeof fullBoard.columns[number]['tasks'] }) =>
+        col.tasks.map((task: any) => ({
           id: task.id,
           title: task.title,
           description: task.description || "",

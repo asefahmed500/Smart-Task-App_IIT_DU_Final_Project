@@ -51,7 +51,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
-    const comment = await prisma.$transaction(async (tx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const comment = await prisma.$transaction(async (tx: any) => {
       const c = await tx.comment.create({
         data: {
           text: body.text,

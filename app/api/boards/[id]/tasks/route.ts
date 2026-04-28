@@ -112,7 +112,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     }
 
     // Verify the column belongs to this board
-    const column = boardWithColumns.columns.find(c => c.id === columnId)
+    const column = boardWithColumns.columns.find((c: { id: string }) => c.id === columnId)
     if (!column) {
       return NextResponse.json(
         { error: 'Invalid column ID' },
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
     // Broadcast update via socket
     const { broadcastTaskUpdate } = await import('@/lib/socket-server')
-    broadcastTaskUpdate(boardId, task)
+    broadcastTaskUpdate(boardId, task as any)
 
     return NextResponse.json(task, { status: 201 })
   } catch (error) {

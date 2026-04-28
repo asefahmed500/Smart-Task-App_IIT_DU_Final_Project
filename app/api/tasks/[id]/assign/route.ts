@@ -50,7 +50,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
        }
     }
     
-    let finalAssigneeId = assigneeId
+    const finalAssigneeId = assigneeId
 
     if (finalAssigneeId) {
       const isMember = await prisma.boardMember.findFirst({
@@ -84,7 +84,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     // Broadcast update via socket
     const { broadcastTaskUpdate } = await import('@/lib/socket-server')
-    broadcastTaskUpdate(existingTask.boardId, updated)
+    broadcastTaskUpdate(existingTask.boardId, updated as any)
 
     // Notify participants (including the new assignee) + Webhooks
     await handleTaskEvent(

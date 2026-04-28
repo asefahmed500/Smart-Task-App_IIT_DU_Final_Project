@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiRole } from '@/lib/session'
 
@@ -43,8 +43,8 @@ export async function GET(req: NextRequest) {
       select: { id: true, name: true },
     })
 
-    const statusBreakdown = tasksByStatus.map(item => {
-      const column = columns.find(c => c.id === item.columnId)
+    const statusBreakdown = tasksByStatus.map((item: any) => {
+      const column = columns.find((c: any) => c.id === item.columnId)
       return {
         status: column?.name || 'Unknown',
         count: item._count,
@@ -57,18 +57,20 @@ export async function GET(req: NextRequest) {
       totalBoards,
       totalTasks,
       statusBreakdown,
-      priorityBreakdown: tasksByPriority.map(item => ({
+      priorityBreakdown: tasksByPriority.map((item: any) => ({
         priority: item.priority,
         count: item._count,
       })),
-      roleDistribution: userRoleDistribution.map(item => ({
+      roleDistribution: userRoleDistribution.map((item: any) => ({
         role: item.role,
         count: item._count,
       })),
     })
-  } catch (error: any) {
-    if (error.message === 'Unauthorized' || error.message === 'Forbidden') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'Unauthorized' || error.message === 'Forbidden') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
     }
     console.error('Get stats error:', error)
     return NextResponse.json(

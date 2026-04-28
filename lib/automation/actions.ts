@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { AutomationAction } from './engine'
+import type { Task, Priority } from '@/lib/slices/boardsApi'
 
 // Whitelisted action types for security
 export const ALLOWED_ACTION_TYPES = [
@@ -8,7 +9,7 @@ export const ALLOWED_ACTION_TYPES = [
   'AUTO_ASSIGN',
   'CHANGE_PRIORITY',
   'ADD_LABEL',
-] as const
+ ] as const
 
 // Whitelisted roles for notify role action
 export const ALLOWED_ROLES = ['ADMIN', 'MANAGER', 'MEMBER'] as const
@@ -25,14 +26,14 @@ export const ALLOWED_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const
  */
 export async function executeAction(
   action: AutomationAction,
-  taskData: any,
+  taskData: Partial<Task>,
   boardId: string,
   actorId: string
 ): Promise<void> {
   const { type, target, value } = action
 
   // Security: Validate action type against whitelist
-  if (!ALLOWED_ACTION_TYPES.includes(type as any)) {
+  if (!ALLOWED_ACTION_TYPES.includes(type as typeof ALLOWED_ACTION_TYPES[number])) {
     console.error(`[Security] Invalid automation action type: ${type}`)
     return
   }
@@ -66,7 +67,7 @@ export async function executeAction(
 /**
  * Notify a specific user
  */
-async function notifyUser(userId: string, taskData: any, boardId: string) {
+async function notifyUser(userId: string, taskData: Partial<Task>, boardId: string) {
   // Validate userId is a valid cuid format (basic check)
   if (!userId || typeof userId !== 'string' || userId.length < 10) {
     console.error('[Security] Invalid userId in automation notify action')
@@ -88,9 +89,9 @@ async function notifyUser(userId: string, taskData: any, boardId: string) {
 /**
  * Notify all users with a specific role on the board
  */
-async function notifyRole(role: string, taskData: any, boardId: string) {
+async function notifyRole(role: string, taskData: Partial<Task>, boardId: string) {
   // Security: Validate role against whitelist
-  if (!ALLOWED_ROLES.includes(role as any)) {
+  if (!ALLOWED_ROLES.includes(role as typeof ALLOWED_ROLES[number])) {
     console.error(`[Security] Invalid role in automation notify action: ${role}`)
     return
   }
@@ -99,7 +100,7 @@ async function notifyRole(role: string, taskData: any, boardId: string) {
   const members = await prisma.boardMember.findMany({
     where: {
       boardId,
-      role: role as any,
+      role: role as 'ADMIN' | 'MANAGER' | 'MEMBER',
     },
     include: {
       user: true,
@@ -123,12 +124,14 @@ async function notifyRole(role: string, taskData: any, boardId: string) {
 /**
  * Automatically assign the task to a user
  */
-async function autoAssign(userId: string, taskData: any, actorId: string, boardId: string) {
+async function autoAssign(userId: string, taskData: Partial<Task>, actorId: string, boardId: string) {
   // Validate userId
   if (!userId || typeof userId !== 'string' || userId.length < 10) {
     console.error('[Security] Invalid userId in automation auto-assign action')
     return
   }
+
+  if (!taskData.id) return
 
   await prisma.task.update({
     where: { id: taskData.id },
@@ -145,10 +148,10 @@ async function autoAssign(userId: string, taskData: any, actorId: string, boardI
       entityId: taskData.id,
       actorId,
       boardId,
-      changes: {
+      changes: JSON.stringify({
         assigneeId: userId,
         automation: true,
-      },
+      }),
     },
   })
 }
@@ -156,17 +159,19 @@ async function autoAssign(userId: string, taskData: any, actorId: string, boardI
 /**
  * Change the task priority
  */
-async function changePriority(priority: string, taskData: any, actorId: string, boardId: string) {
+async function changePriority(priority: string, taskData: Partial<Task>, actorId: string, boardId: string) {
   // Security: Validate priority against whitelist
-  if (!ALLOWED_PRIORITIES.includes(priority as any)) {
+  if (!ALLOWED_PRIORITIES.includes(priority as typeof ALLOWED_PRIORITIES[number])) {
     console.error(`[Security] Invalid priority in automation change priority action: ${priority}`)
     return
   }
 
+  if (!taskData.id) return
+
   await prisma.task.update({
     where: { id: taskData.id },
     data: {
-      priority: priority as any,
+      priority: priority as Priority,
     },
   })
 
@@ -178,10 +183,10 @@ async function changePriority(priority: string, taskData: any, actorId: string, 
       entityId: taskData.id,
       actorId,
       boardId,
-      changes: {
+      changes: JSON.stringify({
         priority,
         automation: true,
-      },
+      }),
     },
   })
 }
@@ -189,12 +194,14 @@ async function changePriority(priority: string, taskData: any, actorId: string, 
 /**
  * Add a label to the task
  */
-async function addLabel(label: string, taskData: any, actorId: string, boardId: string) {
+async function addLabel(label: string, taskData: Partial<Task>, actorId: string, boardId: string) {
   // Validate label (basic check)
   if (!label || typeof label !== 'string' || label.length > 100) {
     console.error('[Security] Invalid label in automation add label action')
     return
   }
+
+  if (!taskData.id) return
 
   const task = await prisma.task.findUnique({
     where: { id: taskData.id },
@@ -220,10 +227,10 @@ async function addLabel(label: string, taskData: any, actorId: string, boardId: 
         entityId: taskData.id,
         actorId,
         boardId,
-        changes: {
+        changes: JSON.stringify({
           label,
           automation: true,
-        },
+        }),
       },
     })
   }

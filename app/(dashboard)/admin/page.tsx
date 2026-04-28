@@ -61,8 +61,8 @@ export default function AdminPage() {
       toast.success('User created successfully')
       setOpen(false)
       setFormData({ name: '', email: '', password: '', role: 'MEMBER' })
-    } catch (error: any) {
-      toast.error(error.data?.error || 'Failed to create user')
+    } catch (error) {
+      toast.error((error as any)?.data?.error || 'Failed to create user')
     }
   }
 
@@ -162,7 +162,7 @@ export default function AdminPage() {
                 <Label htmlFor="role">System Role</Label>
                 <Select 
                   value={formData.role} 
-                  onValueChange={(v: any) => setFormData({ ...formData, role: v })}
+                  onValueChange={(v) => setFormData({ ...formData, role: v as 'ADMIN' | 'MANAGER' | 'MEMBER' })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a role" />

@@ -16,6 +16,7 @@ import { onAttachmentUpdate } from '@/lib/socket'
 
 interface AttachmentListProps {
   taskId: string
+  boardId?: string
 }
 
 // File type icons
@@ -40,12 +41,14 @@ const getFileExtension = (name: string): string => {
   return ext || 'FILE'
 }
 
-export default function AttachmentList({ taskId }: AttachmentListProps) {
+export default function AttachmentList({ taskId, boardId }: AttachmentListProps) {
   const { data: attachments, isLoading, refetch } = useGetAttachmentsQuery(taskId)
   const { data: session } = useGetSessionQuery()
   const [deleteAttachment, { isLoading: isDeleting }] = useDeleteAttachmentMutation()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteName, setDeleteName] = useState('')
+
+  const canManage = session?.role === 'ADMIN' || session?.role === 'MANAGER'
 
   useEffect(() => {
     const unsubscribe = onAttachmentUpdate((data) => {
@@ -165,7 +168,7 @@ export default function AttachmentList({ taskId }: AttachmentListProps) {
                 >
                   <Download className="h-3.5 w-3.5" />
                 </Button>
-                {isOwner && (
+                {(isOwner || canManage) && (
                   <Button
                     variant="ghost"
                     size="icon"

@@ -122,7 +122,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       where: { boardId: rule.boardId },
       orderBy: { createdAt: 'desc' }
     })
-    broadcastAutomationUpdate(rule.boardId, updatedAutomations)
+    broadcastAutomationUpdate(rule.boardId, updatedAutomations as any)
 
     return NextResponse.json(updatedRule)
   } catch (error) {
@@ -178,7 +178,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       where: { boardId: rule.boardId },
       orderBy: { createdAt: 'desc' }
     })
-    broadcastAutomationUpdate(rule.boardId, updatedAutomations)
+    broadcastAutomationUpdate(rule.boardId, updatedAutomations as any)
 
     return NextResponse.json({ success: true })
   } catch (error) {

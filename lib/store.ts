@@ -1,4 +1,4 @@
-import { configureStore } from '@reduxjs/toolkit'
+import { configureStore, Middleware, UnknownAction } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 import { authApi } from '@/lib/slices/authApi'
 import { boardsApi } from '@/lib/slices/boardsApi'
@@ -19,9 +19,15 @@ import { createOfflineMiddleware } from '@/lib/offlineQueue'
  * Logs all RTK Query rejections (failed requests) to console for debugging
  * Note: Aborted queries are expected behavior and not logged
  */
-const rtkQueryErrorLogger = () => (next: any) => (action: any) => {
-  if (action.type.endsWith('/rejected')) {
-    const errorMessage = action.error?.message || action.payload?.data || action.payload
+const rtkQueryErrorLogger: Middleware = () => (next) => (action) => {
+  const typedAction = action as UnknownAction & { 
+    error?: { message?: string; status?: number | string };
+    payload?: { data?: unknown; status?: number | string };
+    meta?: { arg?: { endpointName?: string; originalArgs?: unknown } };
+  }
+
+  if (typedAction.type.endsWith('/rejected')) {
+    const errorMessage = typedAction.error?.message || (typedAction.payload as Record<string, unknown>)?.data || typedAction.payload
 
     // Don't log expected aborts - these happen when components unmount or queries are deduplicated
     if (errorMessage === 'Aborted due to condition callback returning false.') {
@@ -29,11 +35,11 @@ const rtkQueryErrorLogger = () => (next: any) => (action: any) => {
     }
 
     console.error('🔴 RTK Query Error:', {
-      type: action.type,
-      status: action.error?.status || action.payload?.status,
+      type: typedAction.type,
+      status: typedAction.error?.status || typedAction.payload?.status,
       error: errorMessage,
-      endpoint: action.meta?.arg?.endpointName,
-      request: action.meta?.arg?.originalArgs,
+      endpoint: typedAction.meta?.arg?.endpointName,
+      request: typedAction.meta?.arg?.originalArgs,
     })
   }
   return next(action)

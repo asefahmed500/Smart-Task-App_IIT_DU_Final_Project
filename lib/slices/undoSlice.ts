@@ -3,9 +3,9 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
 interface UndoState {
-  past: any[][]
-  present: any
-  future: any[][]
+  past: unknown[][]
+  present: unknown
+  future: unknown[][]
   maxSize: number
 }
 
@@ -21,7 +21,7 @@ export const undoSlice = createSlice({
   initialState,
   reducers: {
     // Add a new state to history
-    pushState: (state, action: PayloadAction<any>) => {
+    pushState: (state, action: PayloadAction<unknown>) => {
       // If we're not at the end of the history, discard the future
       if (state.future.length > 0) {
         state.future = []

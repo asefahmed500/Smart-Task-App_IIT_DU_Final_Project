@@ -124,15 +124,11 @@ export function validateOrigin(
  * @param handler - The API route handler
  * @returns A new handler that validates before executing
  */
-export function withValidation<T extends (
-  req: NextRequest,
-  body: any,
-  context?: { params: Promise<any> }
-) => Promise<NextResponse>>(
-  schema: ZodSchema<any>,
-  handler: T
-): T {
-  return (async (req: NextRequest, context?: { params: Promise<any> }) => {
+export function withValidation<TBody, TParams = Record<string, string>>(
+  schema: ZodSchema<TBody>,
+  handler: (req: NextRequest, body: TBody, context?: { params: Promise<TParams> }) => Promise<NextResponse>
+) {
+  return (async (req: NextRequest, context?: { params: Promise<TParams> }) => {
     // Validate content type first
     const contentTypeError = validateJsonContentType(req)
     if (contentTypeError) return contentTypeError
@@ -141,7 +137,7 @@ export function withValidation<T extends (
     const validation = await validateJsonBody(schema, req)
     if (!validation.success) return validation.response
 
-    // Call handler with validated data (swap order to match handler signature)
+    // Call handler with validated data
     return handler(req, validation.data, context)
-  }) as T
+  })
 }

@@ -37,9 +37,10 @@ export default function NewBoardPage() {
       } else {
         throw new Error('No board ID returned')
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Board creation failed:', error)
-      toast.error(error?.data?.error || error?.message || 'Failed to create board')
+      const err = error as any
+      toast.error(err?.data?.error || err?.message || 'Failed to create board')
     }
   }
 

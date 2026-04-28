@@ -1,14 +1,21 @@
-import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
+
+interface PrismaError {
+  code?: string
+  meta?: {
+    target?: string[]
+  }
+  name?: string
+}
 
 export function handlePrismaError(error: unknown): NextResponse {
   console.error('Prisma error:', error)
 
-  // Known Prisma errors
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+  const prismaError = error as PrismaError
+  if (prismaError?.code) {
     // Unique constraint violation
-    if (error.code === 'P2002') {
-      const fields = error.meta?.target as string[] || []
+    if (prismaError.code === 'P2002') {
+      const fields = prismaError.meta?.target || []
       return NextResponse.json(
         { error: `Duplicate entry for ${fields.join(', ')}` },
         { status: 409 }
@@ -16,7 +23,7 @@ export function handlePrismaError(error: unknown): NextResponse {
     }
 
     // Record not found
-    if (error.code === 'P2025') {
+    if (prismaError.code === 'P2025') {
       return NextResponse.json(
         { error: 'Record not found' },
         { status: 404 }
@@ -24,7 +31,7 @@ export function handlePrismaError(error: unknown): NextResponse {
     }
 
     // Foreign key constraint violation
-    if (error.code === 'P2003') {
+    if (prismaError.code === 'P2003') {
       return NextResponse.json(
         { error: 'Referenced record does not exist' },
         { status: 400 }
@@ -32,7 +39,7 @@ export function handlePrismaError(error: unknown): NextResponse {
     }
 
     // Related record not found
-    if (error.code === 'P2018') {
+    if (prismaError.code === 'P2018') {
       return NextResponse.json(
         { error: 'Required connected record not found' },
         { status: 404 }
@@ -41,7 +48,7 @@ export function handlePrismaError(error: unknown): NextResponse {
   }
 
   // Validation errors
-  if (error instanceof Prisma.PrismaClientValidationError) {
+  if (prismaError?.name === 'PrismaClientValidationError') {
     return NextResponse.json(
       { error: 'Invalid data provided' },
       { status: 400 }
@@ -49,7 +56,7 @@ export function handlePrismaError(error: unknown): NextResponse {
   }
 
   // Initialization errors
-  if (error instanceof Prisma.PrismaClientInitializationError) {
+  if (prismaError?.name === 'PrismaClientInitializationError') {
     return NextResponse.json(
       { error: 'Database connection failed' },
       { status: 503 }
@@ -63,6 +70,7 @@ export function handlePrismaError(error: unknown): NextResponse {
   )
 }
 
-export function isPrismaError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
-  return error instanceof Prisma.PrismaClientKnownRequestError
+export function isPrismaError(error: unknown): boolean {
+  const err = error as PrismaError
+  return !!(err?.code && typeof err.code === 'string' && err.code.startsWith('P'))
 }

@@ -46,7 +46,7 @@ export class ApiErrorHandler {
     if (error instanceof Error) {
       // Prisma errors
       if ('code' in error) {
-        return this.handlePrismaError(error as any, context)
+        return this.handlePrismaError(error as Error & { code: string }, context)
       }
 
       // Zod errors
@@ -68,7 +68,7 @@ export class ApiErrorHandler {
   /**
    * Handle Prisma-specific errors with meaningful messages
    */
-  private static handlePrismaError(error: any & { code: string }, context: string): NextResponse {
+  private static handlePrismaError(error: Error & { code: string }, context: string): NextResponse {
     const prismaErrors: Record<string, { status: number; message: string; code?: string }> = {
       P2002: { status: 400, message: 'Invalid input data', code: 'INVALID_INPUT' },
       P2025: { status: 404, message: 'Record not found', code: 'NOT_FOUND' },
@@ -111,14 +111,14 @@ export class ApiErrorHandler {
     return NextResponse.json({ error: message }, { status: 404 })
   }
 
-  static badRequest(message: string, details?: any): NextResponse {
+  static badRequest(message: string, details?: unknown): NextResponse {
     return NextResponse.json(
       { error: message, details },
       { status: 400 }
     )
   }
 
-  static conflict(message: string, details?: any): NextResponse {
+  static conflict(message: string, details?: unknown): NextResponse {
     return NextResponse.json(
       { error: message, details },
       { status: 409 }

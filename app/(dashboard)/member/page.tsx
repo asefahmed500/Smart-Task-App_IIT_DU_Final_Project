@@ -21,7 +21,7 @@ export default function MemberPage() {
   const memberBoards = boards?.filter((board) => {
     const userId = session?.id
     if (board.ownerId === userId) return true
-    return board.members?.some((m: any) => m.userId === userId)
+    return board.members?.some((m) => m.userId === userId)
   }) || []
 
   // Use shared stats hook with userId to filter for assigned tasks

@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
 import type { RootState } from '@/lib/store'
+import type { AutomationTrigger, AutomationCondition, AutomationAction, AutomationRule } from '@/lib/automation/engine'
 
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 
@@ -108,7 +109,7 @@ export interface UpdateBoardRequest {
   name?: string
   description?: string
   color?: string
-  previousState?: any // Metadata for undo
+  previousState?: unknown // Metadata for undo
 }
 
 export interface MetricsPayload {
@@ -127,6 +128,33 @@ export interface MetricsPayload {
   throughput: { date: string, count: number }[];
   totalTasks: number;
   completedTasks: number;
+}
+
+export interface AuditLogEntry {
+  id: string
+  action: string
+  entityType: string
+  entityId: string
+  actorId: string
+  boardId: string
+  changes: string
+  createdAt: string
+  actor?: {
+    id: string
+    name: string | null
+    avatar: string | null
+  }
+}
+
+export interface Webhook {
+  id: string
+  name: string
+  url: string
+  secret: string | null
+  events: string[]
+  isActive: boolean
+  boardId: string
+  createdAt: string
 }
 
 export const boardsApi = createApi({
@@ -180,7 +208,7 @@ export const boardsApi = createApi({
       query: (boardId) => `/boards/${boardId}/metrics`,
       providesTags: [{ type: 'Task' as const, id: 'LIST' }]
     }),
-    updateColumn: builder.mutation<Column, { id: string; wipLimit?: number | null; name?: string; previousState?: any }>({
+    updateColumn: builder.mutation<Column, { id: string; wipLimit?: number | null; name?: string; previousState?: unknown }>({
       query: ({ id, ...data }) => ({
         url: `/columns/${id}`,
         method: 'PATCH',
@@ -246,9 +274,9 @@ export const boardsApi = createApi({
       }),
       invalidatesTags: (result, error, arg) => [{ type: 'Board', id: arg.boardId }],
     }),
-    getBoardAutomations: builder.query<any[], string>({
+    getBoardAutomations: builder.query<AutomationRule[], string>({
       query: (boardId) => `/boards/${boardId}/automations`,
-      transformResponse: (response: any) => {
+      transformResponse: (response: { data: AutomationRule[] } | AutomationRule[]) => {
         // Handle both direct array and wrapped response
         return Array.isArray(response) ? response : (response?.data || [])
       },
@@ -257,9 +285,9 @@ export const boardsApi = createApi({
         return [{ type: 'Board', id: `${boardId}-automations` }]
       },
     }),
-    getBoardAudit: builder.query<any[], string>({
+    getBoardAudit: builder.query<AuditLogEntry[], string>({
       query: (boardId) => `/boards/${boardId}/audit`,
-      transformResponse: (response: any) => {
+      transformResponse: (response: { data: AuditLogEntry[] } | AuditLogEntry[]) => {
         // Handle both direct array and wrapped response
         return Array.isArray(response) ? response : (response?.data || [])
       },
@@ -268,7 +296,7 @@ export const boardsApi = createApi({
         return [{ type: 'Board', id: `${boardId}-audit` }]
       },
     }),
-    createAutomation: builder.mutation<any, { boardId: string; name: string; trigger: any; condition?: any; action: any }>({
+    createAutomation: builder.mutation<AutomationRule, { boardId: string; name: string; trigger: AutomationTrigger; condition?: AutomationCondition; action: AutomationAction }>({
       query: ({ boardId, name, trigger, condition, action }) => ({
         url: `/boards/${boardId}/automations`,
         method: 'POST',
@@ -276,7 +304,7 @@ export const boardsApi = createApi({
       }),
       invalidatesTags: (result, error, arg) => [{ type: 'Board', id: `${arg.boardId}-automations` }],
     }),
-    updateAutomation: builder.mutation<any, { id: string; name?: string; trigger?: any; condition?: any; action?: any; enabled?: boolean }>({
+    updateAutomation: builder.mutation<AutomationRule, { id: string; name?: string; trigger?: AutomationTrigger; condition?: AutomationCondition; action?: AutomationAction; enabled?: boolean }>({
       query: ({ id, ...data }) => ({
         url: `/automations/${id}`,
         method: 'PATCH',
@@ -297,7 +325,7 @@ export const boardsApi = createApi({
     }),
     getBoardWebhooks: builder.query<Webhook[], string>({
       query: (boardId) => `/boards/${boardId}/webhooks`,
-      transformResponse: (response: any) => {
+      transformResponse: (response: { data: Webhook[] } | Webhook[]) => {
         // Handle both direct array and wrapped response
         return Array.isArray(response) ? response : (response?.data || [])
       },

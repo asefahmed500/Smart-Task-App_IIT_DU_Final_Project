@@ -37,11 +37,12 @@ export function getEmailTransporter(): nodemailer.Transporter {
     transporter = nodemailer.createTransport(config)
 
     // Verify connection
-    transporter.verify((error, success) => {
+    transporter.verify((error) => {
       if (error) {
+        const smtpError = error as { code?: string; command?: string; message: string }
         console.error('Email transporter verification failed:', error)
-        console.error('Error code:', (error as any).code)
-        console.error('Error command:', (error as any).command)
+        console.error('Error code:', smtpError.code)
+        console.error('Error command:', smtpError.command)
       } else {
         console.log('Email server is ready to send messages')
       }

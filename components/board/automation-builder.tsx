@@ -7,9 +7,11 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCreateAutomationMutation, useGetBoardColumnsQuery, useGetBoardAutomationsQuery, useDeleteAutomationMutation } from '@/lib/slices/boardsApi'
+import { useGetSessionQuery } from '@/lib/slices/authApi'
 import { toast } from 'sonner'
 import { Loader2, Plus, Trash2, Zap } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { AutomationTrigger, AutomationAction } from '@/lib/automation/engine'
 
 interface AutomationBuilderProps {
   boardId: string
@@ -31,14 +33,17 @@ const ACTION_TYPES = [
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 
 export default function AutomationBuilder({ boardId, members }: AutomationBuilderProps) {
+  const { data: session } = useGetSessionQuery()
+  const canManage = session?.role === 'ADMIN' || session?.role === 'MANAGER'
+
   const { data: columns } = useGetBoardColumnsQuery(boardId)
   const { data: automations, isLoading } = useGetBoardAutomationsQuery(boardId)
   const [createAutomation, { isLoading: isCreating }] = useCreateAutomationMutation()
   const [deleteAutomation] = useDeleteAutomationMutation()
 
   const [name, setName] = useState('')
-  const [trigger, setTrigger] = useState({ type: 'TASK_MOVED', value: '' })
-  const [action, setAction] = useState({ type: 'AUTO_ASSIGN', target: '', value: '' })
+  const [trigger, setTrigger] = useState<{ type: string; value: string }>({ type: 'TASK_MOVED', value: '' })
+  const [action, setAction] = useState<{ type: string; target: string; value: string }>({ type: 'AUTO_ASSIGN', target: '', value: '' })
 
   const handleCreate = async () => {
     if (!name || !trigger.type || !action.type) {
@@ -50,8 +55,8 @@ export default function AutomationBuilder({ boardId, members }: AutomationBuilde
       await createAutomation({
         boardId,
         name,
-        trigger,
-        action,
+        trigger: trigger as AutomationTrigger,
+        action: action as AutomationAction,
       }).unwrap()
       toast.success('Automation rule created')
       setName('')
@@ -160,7 +165,7 @@ export default function AutomationBuilder({ boardId, members }: AutomationBuilde
             </div>
           </div>
 
-          <Button onClick={handleCreate} disabled={isCreating} className="w-full">
+          <Button onClick={handleCreate} disabled={isCreating || !canManage} className="w-full">
             {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
             Create Automation
           </Button>
@@ -182,9 +187,11 @@ export default function AutomationBuilder({ boardId, members }: AutomationBuilde
                        Rule ID: {rule.id.slice(0, 8)}...
                     </p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(rule.id)} className="text-destructive h-8 w-8 hover:bg-destructive/10">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canManage && (
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(rule.id)} className="text-destructive h-8 w-8 hover:bg-destructive/10">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/session'
 import { getEffectiveBoardRole } from '@/lib/board-roles'
-import { Prisma } from '@prisma/client'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -101,7 +100,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       where: { boardId },
       orderBy: { createdAt: 'desc' }
     })
-    broadcastAutomationUpdate(boardId, updatedAutomations)
+    broadcastAutomationUpdate(boardId, updatedAutomations as any)
 
     return NextResponse.json(rule)
   } catch (error) {

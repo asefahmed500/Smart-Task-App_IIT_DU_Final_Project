@@ -24,9 +24,9 @@ export async function calculateLeadTime(boardId: string) {
     return Math.round((completed - created) / (1000 * 60 * 60 * 24) * 10) / 10 // in days
   })
 
-  leadTimes.sort((a, b) => a - b)
+  leadTimes.sort((a: number, b: number) => a - b)
 
-  const avg = leadTimes.reduce((sum, t) => sum + t, 0) / leadTimes.length
+  const avg = leadTimes.reduce((sum: number, t: number) => sum + t, 0) / leadTimes.length
   const median = leadTimes[Math.floor(leadTimes.length / 2)]
   const p95 = leadTimes[Math.floor(leadTimes.length * 0.95)]
 

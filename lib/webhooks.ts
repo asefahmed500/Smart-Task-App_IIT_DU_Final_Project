@@ -1,7 +1,7 @@
 import { prisma } from './prisma'
 import crypto from 'crypto'
 
-export async function triggerWebhooks(boardId: string, event: string, payload: any) {
+export async function triggerWebhooks(boardId: string, event: string, payload: Record<string, unknown>) {
   try {
     const webhooks = await prisma.webhook.findMany({
       where: {

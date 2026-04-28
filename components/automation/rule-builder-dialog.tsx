@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCreateAutomationMutation, useUpdateAutomationMutation } from '@/lib/slices/boardsApi'
 import { toast } from 'sonner'
 
+import { AutomationRule, AutomationTrigger, AutomationCondition, AutomationAction } from '@/lib/automation/engine'
+
 interface RuleBuilderDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   boardId: string
-  editRule?: any
+  editRule?: AutomationRule
   onSuccess?: () => void
 }
 
@@ -115,18 +117,23 @@ export default function RuleBuilderDialog({
 
     setIsSubmitting(true)
     try {
-      const trigger = { type: triggerType, value: triggerValue || undefined }
-      const condition = conditionEnabled
-        ? { field: conditionField, operator: conditionOperator, value: conditionValue }
+      const trigger: AutomationTrigger = { 
+        type: triggerType as AutomationTrigger['type'], 
+        value: triggerValue || undefined 
+      }
+      
+      const condition: AutomationCondition | undefined = conditionEnabled
+        ? { 
+            field: conditionField as AutomationCondition['field'], 
+            operator: conditionOperator as AutomationCondition['operator'], 
+            value: conditionValue 
+          }
         : undefined
 
-      let action: any = { type: actionType }
-      if (actionType === 'NOTIFY_USER' || actionType === 'AUTO_ASSIGN') {
-        action.target = actionTarget
-      } else if (actionType === 'NOTIFY_ROLE') {
-        action.target = actionTarget
-      } else if (actionType === 'CHANGE_PRIORITY' || actionType === 'ADD_LABEL') {
-        action.value = actionValue
+      const action: AutomationAction = { 
+        type: actionType as AutomationAction['type'],
+        target: (actionType === 'NOTIFY_USER' || actionType === 'AUTO_ASSIGN' || actionType === 'NOTIFY_ROLE') ? actionTarget : undefined,
+        value: (actionType === 'CHANGE_PRIORITY' || actionType === 'ADD_LABEL') ? actionValue : undefined
       }
 
       if (editRule) {

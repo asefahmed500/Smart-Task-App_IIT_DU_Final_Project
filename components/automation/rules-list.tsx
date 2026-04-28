@@ -14,17 +14,7 @@ import {
 import { MoreVertical, Trash2, Edit, Power, PowerOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
-
-interface AutomationRule {
-  id: string
-  name: string
-  enabled: boolean
-  trigger: any
-  condition?: any
-  action: any
-  lastFiredAt?: string | null
-  createdAt: string
-}
+import { AutomationRule } from '@/lib/automation/engine'
 
 interface RulesListProps {
   boardId: string

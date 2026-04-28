@@ -1,5 +1,7 @@
 import { io, Socket } from 'socket.io-client'
 import { CONSTANTS } from './constants'
+import type { Task, Board, BoardMember } from './slices/boardsApi'
+import type { AutomationRule } from './automation/engine'
 
 let socket: Socket | null = null
 let reconnectAttempts = 0
@@ -107,35 +109,35 @@ export const leaveBoard = (boardId: string) => {
   socket?.emit('board:leave', { boardId })
 }
 
-export const emitTaskUpdate = (data: any) => {
+export const emitTaskUpdate = (data: unknown) => {
   const socket = getSocket()
   socket?.emit('task:update', data)
 }
 
-export const emitTaskMove = (data: any) => {
+export const emitTaskMove = (data: unknown) => {
   const socket = getSocket()
   socket?.emit('task:move', data)
 }
 
-export const onPresenceUpdate = (callback: (data: any) => void) => {
+export const onPresenceUpdate = (callback: (data: unknown) => void) => {
   const socket = getSocket()
   socket?.on('presence:update', callback)
   return () => socket?.off('presence:update', callback)
 }
 
-export const onTaskUpdate = (callback: (data: any) => void) => {
+export const onTaskUpdate = (callback: (data: Task) => void) => {
   const socket = getSocket()
   socket?.on('task:updated', callback)
   return () => socket?.off('task:updated', callback)
 }
 
-export const onTaskMove = (callback: (data: any) => void) => {
+export const onTaskMove = (callback: (data: Task) => void) => {
   const socket = getSocket()
   socket?.on('task:moved', callback)
   return () => socket?.off('task:moved', callback)
 }
 
-export const onCursorMove = (callback: (data: any) => void) => {
+export const onCursorMove = (callback: (data: unknown) => void) => {
   const socket = getSocket()
   socket?.on('presence:cursor', callback)
   return () => socket?.off('presence:cursor', callback)
@@ -147,7 +149,7 @@ export const onNotification = (callback: (data: any) => void) => {
   return () => socket?.off('notification:new', callback)
 }
 
-export const emitCursorMove = (data: any) => {
+export const emitCursorMove = (data: unknown) => {
   const socket = getSocket()
   socket?.emit('presence:cursor', data)
 }
@@ -169,49 +171,49 @@ export const disconnectSocket = () => {
   }
 }
 
-export const onBoardUpdate = (callback: (data: any) => void) => {
+export const onBoardUpdate = (callback: (data: Board) => void) => {
   const socket = getSocket()
   socket?.on('board:updated', callback)
   return () => socket?.off('board:updated', callback)
 }
 
-export const onMemberUpdate = (callback: (data: any) => void) => {
+export const onMemberUpdate = (callback: (data: BoardMember[]) => void) => {
   const socket = getSocket()
   socket?.on('members:updated', callback)
   return () => socket?.off('members:updated', callback)
 }
 
-export const onAutomationUpdate = (callback: (data: any) => void) => {
+export const onAutomationUpdate = (callback: (data: AutomationRule[]) => void) => {
   const socket = getSocket()
   socket?.on('automations:updated', callback)
   return () => socket?.off('automations:updated', callback)
 }
 
-export const onTaskDelete = (callback: (data: any) => void) => {
+export const onTaskDelete = (callback: (taskId: string) => void) => {
   const socket = getSocket()
   socket?.on('task:deleted', callback)
   return () => socket?.off('task:deleted', callback)
 }
 
-export const onCommentUpdate = (callback: (data: any) => void) => {
+export const onCommentUpdate = (callback: (data: { taskId: string }) => void) => {
   const socket = getSocket()
   socket?.on('comment:updated', callback)
   return () => socket?.off('comment:updated', callback)
 }
 
-export const onAttachmentUpdate = (callback: (data: any) => void) => {
+export const onAttachmentUpdate = (callback: (data: { taskId: string }) => void) => {
   const socket = getSocket()
   socket?.on('attachment:updated', callback)
   return () => { socket?.off('attachment:updated', callback) }
 }
 
-export const onDependencyUpdate = (callback: (data: any) => void) => {
+export const onDependencyUpdate = (callback: (data: { taskId: string }) => void) => {
   const socket = getSocket()
   socket?.on('dependency:updated', callback)
   return () => socket?.off('dependency:updated', callback)
 }
 
-export const onTimeLogUpdate = (callback: (data: any) => void) => {
+export const onTimeLogUpdate = (callback: (data: { taskId: string }) => void) => {
   const socket = getSocket()
   socket?.on('timelog:updated', callback)
   return () => socket?.off('timelog:updated', callback)

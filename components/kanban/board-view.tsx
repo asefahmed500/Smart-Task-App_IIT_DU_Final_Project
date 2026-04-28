@@ -21,7 +21,7 @@ import { setSelectedTask, setViewMode } from '@/lib/slices/uiSlice'
 import { setCurrentBoard } from '@/lib/slices/presenceSlice'
 import { ConflictResolutionDialog } from './conflict-resolution-dialog'
 import BoardSettingsDialog from '../board/board-settings-dialog'
-import { LayoutGrid, Users, BarChart3, Settings, Filter, Layers, Plus, Calendar as CalendarIcon, Download } from 'lucide-react'
+import { LayoutGrid, Users, BarChart3, Settings, Filter, Layers, Plus, Calendar as CalendarIcon } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
@@ -301,10 +301,6 @@ export default function BoardView({ boardId }: BoardViewProps) {
     dispatch(tasksApi.util.invalidateTags([{ type: 'Task', id: 'LIST' }]))
   }
 
-  const handleExport = (format: 'json' | 'csv') => {
-    window.open(`/api/boards/${boardId}/export?format=${format}`, '_blank')
-  }
-
   if (boardLoading || columnsLoading || tasksLoading) {
     return (
       <div className="flex gap-4 h-full">
@@ -429,26 +425,6 @@ export default function BoardView({ boardId }: BoardViewProps) {
               Create Task
             </Button>
           )}
-
-          {/* Export Button */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 rounded-full px-4 h-10 border-black/10 font-bold bg-white/50 backdrop-blur-sm">
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-2xl p-2">
-              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-black/40 px-3 py-2">Select Format</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleExport('json')} className="rounded-xl px-3 py-2.5 font-bold cursor-pointer">
-                JSON Document
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('csv')} className="rounded-xl px-3 py-2.5 font-bold cursor-pointer">
-                CSV Spreadsheet
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
 
           {/* Board Settings - Managers/Admins only */}
           {(session?.role === 'ADMIN' || session?.role === 'MANAGER') && (

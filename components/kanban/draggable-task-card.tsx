@@ -59,6 +59,7 @@ export default function DraggableTaskCard({
         focusMode={focusMode}
         filterAssignee={filterAssignee}
         isDragging={isDragging}
+        role={session?.role}
         onClick={onClick}
       />
     </div>

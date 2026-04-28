@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     }
 
     // Build where clause
-    let whereClause: any = { entityId: id }
+    const whereClause: any = { entityId: id } // eslint-disable-line @typescript-eslint/no-explicit-any
 
     const auditLogs = await prisma.auditLog.findMany({
       where: whereClause,
