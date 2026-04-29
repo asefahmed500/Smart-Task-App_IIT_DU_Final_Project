@@ -271,7 +271,7 @@ model SystemSettings {
 }
 
 model TaskAttachment {
-  id        String   @id @default(())
+  id        String   @id @default(cuid())
   name      String
   url       String
   type      String
