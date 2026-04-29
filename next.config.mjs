@@ -17,7 +17,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline';",
               "img-src 'self' data: blob: https://*.githubusercontent.com;",
               "font-src 'self' data:;",
-              "connect-src 'self' https://*.neon.tech http://localhost:3001 ws://localhost:3001;",
+              "connect-src 'self' https://*.neon.tech https://*.vercel.app http://localhost:3001 ws://localhost:3001 wss://*;",
               "frame-src 'none';",
               "object-src 'none';",
               "base-uri 'self';",
