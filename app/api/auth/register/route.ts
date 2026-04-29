@@ -14,12 +14,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { name, email } = registerSchema.parse(body)
 
+    console.log('Registration request for:', email)
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
     })
 
     if (existingUser) {
+      console.log('User already exists:', email)
       return NextResponse.json(
         { error: 'User already exists' },
         { status: 400 }
@@ -28,11 +31,15 @@ export async function POST(req: NextRequest) {
 
     // Check if this is the first user (make them ADMIN)
     const userCount = await prisma.user.count()
+    console.log('User count:', userCount)
 
     // Create user with temporary password (will be changed after verification)
     const tempPassword = Math.random().toString(36).slice(-8)
+    console.log('Hashing password...')
     const hashedPassword = await hashPassword(tempPassword)
+    console.log('Password hashed successfully')
 
+    console.log('Creating user...')
     const user = await prisma.user.create({
       data: {
         name,
@@ -43,9 +50,11 @@ export async function POST(req: NextRequest) {
         emailVerified: false, // Will be verified after code
       },
     })
+    console.log('User created:', user.id)
 
     // Send verification email
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/verify-email?email=${encodeURIComponent(email)}`
+    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?email=${encodeURIComponent(email)}`
+    console.log('Sending verification email to:', email)
     const emailSent = await sendVerificationEmail(email, verificationUrl)
 
     if (!emailSent) {
@@ -61,7 +70,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Registration error:', error)
     return NextResponse.json(
-      { error: 'Failed to create account' },
+      { error: 'Failed to create account', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
