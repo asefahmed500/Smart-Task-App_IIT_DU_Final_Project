@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { Pool, neonConfig } from '@neondatabase/serverless'
+import { neonConfig } from '@neondatabase/serverless'
 import { PrismaNeon } from '@prisma/adapter-neon'
 import { getEnv } from './env-validation'
 import ws from 'ws'
@@ -19,7 +19,7 @@ export function getPrisma(): PrismaClient {
   if (_prisma) return _prisma
 
   const env = getEnv()
-  
+
   // If we're on the server and DATABASE_URL is missing, we still try to initialize
   // but it will throw a descriptive error when used, rather than crashing the whole module.
   if (typeof window === 'undefined' && !env.DATABASE_URL) {
@@ -28,19 +28,17 @@ export function getPrisma(): PrismaClient {
 
   if (process.env.NODE_ENV === 'production') {
     console.log(`[Prisma] Initializing production client... URL starts with: ${env.DATABASE_URL?.substring(0, 15)}`)
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-    const adapter = new PrismaNeon(pool as any)
+    const adapter = new PrismaNeon({ connectionString: env.DATABASE_URL })
     _prisma = new PrismaClient({ adapter })
   } else {
     if (!globalForPrisma.prisma) {
-      console.log(`[Prisma] Initializing development client... URL starts with: ${process.env.DATABASE_URL?.substring(0, 15)}`)
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-      const adapter = new PrismaNeon(pool as any)
+      console.log(`[Prisma] Initializing development client... URL starts with: ${env.DATABASE_URL?.substring(0, 15)}`)
+      const adapter = new PrismaNeon({ connectionString: env.DATABASE_URL })
       globalForPrisma.prisma = new PrismaClient({ adapter })
     }
     _prisma = globalForPrisma.prisma
   }
-  
+
   return _prisma
 }
 
