@@ -5,7 +5,6 @@ import { useState, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { authClient } from '@/lib/auth-client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,12 +14,6 @@ import { Loader2 } from 'lucide-react'
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must include at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must include at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must include at least one number')
-    .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must include at least one special character'),
 })
 
 type RegisterFormValues = z.infer<typeof registerSchema>
@@ -43,11 +36,17 @@ function RegisterFormContent() {
   const onSubmit = async (data: RegisterFormValues) => {
     setIsLoading(true)
     try {
-      const result = await authClient.signUp.email(data)
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: data.name, email: data.email }),
+      })
 
-      if (result.error) {
+      const result = await response.json()
+
+      if (!response.ok) {
         toast.error('Registration failed', {
-          description: result.error.message || 'Could not create account',
+          description: result.error || 'Could not create account',
         })
         return
       }
@@ -56,7 +55,6 @@ function RegisterFormContent() {
         description: `Welcome ${data.name}. Please verify your email to continue.`,
       })
 
-      // Better Auth sends verification email automatically
       // Redirect to verification page with email parameter
       router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
     } catch (error) {
@@ -81,11 +79,23 @@ function RegisterFormContent() {
           onSubmit={handleSubmit(async (data) => {
             setIsLoading(true)
             try {
-              const result = await authClient.signIn.email(data)
-              toast.success('Verification email sent!', {
-                description: 'Check your inbox for the verification link.',
+              const response = await fetch('/api/auth/send-verification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: data.email }),
               })
-              router.push('/verify-email-sent')
+
+              if (response.ok) {
+                toast.success('Verification email sent!', {
+                  description: 'Check your inbox for the verification code.',
+                })
+                router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
+              } else {
+                const result = await response.json()
+                toast.error('Failed to send verification email', {
+                  description: result.error || 'Please try again later.',
+                })
+              }
             } catch (error) {
               toast.error('Failed to send verification email', {
                 description: 'Please try again later.',
@@ -166,21 +176,6 @@ function RegisterFormContent() {
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
-        <Input
-          id="password"
-          type="password"
-          placeholder="••••••••"
-          autoComplete="new-password"
-          {...registerField('password')}
-          disabled={isLoading}
-        />
-        {errors.password && (
-          <p className="text-sm text-destructive">{errors.password.message}</p>
-        )}
-      </div>
-
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? (
           <>
@@ -193,7 +188,7 @@ function RegisterFormContent() {
       </Button>
 
       <p className="text-xs text-center text-gray-500">
-        By signing up, you agree to receive email verification
+        We'll send you a verification code to set your password
       </p>
     </form>
   )
