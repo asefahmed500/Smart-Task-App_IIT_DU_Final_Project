@@ -53,14 +53,24 @@ export function validateEnv(): Env {
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errors = error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join('\n')
-      console.warn(`Environment validation warning:\n${errors}`)
-      // In production, we might want to continue even if some non-critical vars are missing
-      // But for core vars, we should probably still fail.
-      // For now, let's just return what we have if it's production
-      if (process.env.NODE_ENV === 'production') {
-         return process.env as unknown as Env
+      const criticalVars = ['DATABASE_URL', 'BETTER_AUTH_SECRET', 'BETTER_AUTH_URL']
+      const missingCritical = error.issues.some(issue => 
+        criticalVars.includes(issue.path[0] as string)
+      )
+
+      if (missingCritical) {
+        console.error(`CRITICAL: Missing required environment variables:\n${errors}`)
+        if (process.env.NODE_ENV === 'production') {
+          // In production, we MUST have these to function.
+          // Throwing here will result in a 500 error, but at least it's explicit in logs.
+          throw new Error(`Critical Environment Variables Missing:\n${errors}`)
+        }
+      } else {
+        console.warn(`Environment validation warning (non-critical):\n${errors}`)
       }
-      throw new Error(`Environment validation failed:\n${errors}`)
+      
+      // If we're here, either it's not production or no critical vars are missing
+      return process.env as unknown as Env
     }
     throw error
   }

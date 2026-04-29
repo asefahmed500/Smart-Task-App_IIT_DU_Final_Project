@@ -61,31 +61,56 @@ export async function POST(req: NextRequest) {
     }
 
     // The first registered user automatically becomes ADMIN
-    const userCount = await prisma.user.count()
+    console.log('[Registration] Checking user count...')
+    let userCount = 0
+    try {
+      userCount = await prisma.user.count()
+      console.log(`[Registration] Current user count: ${userCount}`)
+    } catch (dbError) {
+      console.error('[Registration] Database connection failed during user count check:', dbError)
+      return NextResponse.json(
+        { error: 'Database connection failed. Please ensure DATABASE_URL is correct.' },
+        { status: 503 }
+      )
+    }
+
     const isFirstUser = userCount === 0
     const userRole = isFirstUser ? 'ADMIN' : 'MEMBER'
 
     // Hash password
+    console.log('[Registration] Hashing password...')
     const hashedPassword = await hashPassword(password)
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        role: userRole,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        avatar: true,
-      },
-    })
+    console.log(`[Registration] Creating user with role: ${userRole}...`)
+    let user
+    try {
+      user = await prisma.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name,
+          role: userRole,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          avatar: true,
+        },
+      })
+      console.log(`[Registration] User created successfully: ${user.id}`)
+    } catch (createError) {
+      console.error('[Registration] Database error during user creation:', createError)
+      return NextResponse.json(
+        { error: 'Failed to create user in database.' },
+        { status: 500 }
+      )
+    }
 
     // Create token
+    console.log('[Registration] Generating session token...')
     const token = await createToken(user)
 
     // Set cookie
@@ -106,15 +131,15 @@ export async function POST(req: NextRequest) {
       path: '/',
     })
 
+    console.log('[Registration] Registration complete.')
     return response
   } catch (error) {
     console.error('[Registration API Error]:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      error
     })
     return NextResponse.json(
-      { error: 'Internal server error during registration' },
+      { error: 'Internal server error during registration. Please check server logs.' },
       { status: 500 }
     )
   }
