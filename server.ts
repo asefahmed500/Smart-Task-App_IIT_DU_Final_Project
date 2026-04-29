@@ -60,36 +60,36 @@ app.prepare().then(() => {
   // Socket.IO authentication middleware
   io.use(async (socket: SocketWithData, next) => {
     try {
-      // Extract session cookie from handshake headers
+      // Better Auth uses session cookies that are automatically sent by the browser
       const cookieHeader = socket.handshake.headers.cookie
 
       if (!cookieHeader) {
         return next(new Error('Authentication error: No session cookie'))
       }
 
-      // Parse cookies to find auth_token
-      const cookies = cookieHeader.split(';').reduce((acc: Record<string, string>, cookie) => {
-        const [key, value] = cookie.trim().split('=')
-        acc[key] = value
-        return acc
-      }, {})
+      // Import auth dynamically (requires transpiled JS)
+      const { auth } = await import('./lib/auth.js')
 
-      const authToken = cookies['auth_token'] || cookies['next-auth.session-token']
+      // Create a Headers object from the cookie header
+      const headers = new Headers()
+      headers.set('cookie', cookieHeader)
 
-      if (!authToken) {
-        return next(new Error('Authentication error: No auth token in cookie'))
-      }
-
-      // Import getSession dynamically (requires transpiled JS)
-      const { getSession } = await import('./lib/auth.js')
-      const session = await getSession(authToken)
+      // Get session using Better Auth
+      const session = await auth.api.getSession({ headers })
 
       if (!session) {
         return next(new Error('Authentication error: Invalid session'))
       }
 
       // Attach user data to socket
-      socket.data.user = session.user
+      const user = session.user as any
+      socket.data.user = {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        role: user?.role || 'MEMBER',
+        avatar: user?.avatar || user?.image || null,
+      }
       socket.data.userId = session.user.id
       next()
     } catch (err) {
@@ -149,15 +149,24 @@ app.prepare().then(() => {
     })
   })
 
-  // Start the server
-  httpServer
-    .once('error', (err: Error) => {
-      console.error('HTTP server error:', err)
-      process.exit(1)
-    })
-    .listen(port, () => {
-      console.log(`\n🚀 SmartTask server running on http://${hostname}:${port}`)
+  // Start the server with port retry logic
+  const startServer = (currentPort: number) => {
+    const server = httpServer.listen(currentPort, () => {
+      console.log(`\n🚀 SmartTask server running on http://${hostname}:${currentPort}`)
       console.log(`📡 Socket.IO path: /api/socket`)
       console.log(`🔧 Environment: ${dev ? 'development' : 'production'}\n`)
     })
+
+    server.once('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`⚠️  Port ${currentPort} is busy, trying ${currentPort + 1}...`)
+        startServer(currentPort + 1)
+      } else {
+        console.error('HTTP server error:', err)
+        process.exit(1)
+      }
+    })
+  }
+
+  startServer(port)
 })

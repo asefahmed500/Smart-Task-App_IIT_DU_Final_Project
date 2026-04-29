@@ -5,7 +5,7 @@ import { useState, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useRegisterMutation } from '@/lib/slices/authApi'
+import { authClient } from '@/lib/auth-client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,8 +28,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>
 function RegisterFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [registerMutation, { isLoading }] = useRegisterMutation()
-  const [sendingVerification, setSendingVerification] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const resend = searchParams?.get('resend') === 'true'
 
   const {
@@ -41,54 +40,31 @@ function RegisterFormContent() {
     mode: 'onChange',
   })
 
-  const sendVerificationEmail = async (email: string) => {
-    setSendingVerification(true)
-    try {
-      const response = await fetch('/api/auth/verify-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        toast.success('Verification email sent!', {
-          description: 'Check your inbox for the verification link.',
-        })
-        return true
-      } else {
-        toast.error('Failed to send verification email', {
-          description: data.error || 'Please try again later.',
-        })
-        return false
-      }
-    } catch {
-      toast.error('Failed to send verification email', {
-        description: 'Please try again later.',
-      })
-      return false
-    } finally {
-      setSendingVerification(false)
-    }
-  }
-
   const onSubmit = async (data: RegisterFormValues) => {
+    setIsLoading(true)
     try {
-      const result = await registerMutation(data).unwrap()
+      const result = await authClient.signUp.email(data)
+
+      if (result.error) {
+        toast.error('Registration failed', {
+          description: result.error.message || 'Could not create account',
+        })
+        return
+      }
 
       toast.success('Account created!', {
-        description: `Welcome ${result.user.name}. Please verify your email.`,
+        description: `Welcome ${data.name}. Please verify your email to continue.`,
       })
 
-      await sendVerificationEmail(data.email)
-
-      router.push('/verify-email-sent')
-    } catch (error: unknown) {
-      const err = error as { data?: { error?: string } }
+      // Better Auth sends verification email automatically
+      // Redirect to verification page with email parameter
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
+    } catch (error) {
       toast.error('Registration failed', {
-        description: err.data?.error || 'Could not create account',
+        description: 'An unexpected error occurred',
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -103,8 +79,20 @@ function RegisterFormContent() {
 
         <form
           onSubmit={handleSubmit(async (data) => {
-            await sendVerificationEmail(data.email)
-            router.push('/verify-email-sent')
+            setIsLoading(true)
+            try {
+              const result = await authClient.signIn.email(data)
+              toast.success('Verification email sent!', {
+                description: 'Check your inbox for the verification link.',
+              })
+              router.push('/verify-email-sent')
+            } catch (error) {
+              toast.error('Failed to send verification email', {
+                description: 'Please try again later.',
+              })
+            } finally {
+              setIsLoading(false)
+            }
           })}
           className="space-y-4"
         >
@@ -115,15 +103,15 @@ function RegisterFormContent() {
               type="email"
               placeholder="you@example.com"
               {...registerField('email')}
-              disabled={sendingVerification}
+              disabled={isLoading}
             />
             {errors.email && (
               <p className="text-sm text-destructive">{errors.email.message}</p>
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={sendingVerification}>
-            {sendingVerification ? (
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Sending...

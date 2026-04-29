@@ -3,8 +3,16 @@ import { SessionUser } from '@/lib/session'
 
 export async function verifyBoardAccess(
   userId: string,
-  boardId: string
+  boardId: string,
+  userRole?: string
 ) {
+  // If user is a platform ADMIN, they have access to all boards
+  if (userRole === 'ADMIN') {
+    return prisma.board.findUnique({
+      where: { id: boardId },
+    })
+  }
+
   return prisma.board.findFirst({
     where: {
       id: boardId,

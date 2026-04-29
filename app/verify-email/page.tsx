@@ -1,98 +1,200 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
+import { Loader2, Mail, CheckCircle2, XCircle } from 'lucide-react'
+import { toast } from 'sonner'
+
+const verifySchema = z.object({
+  code: z.string().min(6, 'Verification code must be 6 digits').max(6, 'Verification code must be 6 digits'),
+})
+
+type VerifyFormValues = z.infer<typeof verifySchema>
 
 function VerifyEmailContent() {
-  const searchParams = useSearchParams()
   const router = useRouter()
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-  const [message, setMessage] = useState('')
+  const searchParams = useSearchParams()
+  const email = searchParams?.get('email') || ''
 
-  useEffect(() => {
-    const verifyEmail = async () => {
-      if (!searchParams) {
-        setStatus('error')
-        setMessage('No verification token provided.')
-        return
-      }
+  const [isLoading, setIsLoading] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
-      const token = searchParams.get('token')
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<VerifyFormValues>({
+    resolver: zodResolver(verifySchema),
+  })
 
-      if (!token) {
-        setStatus('error')
-        setMessage('No verification token provided.')
-        return
-      }
+  const onSubmit = async (data: VerifyFormValues) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          code: data.code,
+        }),
+      })
 
-      try {
-        const response = await fetch('/api/auth/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
+      const result = await response.json()
+
+      if (response.ok) {
+        setStatus('success')
+        toast.success('Email verified successfully!', {
+          description: 'Redirecting to set your password...',
         })
 
-        const data = await response.json()
-
-        if (response.ok) {
-          setStatus('success')
-          setMessage(data.message || 'Email verified successfully!')
-        } else {
-          setStatus('error')
-          setMessage(data.error || 'Failed to verify email.')
-        }
-      } catch {
+        // Redirect to set password page
+        setTimeout(() => {
+          router.push(`/set-password?email=${encodeURIComponent(email)}`)
+        }, 1500)
+      } else {
         setStatus('error')
-        setMessage('An error occurred. Please try again.')
+        toast.error('Verification failed', {
+          description: result.error || 'Invalid or expired code',
+        })
       }
+    } catch {
+      setStatus('error')
+      toast.error('An error occurred', {
+        description: 'Please try again later',
+      })
+    } finally {
+      setIsLoading(false)
     }
+  }
 
-    verifyEmail()
-  }, [searchParams])
+  const handleResend = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/auth/send-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      if (response.ok) {
+        toast.success('Verification code sent!', {
+          description: 'Check your email for the new code',
+        })
+      } else {
+        const result = await response.json()
+        toast.error('Failed to send code', {
+          description: result.error || 'Please try again',
+        })
+      }
+    } catch {
+      toast.error('An error occurred', {
+        description: 'Please try again later',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
       <Card className="w-full max-w-md p-8">
-        {status === 'loading' && (
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4" />
-            <h2 className="text-xl font-medium mb-2">Verifying your email...</h2>
-            <p className="text-gray-600">Please wait while we confirm your email address.</p>
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4">
+            <Mail className="w-8 h-8 text-white" />
           </div>
+          <h1 className="text-2xl font-bold mb-2">Verify Your Email</h1>
+          <p className="text-gray-600">
+            Enter the 6-digit code sent to<br />
+            <span className="font-medium">{email}</span>
+          </p>
+        </div>
+
+        {status === 'idle' && (
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="code">Verification Code</Label>
+              <Input
+                id="code"
+                type="text"
+                placeholder="123456"
+                maxLength={6}
+                className="text-center text-2xl tracking-widest"
+                autoFocus
+                {...register('code')}
+                disabled={isLoading}
+              />
+              {errors.code && (
+                <p className="text-sm text-destructive">{errors.code.message}</p>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                'Verify Email'
+              )}
+            </Button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={isLoading}
+                className="text-sm text-gray-600 hover:text-black underline"
+              >
+                Didn't receive a code? Resend
+              </button>
+            </div>
+          </form>
         )}
 
         {status === 'success' && (
           <div className="text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
             </div>
-            <h2 className="text-2xl font-medium mb-2">Email Verified!</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
-            <Button onClick={() => router.push('/login')} className="w-full">
-              Go to Login
-            </Button>
+            <h2 className="text-2xl font-bold mb-2">Email Verified!</h2>
+            <p className="text-gray-600 mb-6">
+              Redirecting you to set your password...
+            </p>
           </div>
         )}
 
         {status === 'error' && (
-          <div className="text-center">
+          <div className="text-center space-y-4">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <XCircle className="w-8 h-8 text-red-600" />
             </div>
-            <h2 className="text-2xl font-medium mb-2">Verification Failed</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
+            <h2 className="text-2xl font-bold mb-2">Verification Failed</h2>
+            <p className="text-gray-600">
+              Invalid or expired code. Please try again.
+            </p>
             <div className="space-y-2">
-              <Button onClick={() => router.push('/login')} variant="outline" className="w-full">
-                Back to Login
+              <Button
+                onClick={() => setStatus('idle')}
+                variant="outline"
+                className="w-full"
+              >
+                Try Again
               </Button>
-              <Button onClick={() => router.push('/register?resend=true')} className="w-full">
-                Request New Verification Email
+              <Button
+                onClick={handleResend}
+                disabled={isLoading}
+                variant="ghost"
+                className="w-full"
+              >
+                {isLoading ? 'Sending...' : 'Resend Code'}
               </Button>
             </div>
           </div>

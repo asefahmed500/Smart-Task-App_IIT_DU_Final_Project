@@ -13,7 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useGetBoardsQuery, useGetMetricsCountsQuery } from '@/lib/slices/boardsApi'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { useRouter, usePathname } from 'next/navigation'
 import { Search, Plus, Home, Users, CheckSquare, Clock, AlertCircle, Shield } from 'lucide-react'
 import { setFilterAssignee, setFilterDue } from '@/lib/slices/uiSlice'

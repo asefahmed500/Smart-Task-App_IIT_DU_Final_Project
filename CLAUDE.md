@@ -34,8 +34,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - `DATABASE_URL` (PostgreSQL connection string - pooled connection)
    - `DIRECT_URL` (PostgreSQL connection string - direct connection for Prisma migrations)
    - `BETTER_AUTH_URL` (typically `http://localhost:3000`)
+   - `NEXT_PUBLIC_APP_URL` (typically `http://localhost:3001` - important for email verification links)
    - `ALLOWED_ORIGIN` (for CORS configuration)
-   - Optional: Email configuration (use `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_SECURE`, `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM`)
+   - Required for auth: Email configuration (`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM`)
 2. Install dependencies: `npm install`
 3. Generate Prisma client: `npx prisma generate`
 4. Setup database: `npx prisma db push`
@@ -44,7 +45,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Environment validation runs automatically** on startup - missing or invalid environment variables will cause immediate failures with clear error messages.
 
-**Note:** `lib/env-validation.ts` expects `SMTP_*` prefix for email variables, but the actual code in `lib/email.ts` and `.env.example` use `EMAIL_*` prefix. Use `EMAIL_*` in your `.env.local` file (the validation will be updated to match).
+**Email Configuration Required:** The auth system requires email to be configured for verification codes and password reset to work. Use `EMAIL_*` prefix variables in `.env.local`.
 
 ## Tech Stack
 
@@ -54,7 +55,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **UI Components**: shadcn/ui with class-variance-authority
 - **State Management**: Redux Toolkit (@reduxjs/toolkit, react-redux)
 - **Database/ORM**: Prisma v7 with PostgreSQL (Neon adapter)
-- **Authentication**: better-auth v1 with email/password, JWT plugin
+- **Authentication**: better-auth v1.6 with email/password, 6-digit code verification
 - **Real-time**: Socket.IO with cookie-based authentication
 - **Validation**: Zod schemas for API request validation
 
@@ -106,7 +107,7 @@ Priority order for determining a user's effective role on a board:
 
 **Routing Note:** `/dashboard` redirects users based on role (ADMIN→`/admin`, MANAGER→`/manager`, MEMBER→`/member`). Members should always use `/member` for their dashboard.
 
-**Middleware Protection:** `middleware.ts` protects routes by checking for `auth_token` cookie. API routes are excluded from middleware (they handle their own auth via `requireApiAuth()` and `requireApiRole()` - returning 401/403 JSON responses instead of redirects).
+**Middleware Protection:** `middleware.ts` protects routes by checking for `better-auth.session_token` cookie. API routes are excluded from middleware (they handle their own auth via `requireApiAuth()` and `requireApiRole()` - returning 401/403 JSON responses instead of redirects).
 
 **Feature Permissions Reference:**
 See `FEATURE_PERMISSIONS.md` for complete breakdown of all features and role-based access control. Includes:
@@ -120,9 +121,10 @@ See `FEATURE_PERMISSIONS.md` for complete breakdown of all features and role-bas
 - `api/` - API utilities (error handler, validation middleware)
 - `automation/` - Automation engine, triggers, and actions
 - `metrics/` - Cycle time, lead time, throughput calculations
-- `slices/` - Redux Toolkit slices and RTK Query APIs
+- `slices/` - Redux Toolkit slices and RTK Query APIs (NO authApi - removed during Better Auth migration)
 - `validations/` - Zod schemas for API validation
 - `auth.ts`, `auth-client.ts` - better-auth configuration
+- `use-session.ts` - Backward-compatible session hook for components
 - `board-roles.ts` - Board-level role calculation
 - `email.ts` - Email sending (nodemailer)
 - `env-validation.ts` - Environment variable validation
@@ -150,6 +152,15 @@ Components are organized by domain in `components/`:
 - `profile/*` - User profile pages
 - `task/*` - Task details (comments, attachments, dependencies)
 - `ui/*` - shadcn/ui base components (add via `npx shadcn@latest add <component>`)
+
+**Auth Pages (App Router):**
+- `app/register/` - Registration form (name + email only)
+- `app/login/` - Login form (email + password)
+- `app/verify-email/` - Enter 6-digit verification code
+- `app/verify-email-sent/` - Confirmation page with resend option
+- `app/set-password/` - Set password after email verification
+- `app/forgot-password/` - Request password reset code
+- `app/reset-password/` - Enter reset code → set new password
 
 ### Design System (ElevenLabs-Inspired)
 
@@ -202,12 +213,12 @@ The application uses an ElevenLabs-inspired design system with restrained elegan
 - Store configuration: `lib/store.ts` - uses `configureStore()` with RTK Query APIs
 - Typed hooks: `lib/hooks.ts` - exports `useAppDispatch`, `useAppSelector`, `useAppStore`
 - RTK Query APIs in `lib/slices/`:
-  - `authApi.ts` - Authentication endpoints
   - `boardsApi.ts` - Board/column management, automation rules
   - `tasksApi.ts` - Task CRUD operations, comments, attachments
   - `usersApi.ts` - User profile/boards
   - `adminApi.ts` - Admin operations
   - `notificationsApi.ts` - Notification system
+  - **NOTE**: `authApi.ts` was removed during Better Auth migration - use `lib/use-session.ts` instead
 - Custom slices:
   - `roleSlice.ts` - User role state and permissions
   - `uiSlice.ts` - UI state (online status, current board, view mode, focus mode)
@@ -230,6 +241,7 @@ The application uses an ElevenLabs-inspired design system with restrained elegan
 - Queues RTK Query mutations ending in `/pending` when offline
 - Max queue size: 100 actions, max retry count: 3
 - Replays automatically when connection restored (handled by `NetworkStatusListener` component)
+- **IMPORTANT**: localStorage is ONLY used for offline queue, NOT for auth tokens (auth uses httpOnly cookies only)
 
 ### API Response Format Patterns
 
@@ -329,7 +341,7 @@ return ApiErrorHandler.serverError('Internal server error')
 
 ### Database (Prisma)
 
-- Schema: `prisma/schema.prisma` - defines User, Board, Column, Task, TaskBlock, AuditLog, BoardMember, AutomationRule, Notification, Comment, TaskAttachment, SystemSettings, Webhook, TimeLog, RateLimit
+- Schema: `prisma/schema.prisma` - defines User, Board, Column, Task, TaskBlock, AuditLog, BoardMember, AutomationRule, Notification, Comment, TaskAttachment, SystemSettings, Webhook, TimeLog, RateLimit, Verification (for email/password reset codes)
 - Client: `lib/prisma.ts` - singleton pattern with PrismaNeon adapter
 - **Connection URLs**: `DATABASE_URL` (pooled connection for app usage), `DIRECT_URL` (direct connection for Prisma migrations/maintenance)
 - Models: Uses cuid() for IDs, PostgreSQL dialect, cascading deletes
@@ -345,13 +357,41 @@ npx prisma db push
 
 ### Authentication (better-auth)
 
-- Server instance: `lib/auth.ts` - uses PostgreSQL Pool directly, JWT plugin for tokens
+**IMPORTANT: This project uses Better Auth v1 as the SINGLE authentication system. All custom JWT code has been removed.**
+
+- Server instance: `lib/auth.ts` - Better Auth configuration with lazy-loaded email functions
 - Client instance: `lib/auth-client.ts` - `createAuthClient()` from better-auth/react
+- Session hook: `lib/use-session.ts` - Backward-compatible wrapper that maps Better Auth session to old API structure
 - API handler: `app/api/auth/[...all]/route.ts` - `toNextJsHandler(auth.handler)`
 - Session utilities: `lib/session.ts` - `getSession()`, `requireAuth()`, `requireRole(['ADMIN' | 'MANAGER' | 'MEMBER'])`
-- Token management: `auth_token` cookie (httpOnly, secure in production, 7-day expiry)
+- Token management: `better-auth.session_token` cookie (httpOnly, secure in production, 7-day expiry)
 - Environment: `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` in `.env.local`
 - **Email**: `lib/email.ts` - nodemailer integration for verification and password reset emails
+
+**Custom Auth Flow (Registration → Email Verification → Set Password):**
+1. User registers at `/register` with name + email only (no password)
+2. System creates account with temporary password and sends 6-digit verification code
+3. User enters code at `/verify-email`
+4. User sets their password at `/set-password`
+5. User can now login at `/login`
+6. First user automatically becomes ADMIN
+
+**Password Reset Flow:**
+1. User requests reset at `/forgot-password`
+2. Email sends 6-digit reset code
+3. User enters code at `/reset-password` (two-step: code → new password form)
+4. User sets new password
+5. User can login with new password
+
+**Auth API Routes:**
+- `/api/auth/[...all]` - Better Auth handler (login, logout, session)
+- `/api/auth/register` - Custom registration (email only, temp password)
+- `/api/auth/send-verification` - Resend verification code
+- `/api/auth/verify-code` - Verify 6-digit email code
+- `/api/auth/set-password` - Set password after verification
+- `/api/auth/forgot-password` - Request password reset
+- `/api/auth/reset-password/verify` - Verify reset code
+- `/api/auth/reset-password/confirm` - Confirm new password
 
 **Session Utility Pattern:**
 Two separate patterns for different contexts:
@@ -365,7 +405,7 @@ This distinction prevents API routes from redirecting (which would break JSON re
 - Client: `lib/socket.ts` - singleton socket instance with event emitters/listeners, exponential backoff reconnection
 - **Custom Server:** `server.ts` - **Single source of truth** for all Socket.IO event handlers (integrated Next.js + Socket.IO server, required for dev/production)
 - **Path:** `/api/socket` - Socket.IO endpoint path
-- **Authentication:** Cookie-based via `auth_token` - server parses cookie from handshake headers
+- **Authentication:** Cookie-based via `better-auth.session_token` - server parses cookie from handshake headers
 - **Initialization**: `components/layout/socket-initializer.tsx` - Ensures Socket.IO server initializes before client connections
 - Events: `board:join`, `board:leave`, `task:update`, `task:move`, `task:moved`, `task:updated`, `presence:cursor`, `presence:editing:start`, `presence:editing:stop`, `comment:new`, `comment:updated`, `comment:deleted`
 - Integration: `lib/socket-middleware.ts` - Redux middleware that connects presenceSlice to socket events
@@ -394,11 +434,15 @@ io.use(async (socket, next) => {
     acc[key] = value
     return acc
   }, {})
-  const authToken = cookies['auth_token']
-  
-  const { getSession } = await import('./lib/auth.js')
-  const session = await getSession(authToken)
-  
+
+  // Better Auth uses better-auth.session_token cookie
+  const sessionToken = cookies['better-auth.session_token']
+
+  const { auth } = await import('./lib/auth.js')
+  const session = await auth.api.getSession({
+    headers: { cookie: cookieHeader }
+  })
+
   if (!session) return next(new Error('Authentication error'))
   socket.data.user = session.user
   socket.data.userId = session.user.id
@@ -425,7 +469,7 @@ socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
 For client-side components that show/hide features based on user role, use this pattern:
 
 ```typescript
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 
 const { data: session } = useGetSessionQuery()
 const canManage = session?.role === 'ADMIN' || session?.role === 'MANAGER'
@@ -436,6 +480,8 @@ if (!canManage) return null
 // OR conditional rendering
 {canManage && <Button>Delete</Button>}
 ```
+
+**IMPORTANT**: Always import `useGetSessionQuery` from `@/lib/use-session`, NOT from `@/lib/slices/authApi` (which no longer exists).
 
 **Components with role guards (April 2026):**
 - `add-column-button.tsx` - Hides from MEMBERS
@@ -862,3 +908,53 @@ invalidatesTags: (result) => [{ type: 'Task', id: 'LIST' }, { type: 'Task', id: 
 **Context**: This is a Next.js 16 deprecation notice. The current `middleware.ts` file works but should be migrated to `proxy.ts` in future updates.
 
 **Reference**: https://nextjs.org/docs/messages/middleware-to-proxy
+
+---
+
+## Major Migration: Better Auth (April 2026)
+
+**Status**: Complete ✅
+
+**What Changed:**
+- Migrated from dual auth systems (custom JWT + Better Auth) to single Better Auth implementation
+- Removed all custom JWT code (`createToken()`, `verifyToken()`, `getJwtSecret()`)
+- Removed `lib/slices/authApi.ts` - all auth now uses Better Auth
+- Eliminated localStorage token usage (security improvement - httpOnly cookies only)
+- Updated 19 components to use `lib/use-session.ts` instead of `lib/slices/authApi.ts`
+
+**New Auth Flow:**
+1. **Registration**: Email-only → sends 6-digit code → user verifies → user sets password → can login
+2. **Password Reset**: Request code → enter code → set new password → can login
+3. **First user** automatically becomes ADMIN
+4. All auth pages now use 6-digit codes (not links)
+
+**Files Created:**
+- `app/set-password/page.tsx` - Set password after email verification
+- `app/forgot-password/page.tsx` - Request password reset code
+- `app/reset-password/page.tsx` - Two-step: enter code → new password form
+- `app/api/auth/set-password/route.ts` - Save password after verification
+- `app/api/auth/forgot-password/route.ts` - Send reset code
+- `app/api/auth/reset-password/verify/route.ts` - Verify reset code
+- `app/api/auth/reset-password/confirm/route.ts` - Confirm new password
+- `lib/use-session.ts` - Backward-compatible session hook
+
+**Files Deleted:**
+- `app/api/auth/login/route.ts` (now uses Better Auth)
+- `app/api/auth/logout/route.ts` (now uses Better Auth)
+- `app/api/auth/session/route.ts` (now uses Better Auth)
+- `app/api/auth/verify-email/route.ts` (replaced with code-based system)
+- `app/api/auth/reset-password/route.ts` (replaced with code-based system)
+- `app/api/auth/verify/route.ts` (now uses Better Auth)
+- `lib/slices/authApi.ts` (replaced with Better Auth)
+
+**Security Improvements:**
+- No localStorage token storage (httpOnly cookies only)
+- No custom JWT implementation (Better Auth handles everything)
+- 6-digit codes with expiry (more secure than reset links)
+- Email verification required before setting password
+
+**For Future Work:**
+- All new auth features should use Better Auth APIs
+- Never implement custom JWT or token handling
+- Always use httpOnly cookies for session storage
+- Import `useGetSessionQuery` from `@/lib/use-session`

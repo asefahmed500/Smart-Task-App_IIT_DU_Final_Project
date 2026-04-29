@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { useCreateUserMutation } from '@/lib/slices/adminApi'
 import { toast } from 'sonner'
 

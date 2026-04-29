@@ -1,7 +1,7 @@
 'use client'
 
 import { useGetAttachmentsQuery, useDeleteAttachmentMutation } from '@/lib/slices/tasksApi'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'

@@ -1,52 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { hashPassword, createToken } from '@/lib/auth'
-import { rateLimit, getIdentifier } from '@/lib/rate-limiter'
+import { hashPassword } from '@/lib/auth'
+import { sendVerificationEmail } from '@/lib/email'
+import { z } from 'zod'
+
+const registerSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+})
 
 export async function POST(req: NextRequest) {
-  // Rate limiting: 3 registrations per hour per IP
-  const identifier = getIdentifier(req)
-  const rateLimitResult = await rateLimit(identifier, 3, 60 * 60 * 1000)
-
-  if (!rateLimitResult.success) {
-    return NextResponse.json(
-      {
-        error: 'Too many registration attempts. Please try again later.',
-        retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000),
-      },
-      {
-        status: 429,
-        headers: {
-          'X-RateLimit-Limit': rateLimitResult.limit.toString(),
-          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-          'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
-          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString(),
-        },
-      }
-    )
-  }
-
   try {
     const body = await req.json()
-    // Note: `role` is intentionally NOT accepted from self-registration.
-    // The first user becomes ADMIN automatically; all others start as MEMBER.
-    const { email, password, name } = body
-
-    if (!email || !password || !name) {
-      return NextResponse.json(
-        { error: 'Email, password, and name are required' },
-        { status: 400 }
-      )
-    }
-
-    const { validatePassword } = await import('@/lib/utils/password')
-    const passwordCheck = validatePassword(password)
-    if (!passwordCheck.isValid) {
-      return NextResponse.json(
-        { error: passwordCheck.error },
-        { status: 400 }
-      )
-    }
+    const { name, email } = registerSchema.parse(body)
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -56,93 +22,46 @@ export async function POST(req: NextRequest) {
     if (existingUser) {
       return NextResponse.json(
         { error: 'User already exists' },
-        { status: 409 }
+        { status: 400 }
       )
     }
 
-    // The first registered user automatically becomes ADMIN
-    console.log('[Registration] Checking user count...')
-    let userCount = 0
-    try {
-      userCount = await prisma.user.count()
-      console.log(`[Registration] Current user count: ${userCount}`)
-    } catch (dbError) {
-      console.error('[Registration] Database connection failed during user count check:', dbError)
-      return NextResponse.json(
-        { error: 'Database connection failed. Please ensure DATABASE_URL is correct.' },
-        { status: 503 }
-      )
-    }
+    // Check if this is the first user (make them ADMIN)
+    const userCount = await prisma.user.count()
 
-    const isFirstUser = userCount === 0
-    const userRole = isFirstUser ? 'ADMIN' : 'MEMBER'
+    // Create user with temporary password (will be changed after verification)
+    const tempPassword = Math.random().toString(36).slice(-8)
+    const hashedPassword = await hashPassword(tempPassword)
 
-    // Hash password
-    console.log('[Registration] Hashing password...')
-    const hashedPassword = await hashPassword(password)
-
-    // Create user
-    console.log(`[Registration] Creating user with role: ${userRole}...`)
-    let user
-    try {
-      user = await prisma.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          name,
-          role: userRole,
-        },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          avatar: true,
-        },
-      })
-      console.log(`[Registration] User created successfully: ${user.id}`)
-    } catch (createError) {
-      console.error('[Registration] Database error during user creation:', createError)
-      return NextResponse.json(
-        { error: 'Failed to create user in database.' },
-        { status: 500 }
-      )
-    }
-
-    // Create token
-    console.log('[Registration] Generating session token...')
-    const token = await createToken(user)
-
-    // Set cookie
-    const response = NextResponse.json(
-      {
-        user,
-        token,
-        isFirstUser,
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: userCount === 0 ? 'ADMIN' : 'MEMBER',
+        isActive: true,
+        emailVerified: false, // Will be verified after code
       },
-      { status: 201 }
-    )
-
-    response.cookies.set('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/',
     })
 
-    console.log('[Registration] Registration complete.')
-    return response
+    // Send verification email
+    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/verify-email?email=${encodeURIComponent(email)}`
+    const emailSent = await sendVerificationEmail(email, verificationUrl)
+
+    if (!emailSent) {
+      console.warn('Failed to send verification email, but continuing...')
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Account created successfully. Please verify your email.',
+      email,
+      requiresVerification: true,
+    })
   } catch (error) {
-    console.error('[Registration API Error]:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    })
+    console.error('Registration error:', error)
     return NextResponse.json(
-      { 
-        error: 'Internal server error during registration.',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to create account' },
       { status: 500 }
     )
   }

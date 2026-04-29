@@ -8,7 +8,7 @@ import {
   useDeleteWebhookMutation,
   Webhook
 } from '@/lib/slices/boardsApi'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

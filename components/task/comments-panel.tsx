@@ -1,7 +1,7 @@
 'use client'
 
 import { useGetTaskCommentsQuery } from '@/lib/slices/tasksApi'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'

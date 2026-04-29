@@ -2,11 +2,16 @@ import { prisma } from './prisma'
 import { betterAuth } from "better-auth"
 import { prismaAdapter } from "better-auth/adapters/prisma"
 import bcrypt from 'bcryptjs'
-import { SignJWT, jwtVerify } from 'jose'
 
-import { jwt } from "better-auth/plugins/jwt"
-import { cookies } from 'next/headers'
-import { validateEnv } from './env-validation'
+// Lazy import email functions to avoid edge runtime issues
+const getEmailFunctions = async () => {
+  try {
+    const { sendVerificationEmail, sendPasswordResetEmail } = await import("./email")
+    return { sendVerificationEmail, sendPasswordResetEmail }
+  } catch {
+    return null
+  }
+}
 
 // Get allowed origins for CORS and CSRF
 const getAllowedOrigins = () => {
@@ -17,7 +22,46 @@ const getAllowedOrigins = () => {
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
-  emailAndPassword: { enabled: true },
+
+  // Email & Password authentication
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: false, // Changed to false - users can login without verifying, but features will be limited
+    minPasswordLength: 8,
+    maxPasswordLength: 128,
+    autoSignIn: false, // Don't auto-signin until email verified
+
+    // Send password reset email
+    sendResetPassword: async ({ user, url }) => {
+      const emailFuncs = await getEmailFunctions()
+      if (emailFuncs) {
+        await emailFuncs.sendPasswordResetEmail(user.email, url)
+      } else {
+        console.warn('Email functions not available, password reset email not sent')
+      }
+    },
+
+    resetPasswordTokenExpiresIn: 3600, // 1 hour
+    revokeSessionsOnPasswordReset: true,
+  },
+
+  // Email verification
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }) => {
+      const emailFuncs = await getEmailFunctions()
+      if (emailFuncs) {
+        await emailFuncs.sendVerificationEmail(user.email, url)
+      } else {
+        console.warn('Email functions not available, verification email not sent')
+      }
+    },
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 86400, // 24 hours
+    verificationCodeLength: 6, // 6-digit code
+  },
+
+  // Session management
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day
@@ -26,140 +70,68 @@ export const auth = betterAuth({
       maxAge: 60 * 60, // 1 hour cache
     },
   },
+
   // Advanced security settings
   advanced: {
-    // Disable cross-subdomain cookies for security
     crossSubDomainCookies: {
       enabled: false,
     },
-    // Use secure cookies in production
     useSecureCookies: process.env.NODE_ENV === 'production',
   },
-  // Allow specific origins only
+
+  // Allow specific origins
   trustedOrigins: getAllowedOrigins(),
-  plugins: [
-    jwt({
-        jwt: {
-            expirationTime: "7d",
-        }
-    })
-  ]
+
+  // Custom user fields
+  user: {
+    additionalFields: {
+      role: {
+        type: ['ADMIN', 'MANAGER', 'MEMBER'],
+        required: false,
+        defaultValue: 'MEMBER',
+        input: false, // Don't allow users to set their own role
+      },
+      isActive: {
+        type: 'boolean',
+        required: false,
+        defaultValue: true,
+        input: false,
+      },
+    },
+    additionalSignupFields: {
+      name: {
+        type: 'string',
+        required: true,
+      },
+    },
+  },
+
+  // Account management
+  account: {
+    accountLinking: {
+      enabled: false,
+    },
+  },
 })
 
-// Get validated environment variables
-const getAuthSecret = () => {
-  try {
-    const env = getEnv()
-    return new TextEncoder().encode(env.BETTER_AUTH_SECRET)
-  } catch (error) {
-    console.error('Failed to get BETTER_AUTH_SECRET:', error)
-    // Fallback to a dummy secret only in non-production to avoid crashes
-    if (process.env.NODE_ENV !== 'production') {
-      return new TextEncoder().encode('dummy-secret-at-least-32-chars-long-for-dev')
-    }
-    throw error // Re-throw in production to be caught by route handlers
-  }
-}
-
-const JWT_SECRET = getAuthSecret()
-
-export interface User {
-  id: string
-  email: string
-  name: string | null
-  role: 'ADMIN' | 'MANAGER' | 'MEMBER'
-  avatar: string | null
-}
-
-export interface Session {
-  user: User
-  token: string
-  ipAddress?: string
-}
-
+// Helper functions for password hashing and verification
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10)
+  const salt = await bcrypt.genSalt(10)
+  return bcrypt.hash(password, salt)
 }
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash)
+export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  return bcrypt.compare(password, hashedPassword)
 }
 
-export async function createToken(user: User, options?: { ipAddress?: string }): Promise<string> {
-  const payload: Record<string, unknown> = { userId: user.id }
-  
-  // Optionally bind IP for additional security (can cause issues with mobile users)
-  if (options?.ipAddress && process.env.NODE_ENV === 'production') {
-    payload.ip = options.ipAddress
-  }
-  
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime('7d')
-    .sign(JWT_SECRET)
+// Helper function to get session from headers
+export async function getSessionFromHeaders(headers: Headers) {
+  return auth.api.getSession({ headers })
 }
 
-export async function verifyToken(token: string): Promise<{ userId: string; ip?: string } | null> {
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
-    return { 
-      userId: payload.userId as string,
-      ip: payload.ip as string | undefined
-    }
-  } catch {
-    return null
-  }
-}
-
-/**
- * Get session from token - verify and fetch user
- */
-export async function getSession(token: string): Promise<Session | null> {
-  const payload = await verifyToken(token)
-  if (!payload) return null
-
-  const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      avatar: true,
-    },
+// Helper function to revoke all sessions for a user
+export async function revokeAllSessions(userId: string) {
+  await prisma.session.deleteMany({
+    where: { userId }
   })
-
-  if (!user) return null
-
-  return {
-    user,
-    token,
-  }
-}
-
-/**
- * Revoke all sessions for a user (call when password changes)
- */
-export async function revokeAllSessions(userId: string): Promise<void> {
-  await prisma.session.deleteMany({ where: { userId } })
-}
-
-/**
- * Get current IP from request headers
- * NOTE: Requires headers parameter - cookies are user-controlled and cannot be trusted
- */
-export async function getClientIp(headers?: Headers): Promise<string> {
-  if (headers) {
-    const forwardedFor = headers.get('x-forwarded-for')
-    const realIp = headers.get('x-real-ip')
-    const cfConnectingIp = headers.get('cf-connecting-ip') // Cloudflare
-
-    const ip = forwardedFor || realIp || cfConnectingIp || 'unknown'
-    return ip.split(',')[0].trim()
-  }
-
-  // Fallback for backward compatibility (but warn)
-  console.warn('[Security] getClientIp called without headers - IP may be unreliable')
-  return 'unknown'
 }

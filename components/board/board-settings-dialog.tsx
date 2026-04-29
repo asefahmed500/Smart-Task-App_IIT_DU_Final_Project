@@ -25,7 +25,7 @@ import {
   useUpdateBoardMemberRoleMutation,
   Board
 } from '@/lib/slices/boardsApi'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import AutomationBuilder from './automation-builder'

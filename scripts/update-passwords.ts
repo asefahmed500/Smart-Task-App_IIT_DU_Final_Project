@@ -5,7 +5,7 @@ import path from 'path'
 config({ path: path.resolve(process.cwd(), '.env.local') })
 
 import { prisma } from '../lib/prisma'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 
 async function main() {
   console.log('Updating test user passwords...\n')

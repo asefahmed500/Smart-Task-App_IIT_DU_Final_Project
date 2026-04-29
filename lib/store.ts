@@ -1,6 +1,5 @@
 import { configureStore, Middleware, UnknownAction } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
-import { authApi } from '@/lib/slices/authApi'
 import { boardsApi } from '@/lib/slices/boardsApi'
 import { tasksApi } from '@/lib/slices/tasksApi'
 import { adminApi } from '@/lib/slices/adminApi'
@@ -20,7 +19,7 @@ import { createOfflineMiddleware } from '@/lib/offlineQueue'
  * Note: Aborted queries are expected behavior and not logged
  */
 const rtkQueryErrorLogger: Middleware = () => (next) => (action) => {
-  const typedAction = action as UnknownAction & { 
+  const typedAction = action as UnknownAction & {
     error?: { message?: string; status?: number | string };
     payload?: { data?: unknown; status?: number | string };
     meta?: { arg?: { endpointName?: string; originalArgs?: unknown } };
@@ -48,7 +47,6 @@ const rtkQueryErrorLogger: Middleware = () => (next) => (action) => {
 export const makeStore = () => {
   const store = configureStore({
     reducer: {
-      [authApi.reducerPath]: authApi.reducer,
       [boardsApi.reducerPath]: boardsApi.reducer,
       [tasksApi.reducerPath]: tasksApi.reducer,
       [adminApi.reducerPath]: adminApi.reducer,
@@ -62,7 +60,6 @@ export const makeStore = () => {
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware()
         .concat(rtkQueryErrorLogger)
-        .concat(authApi.middleware)
         .concat(boardsApi.middleware)
         .concat(tasksApi.middleware)
         .concat(adminApi.middleware)

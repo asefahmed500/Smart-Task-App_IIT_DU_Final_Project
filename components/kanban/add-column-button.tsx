@@ -5,7 +5,7 @@ import { Plus, X, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCreateColumnMutation } from '@/lib/slices/boardsApi'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 

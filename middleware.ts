@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl
@@ -8,27 +9,36 @@ export async function middleware(req: NextRequest) {
     url.pathname.startsWith('/register') ||
     url.pathname.startsWith('/reset-password') ||
     url.pathname.startsWith('/verify-email') ||
-    url.pathname.startsWith('/reset-email-sent') ||
-    url.pathname.startsWith('/verify-email-sent')
+    url.pathname.startsWith('/verify-email-sent') ||
+    url.pathname.startsWith('/reset-email-sent')
 
   // Allow public routes
   if (isPublicRoute || isAuthRoute) {
     return NextResponse.next()
   }
 
-  // For protected routes, check for session cookie
+  // For protected routes, check session using Better Auth
   // Note: API routes handle their own auth via requireApiAuth/requireApiRole
   // This middleware only protects page routes
-  const sessionToken = req.cookies.get('auth_token')?.value
+  try {
+    const session = await auth.api.getSession({
+      headers: req.headers,
+    })
 
-  if (!sessionToken) {
-    // Redirect to login for protected routes
+    if (!session) {
+      // Redirect to login for protected routes
+      const loginUrl = new URL('/login', req.url)
+      loginUrl.searchParams.set('redirect', url.pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    return NextResponse.next()
+  } catch {
+    // If session check fails, redirect to login
     const loginUrl = new URL('/login', req.url)
     loginUrl.searchParams.set('redirect', url.pathname)
     return NextResponse.redirect(loginUrl)
   }
-
-  return NextResponse.next()
 }
 
 export const config = {

@@ -3,7 +3,7 @@
 import { useAppSelector } from '@/lib/hooks'
 import { useGetBoardQuery, useGetBoardColumnsQuery } from '@/lib/slices/boardsApi'
 import { useGetTasksQuery } from '@/lib/slices/tasksApi'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import Column from './column'

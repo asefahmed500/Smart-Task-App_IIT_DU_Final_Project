@@ -3,7 +3,7 @@
 import { useAppSelector } from '@/lib/hooks'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useSession } from '@/lib/auth-client'
 import { setRole } from '@/lib/slices/roleSlice'
 import { useAppDispatch } from '@/lib/hooks'
 import Navbar from '@/components/layout/navbar'
@@ -25,19 +25,20 @@ export default function DashboardLayout({
   const sidebarOpen = useAppSelector((state) => state.ui.sidebarOpen)
   const rightSidebarOpen = useAppSelector((state) => state.ui.rightSidebarOpen)
 
-  const { data: session, isLoading, isError } = useGetSessionQuery()
+  const { data: session, isPending, error } = useSession()
 
   useEffect(() => {
-    if (!isLoading && (isError || session === null)) {
+    if (!isPending && (error || session === null)) {
       router.replace('/login')
       return
     }
-    if (session?.role) {
-      dispatch(setRole(session.role as Role))
+    if (session?.user) {
+      const userRole = (session.user as any).role || 'MEMBER'
+      dispatch(setRole(userRole as Role))
     }
-  }, [session, isLoading, isError, router, dispatch])
+  }, [session, isPending, error, router, dispatch])
 
-  if (isLoading || !session) {
+  if (isPending || !session) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">

@@ -3,7 +3,7 @@
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { useGetTaskQuery, useGetTaskAuditQuery, useUpdateTaskMutation, useGetTaskCommentsQuery, useAddCommentMutation, useDeleteCommentMutation, useUpdateCommentMutation, useAddTaskDependencyMutation, useRemoveTaskDependencyMutation, useDeleteTaskMutation, useAddAttachmentMutation, useDeleteAttachmentMutation } from '@/lib/slices/tasksApi'
 import { useGetBoardsQuery, type Priority, type BoardMember, type AuditLogEntry, type Task } from '@/lib/slices/boardsApi'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { cn } from '@/lib/utils/cn'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'

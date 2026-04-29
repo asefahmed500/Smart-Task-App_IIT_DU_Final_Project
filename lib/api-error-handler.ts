@@ -80,7 +80,15 @@ export class ApiErrorResponse {
 
     // Generic errors
     console.error('[API Error]', error)
-    return this.error('Internal server error', 500, 'INTERNAL_ERROR')
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
+    const errorDetails = error instanceof Error ? error.stack : String(error)
+    
+    return this.error(
+      errorMessage, 
+      500, 
+      'INTERNAL_ERROR', 
+      process.env.NODE_ENV !== 'production' ? errorDetails : undefined
+    )
   }
 }
 

@@ -4,7 +4,7 @@ import { useDraggable } from '@dnd-kit/core'
 import TaskCard from './task-card'
 import { Task } from '@/lib/slices/boardsApi'
 
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 
 interface DraggableTaskCardProps {
   task: Task

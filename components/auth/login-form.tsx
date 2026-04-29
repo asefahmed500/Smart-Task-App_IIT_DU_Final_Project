@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useLoginMutation } from '@/lib/slices/authApi'
+import { authClient } from '@/lib/auth-client'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,7 +21,7 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 export default function LoginForm() {
   const router = useRouter()
-  const [login, { isLoading }] = useLoginMutation()
+  const [isLoading, setIsLoading] = useState(false)
 
   const {
     register,
@@ -32,30 +32,36 @@ export default function LoginForm() {
   })
 
   const onSubmit = async (data: LoginFormValues) => {
+    setIsLoading(true)
     try {
-      const result = await login(data).unwrap()
+      const result = await authClient.signIn.email(data)
 
-      // Save token for socket authentication (since httpOnly cookie is inaccessible to JS)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('auth_token', result.token)
+      if (result.error) {
+        toast.error('Login failed', {
+          description: result.error.message || 'Invalid email or password',
+        })
+        return
       }
 
       toast.success('Welcome back!', {
-        description: `Logged in as ${result.user.name || result.user.email}`,
+        description: `Logged in as ${result.data?.user.name || result.data?.user.email}`,
       })
 
       // Redirect based on role
-      if (result.user.role === 'ADMIN') {
+      const role = (result.data?.user as any)?.role as 'ADMIN' | 'MANAGER' | 'MEMBER' || 'MEMBER'
+      if (role === 'ADMIN') {
         router.push('/admin')
-      } else if (result.user.role === 'MANAGER') {
+      } else if (role === 'MANAGER') {
         router.push('/manager')
       } else {
-        router.push('/dashboard')
+        router.push('/member')
       }
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Login failed', {
-        description: error.data?.error || 'Invalid email or password',
+        description: 'An unexpected error occurred',
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 

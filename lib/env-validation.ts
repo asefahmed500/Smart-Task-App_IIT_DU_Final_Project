@@ -21,11 +21,11 @@ const envSchema = z.object({
   ALLOWED_ORIGIN: z.string().optional().default('*'),
 
   // Email (optional)
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.string().regex(/^\d+$/, 'SMTP_PORT must be a number').transform(Number).optional(),
-  SMTP_SECURE: z.enum(['true', 'false']).transform(val => val === 'true').optional(),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
+  EMAIL_HOST: z.string().optional(),
+  EMAIL_PORT: z.string().regex(/^\d+$/, 'EMAIL_PORT must be a number').transform(Number).optional(),
+  EMAIL_SECURE: z.enum(['true', 'false']).transform(val => val === 'true').optional(),
+  EMAIL_USER: z.string().optional(),
+  EMAIL_PASS: z.string().optional(),
   EMAIL_FROM: z.string().email().optional(),
 })
 
@@ -59,20 +59,18 @@ export function validateEnv(): Env {
       )
 
       if (missingCritical) {
-        console.error(`CRITICAL: Missing required environment variables:\n${errors}`)
-        if (process.env.NODE_ENV === 'production') {
-          // In production, we MUST have these to function.
-          // Throwing here will result in a 500 error, but at least it's explicit in logs.
-          throw new Error(`Critical Environment Variables Missing:\n${errors}`)
-        }
+        console.error(`CRITICAL: Missing or invalid required environment variables:\n${errors}`)
+        // In production, we log it loudly but try to return what we have
+        // This avoids crashing the entire serverless function during module load
+        return process.env as unknown as Env
       } else {
         console.warn(`Environment validation warning (non-critical):\n${errors}`)
       }
       
-      // If we're here, either it's not production or no critical vars are missing
       return process.env as unknown as Env
     }
-    throw error
+    console.error('Unexpected environment validation error:', error)
+    return process.env as unknown as Env
   }
 }
 

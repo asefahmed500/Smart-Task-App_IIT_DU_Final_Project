@@ -1,7 +1,8 @@
 import { config } from 'dotenv'
 config({ path: '.env.local' })
-import { prisma } from '../lib/prisma'
-import bcrypt from 'bcrypt'
+// Dynamic import to ensure env is loaded before prisma client
+const { prisma } = await import('../lib/prisma')
+import bcrypt from 'bcryptjs'
 
 async function main() {
   console.log('Seeding database...')

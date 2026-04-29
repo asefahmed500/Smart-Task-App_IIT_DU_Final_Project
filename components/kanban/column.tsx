@@ -24,7 +24,7 @@ import { toast } from 'sonner'
 import CreateTaskDialog from './create-task-dialog'
 import DraggableTaskCard from './draggable-task-card'
 import { useAppDispatch } from '@/lib/hooks'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { setSelectedTask, setRightSidebarOpen } from '@/lib/slices/uiSlice'
 
 interface ColumnProps {

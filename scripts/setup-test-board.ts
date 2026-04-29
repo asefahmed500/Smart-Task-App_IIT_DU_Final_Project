@@ -11,7 +11,7 @@ if (result.error) {
 // Direct Prisma import to avoid env-validation issues
 import { PrismaClient } from '@prisma/client'
 import { PrismaNeon } from '@prisma/adapter-neon'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 
 // Create Prisma client directly
 const DATABASE_URL = process.env.DATABASE_URL!

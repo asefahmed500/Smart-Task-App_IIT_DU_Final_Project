@@ -3,7 +3,7 @@
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { useRouter } from 'next/navigation'
 import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
-import { useLogoutMutation } from '@/lib/slices/authApi'
+import { signOut } from '@/lib/auth-client'
 import { useSearchTasksQuery } from '@/lib/slices/tasksApi'
 import { LayoutDashboard, Plus, Settings, Users, LogOut, Search, CheckCircle2 } from 'lucide-react'
 import { setCommandPaletteOpen, setSelectedTask } from '@/lib/slices/uiSlice'
@@ -25,7 +25,7 @@ export default function CommandPalette() {
   
   const { data: boards } = useGetBoardsQuery()
   const { data: searchResults, isLoading: isSearching } = useSearchTasksQuery(search, { skip: !search || search.length < 2 })
-  const [logout] = useLogoutMutation()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -39,8 +39,15 @@ export default function CommandPalette() {
   }, [open, dispatch])
 
   const handleLogout = async () => {
-    await logout().unwrap()
-    router.push('/login')
+    setIsLoggingOut(true)
+    try {
+      await signOut()
+      router.push('/login')
+    } catch (error) {
+      console.error('Logout failed:', error)
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   return (
@@ -101,7 +108,7 @@ export default function CommandPalette() {
           ))}
         </CommandGroup>
         <CommandGroup heading="Account">
-          <CommandItem onSelect={handleLogout}>
+          <CommandItem onSelect={handleLogout} disabled={isLoggingOut}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Log Out</span>
           </CommandItem>

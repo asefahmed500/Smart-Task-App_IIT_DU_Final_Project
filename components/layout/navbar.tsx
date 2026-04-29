@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { useGetBoardsQuery } from '@/lib/slices/boardsApi'
-import { useLogoutMutation } from '@/lib/slices/authApi'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { signOut } from '@/lib/auth-client'
+import { useSession } from '@/lib/auth-client'
 import { useRouter, usePathname } from 'next/navigation'
 import NotificationCenter from '@/components/notifications/notification-center'
 import {
@@ -44,14 +44,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toggleSidebar, toggleCommandPalette, toggleFocusMode } from '@/lib/slices/uiSlice'
 import { undo, redo } from '@/lib/slices/undoSlice'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function Navbar() {
   const router = useRouter()
   const dispatch = useAppDispatch()
   const { data: boards } = useGetBoardsQuery()
-  const { data: session } = useGetSessionQuery()
-  const [logout] = useLogoutMutation()
+  const { data: session } = useSession()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const pathname = usePathname()
   const isOnBoard = pathname?.startsWith('/board/')
   const currentBoardIdFromPath = isOnBoard ? pathname?.split('/')[2] : null
@@ -65,11 +65,11 @@ export default function Navbar() {
 
   // Get user initials from session
   const getUserInitials = () => {
-    if (session?.name) {
-      return session.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    if (session?.user?.name) {
+      return session.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     }
-    if (session?.email) {
-      return session.email.slice(0, 2).toUpperCase()
+    if (session?.user?.email) {
+      return session.user.email.slice(0, 2).toUpperCase()
     }
     return 'U'
   }
@@ -99,8 +99,15 @@ export default function Navbar() {
   }, [dispatch])
 
   const handleLogout = async () => {
-    await logout().unwrap()
-    router.push('/login')
+    setIsLoggingOut(true)
+    try {
+      await signOut()
+      router.push('/login')
+    } catch (error) {
+      console.error('Logout failed:', error)
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   return (
@@ -185,70 +192,50 @@ export default function Navbar() {
             size="sm"
             onClick={() => dispatch(redo())}
             disabled={future.length === 0}
-            title="Redo (Ctrl+Y)"
+            title="Redo (Ctrl+Shift+Z)"
           >
             <Redo className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => document.documentElement.classList.toggle('dark')}
-            title="Toggle dark mode (d)"
-          >
-            <Sun className="h-4 w-4 dark:hidden" />
-            <Moon className="h-4 w-4 hidden dark:block" />
-          </Button>
         </div>
 
-        <Button variant="white" size="sm" className="hidden md:flex" onClick={() => dispatch(toggleCommandPalette())}>
-          <Command className="h-4 w-4 mr-2" />
-          <span className="text-nav">Search...</span>
-          <kbd className="ml-2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-tiny text-muted-foreground">
-            <span className="text-xs">⌘</span>K
-          </kbd>
-        </Button>
-
-        {/* Live presence avatars - show users viewing current board */}
-        <div className="hidden sm:flex items-center -space-x-2">
-          {currentBoardId && Object.values(presenceUsers || {}).length > 0 && (
-            <>
-              {Object.values(presenceUsers || {})
-                .slice(0, 3)
-                .map((user: any) => (
-                  <Avatar key={user.id} className="w-8 h-8 border-2 border-white" title={user.name}>
-                    <AvatarFallback className="text-xs">
-                      {user.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || user.email?.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
-            </>
-          )}
-        </div>
-
+        {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={session?.avatar || undefined} />
+            <Button variant="ghost" className="gap-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={(session?.user as any)?.avatar || (session?.user as any)?.image || undefined} />
                 <AvatarFallback>{getUserInitials()}</AvatarFallback>
               </Avatar>
+              <ChevronDown className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-nav font-medium text-black">{session?.name || 'User'}</p>
-                <p className="text-caption text-muted-foreground">{session?.email || 'user@example.com'}</p>
+                <p className="text-sm font-medium">{session?.user?.name || 'User'}</p>
+                <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
+                <Badge variant="outline" className="w-fit mt-1">
+                  {(session?.user as any)?.role || 'MEMBER'}
+                </Badge>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push('/profile')}>
               <User className="mr-2 h-4 w-4" />
-              <span className="text-body-standard">Profile Settings</span>
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push('/settings')}>
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
+            <DropdownMenuItem
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="text-destructive"
+            >
               <LogOut className="mr-2 h-4 w-4" />
-              <span className="text-body-standard">Log out</span>
+              {isLoggingOut ? 'Logging out...' : 'Log out'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

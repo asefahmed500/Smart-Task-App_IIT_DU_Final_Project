@@ -3,7 +3,7 @@ config({ path: '.env.local' })
 
 import { PrismaClient } from '@prisma/client'
 import { PrismaNeon } from '@prisma/adapter-neon'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 
 const adapter = new PrismaNeon({
   connectionString: process.env.DATABASE_URL,

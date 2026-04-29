@@ -5,7 +5,7 @@
 import { Server } from 'socket.io'
 import { createServer } from 'http'
 import next from 'next'
-import { getSession } from '../lib/auth'
+import { auth } from '../lib/auth'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = 'localhost'
@@ -47,16 +47,21 @@ const io = new Server(httpServer, {
 // Socket.IO authentication middleware
 io.use(async (socket, next) => {
   try {
-    const token = (socket.handshake.auth.token as string) || (socket.handshake.headers.authorization as string)
+    const cookieHeader = socket.handshake.headers.cookie
 
-    if (!token) {
-      return next(new Error('Authentication error: No token provided'))
+    if (!cookieHeader) {
+      return next(new Error('Authentication error: No session cookie'))
     }
 
-    const session = await getSession(token)
+    // Create a Headers object from the cookie header
+    const headers = new Headers()
+    headers.set('cookie', cookieHeader)
+
+    // Get session using Better Auth
+    const session = await auth.api.getSession({ headers })
 
     if (!session) {
-      return next(new Error('Authentication error: Invalid token'))
+      return next(new Error('Authentication error: Invalid session'))
     }
 
     socket.data.user = session.user

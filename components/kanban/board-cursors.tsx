@@ -1,7 +1,7 @@
 'use client'
 
 import { useAppSelector } from '@/lib/hooks'
-import { useGetSessionQuery } from '@/lib/slices/authApi'
+import { useGetSessionQuery } from '@/lib/use-session'
 import { MousePointer2 } from 'lucide-react'
 
 export function BoardCursors() {

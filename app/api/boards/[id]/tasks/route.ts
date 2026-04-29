@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     const skip = (page - 1) * limit
 
     // Verify user has access to board
-    const board = await verifyBoardAccess(userId, boardId)
+    const board = await verifyBoardAccess(userId, boardId, session.user.role)
     if (!board) {
       return NextResponse.json(
         { error: 'Board not found' },
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     const { title, description, priority, columnId, assigneeId, dueDate, labels } = validation.data
 
     // Verify user has access to board
-    const board = await verifyBoardAccess(userId, boardId)
+    const board = await verifyBoardAccess(userId, boardId, session.user.role)
     if (!board) {
       return NextResponse.json(
         { error: 'Board not found or access denied' },

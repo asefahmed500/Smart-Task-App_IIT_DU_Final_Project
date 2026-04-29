@@ -13,22 +13,43 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-let prisma: PrismaClient
+let _prisma: PrismaClient | null = null
 
-const env = getEnv()
+export function getPrisma(): PrismaClient {
+  if (_prisma) return _prisma
 
-if (process.env.NODE_ENV === 'production') {
-  const pool = new Pool({ connectionString: env.DATABASE_URL })
-  const adapter = new PrismaNeon(pool as any)
-  prisma = new PrismaClient({ adapter })
-} else {
-  if (!globalForPrisma.prisma) {
-    const pool = new Pool({ connectionString: env.DATABASE_URL })
-    const adapter = new PrismaNeon(pool as any)
-    globalForPrisma.prisma = new PrismaClient({ adapter })
+  const env = getEnv()
+  
+  // If we're on the server and DATABASE_URL is missing, we still try to initialize
+  // but it will throw a descriptive error when used, rather than crashing the whole module.
+  if (typeof window === 'undefined' && !env.DATABASE_URL) {
+    console.warn('DATABASE_URL is not defined. Prisma client will likely fail on first query.')
   }
-  prisma = globalForPrisma.prisma
+
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`[Prisma] Initializing production client... URL starts with: ${env.DATABASE_URL?.substring(0, 15)}`)
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+    const adapter = new PrismaNeon(pool as any)
+    _prisma = new PrismaClient({ adapter })
+  } else {
+    if (!globalForPrisma.prisma) {
+      console.log(`[Prisma] Initializing development client... URL starts with: ${process.env.DATABASE_URL?.substring(0, 15)}`)
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+      const adapter = new PrismaNeon(pool as any)
+      globalForPrisma.prisma = new PrismaClient({ adapter })
+    }
+    _prisma = globalForPrisma.prisma
+  }
+  
+  return _prisma
 }
 
-export { prisma }
-export type PrismaClientType = typeof prisma
+// Export a lazy prisma proxy that only initializes on first access
+export const prisma = new Proxy({} as PrismaClient, {
+  get: (target, prop, receiver) => {
+    const client = getPrisma()
+    return Reflect.get(client, prop, receiver)
+  }
+})
+
+export type PrismaClientType = PrismaClient
