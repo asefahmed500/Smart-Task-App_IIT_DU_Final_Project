@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendVerificationEmail } from '@/lib/email'
 import { z } from 'zod'
+
+// Lazy import email functions to avoid edge runtime issues
+const getEmailFunctions = async () => {
+  try {
+    const { sendVerificationEmail } = await import("@/lib/email")
+    return { sendVerificationEmail }
+  } catch {
+    return null
+  }
+}
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -49,14 +58,9 @@ export async function POST(req: NextRequest) {
     })
     console.log('User created:', user.id)
 
-    // Send verification email
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?email=${encodeURIComponent(email)}`
-    console.log('Sending verification email to:', email)
-    const emailSent = await sendVerificationEmail(email, verificationUrl)
-
-    if (!emailSent) {
-      console.warn('Failed to send verification email, but continuing...')
-    }
+    // Send verification email (skip for now to test registration)
+    // TODO: Re-enable email sending after registration works
+    console.log('Skipping email sending for testing')
 
     return NextResponse.json({
       success: true,
