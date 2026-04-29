@@ -9,8 +9,4 @@ export default defineConfig({
   datasource: {
     url: process.env.DATABASE_URL,
   },
-  // Prisma 7 requires explicit override for direct URL
-  override: {
-    directUrl: process.env.DIRECT_URL,
-  },
 })
