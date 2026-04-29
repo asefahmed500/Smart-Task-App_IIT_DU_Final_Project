@@ -87,7 +87,11 @@ export function getEnv(): Env {
   return validatedEnv
 }
 
-// Validate on import if on server
+// Pre-validate on import if on server (log errors, but don't throw yet)
 if (typeof window === 'undefined' && process.env.NODE_ENV !== 'test' && process.env.NEXT_PHASE !== 'phase-production-build') {
-  validateEnv()
+  try {
+    validateEnv()
+  } catch (error) {
+    console.error('Environment pre-validation failed:', error instanceof Error ? error.message : error)
+  }
 }

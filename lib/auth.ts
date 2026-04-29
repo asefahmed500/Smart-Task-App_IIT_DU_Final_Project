@@ -46,9 +46,22 @@ export const auth = betterAuth({
   ]
 })
 
-// Validate environment variables at module load time
-const env = validateEnv()
-const JWT_SECRET = new TextEncoder().encode(env.BETTER_AUTH_SECRET)
+// Get validated environment variables
+const getAuthSecret = () => {
+  try {
+    const env = getEnv()
+    return new TextEncoder().encode(env.BETTER_AUTH_SECRET)
+  } catch (error) {
+    console.error('Failed to get BETTER_AUTH_SECRET:', error)
+    // Fallback to a dummy secret only in non-production to avoid crashes
+    if (process.env.NODE_ENV !== 'production') {
+      return new TextEncoder().encode('dummy-secret-at-least-32-chars-long-for-dev')
+    }
+    throw error // Re-throw in production to be caught by route handlers
+  }
+}
+
+const JWT_SECRET = getAuthSecret()
 
 export interface User {
   id: string

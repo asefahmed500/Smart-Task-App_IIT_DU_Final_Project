@@ -161,7 +161,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Hash new password
-    const bcrypt = await import('bcrypt')
+    const bcrypt = await import('bcryptjs')
     const hashedPassword = await bcrypt.hash(newPassword, 10)
 
     // Update password and clear reset token
