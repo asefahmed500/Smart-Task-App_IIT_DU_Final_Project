@@ -139,7 +139,10 @@ export async function POST(req: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined,
     })
     return NextResponse.json(
-      { error: 'Internal server error during registration. Please check server logs.' },
+      { 
+        error: 'Internal server error during registration.',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }
