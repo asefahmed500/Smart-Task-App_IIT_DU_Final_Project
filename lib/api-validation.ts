@@ -93,7 +93,12 @@ export function validateOrigin(
     return null
   }
 
-  const allowed = allowedOrigins || process.env.ALLOWED_ORIGIN?.split(',') || ['http://localhost:3000']
+  const allowed = allowedOrigins || process.env.ALLOWED_ORIGIN?.split(',') || []
+  
+  // In development, always allow localhost
+  if (process.env.NODE_ENV === 'development' && allowed.length === 0) {
+    allowed.push('http://localhost:3000')
+  }
 
   // Check origin or referer against allowed list
   const requestOrigin = origin || referer

@@ -108,9 +108,13 @@ export async function POST(req: NextRequest) {
 
     return response
   } catch (error) {
-    console.error('Register error:', error)
+    console.error('[Registration API Error]:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      error
+    })
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error during registration' },
       { status: 500 }
     )
   }

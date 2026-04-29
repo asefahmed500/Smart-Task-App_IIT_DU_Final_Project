@@ -1,7 +1,7 @@
 import { prisma } from './prisma'
 import { betterAuth } from "better-auth"
 import { prismaAdapter } from "better-auth/adapters/prisma"
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { SignJWT, jwtVerify } from 'jose'
 
 import { jwt } from "better-auth/plugins/jwt"

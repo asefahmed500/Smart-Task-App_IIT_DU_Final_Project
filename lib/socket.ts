@@ -19,7 +19,8 @@ export const initSocket = () => {
       return null // Server middleware validates session cookie
     }
 
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
+    const socketUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000')
+    socket = io(socketUrl, {
       path: '/api/socket',
       addTrailingSlash: false,
       transports: ['websocket', 'polling'],
