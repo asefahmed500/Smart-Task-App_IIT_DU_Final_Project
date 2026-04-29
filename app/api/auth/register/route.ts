@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { hashPassword } from '@/lib/auth'
 import { sendVerificationEmail } from '@/lib/email'
 import { z } from 'zod'
 
@@ -33,18 +32,16 @@ export async function POST(req: NextRequest) {
     const userCount = await prisma.user.count()
     console.log('User count:', userCount)
 
-    // Create user with temporary password (will be changed after verification)
-    const tempPassword = Math.random().toString(36).slice(-8)
-    console.log('Hashing password...')
-    const hashedPassword = await hashPassword(tempPassword)
-    console.log('Password hashed successfully')
+    // Create user with placeholder password (will be changed after verification)
+    // Using a fixed hash for placeholder to avoid bcrypt in serverless
+    const placeholderHash = '$2a$10$placeholder.hash.for.new.user'
+    console.log('Creating user with placeholder password...')
 
-    console.log('Creating user...')
     const user = await prisma.user.create({
       data: {
         name,
         email,
-        password: hashedPassword,
+        password: placeholderHash,
         role: userCount === 0 ? 'ADMIN' : 'MEMBER',
         isActive: true,
         emailVerified: false, // Will be verified after code
