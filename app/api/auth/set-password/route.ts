@@ -28,11 +28,39 @@ export async function POST(req: NextRequest) {
     // Hash the new password
     const hashedPassword = await hashPassword(password)
 
-    // Update user password
+    // Create Better Auth account for email/password authentication
+    const existingAccount = await prisma.account.findFirst({
+      where: {
+        providerId: 'credential',
+        accountId: email,
+      },
+    })
+
+    if (!existingAccount) {
+      await prisma.account.create({
+        data: {
+          providerId: 'credential',
+          accountId: email,
+          userId: user.id,
+          password: hashedPassword,
+        },
+      })
+      console.log('Better Auth account created for:', email)
+    } else {
+      // Update existing account password
+      await prisma.account.update({
+        where: { id: existingAccount.id },
+        data: { password: hashedPassword },
+      })
+      console.log('Better Auth account password updated for:', email)
+    }
+
+    // Update user password (for backward compatibility)
     await prisma.user.update({
       where: { id: user.id },
       data: {
         password: hashedPassword,
+        emailVerified: true, // Mark as verified since they set a password
       },
     })
 

@@ -1,7 +1,7 @@
 import { prisma } from './prisma'
 import { betterAuth } from "better-auth"
 import { prismaAdapter } from "better-auth/adapters/prisma"
-import bcrypt from 'bcryptjs'
+import * as bcrypt from 'bcryptjs'
 
 // Lazy import email functions to avoid edge runtime issues
 const getEmailFunctions = async () => {
@@ -31,6 +31,12 @@ export const auth = betterAuth({
     maxPasswordLength: 128,
     autoSignIn: false, // Don't auto-signin until email verified
 
+    // Use bcrypt instead of default scrypt for compatibility
+    password: {
+      hash: hashPassword,
+      verify: async ({ hash, password }) => verifyPassword(password, hash),
+    },
+
     // Send password reset email
     sendResetPassword: async ({ user, url }) => {
       const emailFuncs = await getEmailFunctions()
@@ -58,7 +64,6 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     expiresIn: 86400, // 24 hours
-    verificationCodeLength: 6, // 6-digit code
   },
 
   // Session management
@@ -96,12 +101,6 @@ export const auth = betterAuth({
         required: false,
         defaultValue: true,
         input: false,
-      },
-    },
-    additionalSignupFields: {
-      name: {
-        type: 'string',
-        required: true,
       },
     },
   },

@@ -58,9 +58,28 @@ export async function POST(req: NextRequest) {
     })
     console.log('User created:', user.id)
 
-    // Send verification email (skip for now to test registration)
-    // TODO: Re-enable email sending after registration works
-    console.log('Skipping email sending for testing')
+    // Create and send verification email
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
+    await prisma.verification.create({
+      data: {
+        identifier: email,
+        value: verificationCode,
+        expiresAt,
+      },
+    })
+    console.log('Verification code created:', verificationCode)
+
+    // Send verification email
+    const emailFunctions = await getEmailFunctions()
+    if (emailFunctions) {
+      const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?code=${verificationCode}&email=${encodeURIComponent(email)}`
+      await emailFunctions.sendVerificationEmail(email, verificationUrl)
+      console.log('Verification email sent to:', email)
+    } else {
+      console.log('Email functions not available, skipping email send')
+    }
 
     return NextResponse.json({
       success: true,
