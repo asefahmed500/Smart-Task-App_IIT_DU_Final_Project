@@ -2,7 +2,7 @@
 
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { useGetTaskQuery, useGetTaskAuditQuery, useUpdateTaskMutation, useGetTaskCommentsQuery, useAddCommentMutation, useDeleteCommentMutation, useUpdateCommentMutation, useAddTaskDependencyMutation, useRemoveTaskDependencyMutation, useDeleteTaskMutation, useAddAttachmentMutation, useDeleteAttachmentMutation } from '@/lib/slices/tasksApi'
-import { useGetBoardsQuery, type Priority, type BoardMember, type AuditLogEntry, type Task } from '@/lib/slices/boardsApi'
+import { useGetBoardsQuery, useGetBoardQuery, type Priority, type BoardMember, type AuditLogEntry, type Task } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/use-session'
 import { cn } from '@/lib/utils/cn'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -99,7 +99,7 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000)
-    
+
     // Listen for task updates
     const taskCleanup = onTaskUpdate((updatedTask) => {
       if (updatedTask.id === taskId) {
@@ -120,12 +120,6 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
       depCleanup()
     }
   }, [taskId, refetch])
-  
-  const isManager = session?.role === 'MANAGER' || session?.role === 'ADMIN'
-
-  // Find available tasks across board for deps
-  const activeBoard = boards?.find(b => b.id === task?.boardId)
-  const availableTasks = activeBoard?.tasks || []
 
   if (isLoading) {
     return <TaskDetailSkeleton />

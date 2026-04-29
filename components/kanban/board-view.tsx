@@ -58,6 +58,10 @@ export default function BoardView({ boardId }: BoardViewProps) {
   const { data: session } = useGetSessionQuery()
   const [activeId, setActiveId] = useState<string | null>(null)
 
+  // Board-level role check: get user's role on this specific board
+  const effectiveRole = board?.members?.find((m: any) => m.userId === session?.user?.id)?.role || (board?.ownerId === session?.user?.id ? 'ADMIN' : null)
+  const canManage = effectiveRole === 'ADMIN' || effectiveRole === 'MANAGER'
+
   // Filter tasks based on due date
   const tasks = useMemo(() => {
     if (!rawTasks) return []
@@ -171,8 +175,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
     if (!over) return
 
     // All authenticated users can move tasks; role-based enforcement is handled server-side
-    const userRole = session?.role
-    if (!userRole) return
+    if (!session?.user) return
 
     const taskId = active.id as string
     const overId = over.id as string
@@ -345,7 +348,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
             This board doesn't have any columns. Ask a manager to add some.
           </p>
         </div>
-        {(session?.role === 'ADMIN' || session?.role === 'MANAGER') && (
+        {canManage && (
           <Button
             onClick={() => setSettingsOpen(true)}
             variant="outline"
@@ -427,7 +430,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
           )}
 
           {/* Board Settings - Managers/Admins only */}
-          {(session?.role === 'ADMIN' || session?.role === 'MANAGER') && (
+          {canManage && (
             <Button 
               variant="outline" 
               size="icon" 
@@ -476,11 +479,12 @@ export default function BoardView({ boardId }: BoardViewProps) {
                   focusMode={focusMode}
                   filterAssignee={filterAssignee}
                   activeId={activeId}
+                  effectiveRole={effectiveRole}
                 />
               ))}
 
               {/* Add Column Button */}
-              {(session?.role === 'ADMIN' || session?.role === 'MANAGER') && (
+              {canManage && (
                 <AddColumnButton boardId={boardId} />
               )}
             </div>
@@ -499,6 +503,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
               task={task}
               focusMode={focusMode}
               filterAssignee={filterAssignee}
+              effectiveRole={effectiveRole}
               onClick={() => dispatch(setSelectedTask(task.id))}
             />
           )}

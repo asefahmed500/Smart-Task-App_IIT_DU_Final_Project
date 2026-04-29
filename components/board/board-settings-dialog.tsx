@@ -82,11 +82,11 @@ export default function BoardSettingsDialog({ board, open, onOpenChange, current
     }
   }
 
-  // Find current user's role on this board
+  // Find current user's role on this board (board-level only, no platform role fallback)
   const currentMember = board.members.find((m) => m.userId === currentUserId)
   const effectiveRole = currentMember?.role || (board.ownerId === currentUserId ? 'ADMIN' : null)
-  const isAdmin = effectiveRole === 'ADMIN' || session?.role === 'ADMIN'
-  const isManager = effectiveRole === 'MANAGER' || session?.role === 'MANAGER' || session?.role === 'ADMIN'
+  const isAdmin = effectiveRole === 'ADMIN'
+  const isManager = effectiveRole === 'MANAGER' || effectiveRole === 'ADMIN'
   const isOwner = board.ownerId === currentUserId
 
   return (

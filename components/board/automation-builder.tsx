@@ -34,7 +34,9 @@ const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 
 export default function AutomationBuilder({ boardId, members }: AutomationBuilderProps) {
   const { data: session } = useGetSessionQuery()
-  const canManage = session?.role === 'ADMIN' || session?.role === 'MANAGER'
+  // Board-level role check: get user's role on this specific board
+  const effectiveRole = members?.find((m: any) => m.userId === session?.user?.id)?.role
+  const canManage = effectiveRole === 'ADMIN' || effectiveRole === 'MANAGER'
 
   const { data: columns } = useGetBoardColumnsQuery(boardId)
   const { data: automations, isLoading } = useGetBoardAutomationsQuery(boardId)

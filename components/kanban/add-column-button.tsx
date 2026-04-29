@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Plus, X, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useCreateColumnMutation } from '@/lib/slices/boardsApi'
+import { useCreateColumnMutation, useGetBoardQuery } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/use-session'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -15,7 +15,10 @@ interface AddColumnButtonProps {
 
 export default function AddColumnButton({ boardId }: AddColumnButtonProps) {
   const { data: session } = useGetSessionQuery()
-  const canManage = session?.role === 'ADMIN' || session?.role === 'MANAGER'
+  const { data: board } = useGetBoardQuery(boardId)
+  // Board-level role check: get user's role on this specific board
+  const effectiveRole = board?.members?.find((m: any) => m.userId === session?.user?.id)?.role || (board?.ownerId === session?.user?.id ? 'ADMIN' : null)
+  const canManage = effectiveRole === 'ADMIN' || effectiveRole === 'MANAGER'
 
   if (!canManage) return null
   const [isEditing, setIsEditing] = useState(false)

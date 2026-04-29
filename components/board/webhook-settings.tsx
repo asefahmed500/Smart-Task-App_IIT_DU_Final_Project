@@ -6,6 +6,7 @@ import {
   useCreateWebhookMutation,
   useUpdateWebhookMutation,
   useDeleteWebhookMutation,
+  useGetBoardQuery,
   Webhook
 } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/use-session'
@@ -45,7 +46,10 @@ interface WebhookSettingsProps {
 
 export default function WebhookSettings({ boardId }: WebhookSettingsProps) {
   const { data: session } = useGetSessionQuery()
-  const canManage = session?.role === 'ADMIN' || session?.role === 'MANAGER'
+  const { data: board } = useGetBoardQuery(boardId)
+  // Board-level role check: get user's role on this specific board
+  const effectiveRole = board?.members?.find((m: any) => m.userId === session?.user?.id)?.role
+  const canManage = effectiveRole === 'ADMIN' || effectiveRole === 'MANAGER'
 
   const { data: webhooks, isLoading } = useGetBoardWebhooksQuery(boardId)
   const [createWebhook, { isLoading: isCreating }] = useCreateWebhookMutation()

@@ -1,6 +1,7 @@
 'use client'
 
 import { useGetAttachmentsQuery, useDeleteAttachmentMutation } from '@/lib/slices/tasksApi'
+import { useGetBoardQuery } from '@/lib/slices/boardsApi'
 import { useGetSessionQuery } from '@/lib/use-session'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -44,11 +45,14 @@ const getFileExtension = (name: string): string => {
 export default function AttachmentList({ taskId, boardId }: AttachmentListProps) {
   const { data: attachments, isLoading, refetch } = useGetAttachmentsQuery(taskId)
   const { data: session } = useGetSessionQuery()
+  const { data: board } = useGetBoardQuery(boardId || '')
   const [deleteAttachment, { isLoading: isDeleting }] = useDeleteAttachmentMutation()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteName, setDeleteName] = useState('')
 
-  const canManage = session?.role === 'ADMIN' || session?.role === 'MANAGER'
+  // Board-level role check: get user's role on this specific board
+  const effectiveRole = board?.members?.find((m: any) => m.userId === session?.user?.id)?.role || (board?.ownerId === session?.user?.id ? 'ADMIN' : null)
+  const canManage = effectiveRole === 'ADMIN' || effectiveRole === 'MANAGER'
 
   useEffect(() => {
     const unsubscribe = onAttachmentUpdate((data) => {

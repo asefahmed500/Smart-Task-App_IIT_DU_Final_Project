@@ -12,6 +12,7 @@ interface DraggableTaskCardProps {
   filterAssignee?: string | null
   isDragging?: boolean
   onClick?: () => void
+  effectiveRole?: string | null
 }
 
 export default function DraggableTaskCard({
@@ -20,9 +21,11 @@ export default function DraggableTaskCard({
   filterAssignee,
   isDragging: externalIsDragging,
   onClick,
+  effectiveRole,
 }: DraggableTaskCardProps) {
   const { data: session } = useGetSessionQuery()
-  const isAdmin = session?.role === 'ADMIN'
+  // Use board-level role if provided, otherwise fallback to platform role
+  const isAdmin = effectiveRole === 'ADMIN' || session?.role === 'ADMIN'
 
   const { attributes, listeners, setNodeRef, transform, isDragging: internalIsDragging } = useDraggable({
     id: task.id,
@@ -59,7 +62,7 @@ export default function DraggableTaskCard({
         focusMode={focusMode}
         filterAssignee={filterAssignee}
         isDragging={isDragging}
-        role={session?.role}
+        role={effectiveRole || session?.role}
         onClick={onClick}
       />
     </div>

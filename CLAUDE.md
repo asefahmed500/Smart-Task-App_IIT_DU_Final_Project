@@ -31,10 +31,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **First-time setup:**
 1. Copy `.env.example` to `.env.local` and configure:
    - `BETTER_AUTH_SECRET` (generate: `openssl rand -base64 64`)
-   - `DATABASE_URL` (PostgreSQL connection string - pooled connection)
-   - `DIRECT_URL` (PostgreSQL connection string - direct connection for Prisma migrations)
+   - `DATABASE_URL` (PostgreSQL connection string - pooled connection with `?pgbouncer=true` for Neon)
+   - `DIRECT_URL` (PostgreSQL connection string - direct connection for Prisma migrations, required for `prisma db push`)
    - `BETTER_AUTH_URL` (typically `http://localhost:3000`)
-   - `NEXT_PUBLIC_APP_URL` (typically `http://localhost:3001` - important for email verification links)
+   - `NEXT_PUBLIC_APP_URL` (typically `http://localhost:3000` - important for email verification links)
    - `ALLOWED_ORIGIN` (for CORS configuration)
    - Required for auth: Email configuration (`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM`)
 2. Install dependencies: `npm install`
@@ -54,10 +54,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Styling**: Tailwind CSS v4 (PostCSS-based, not tailwind.config.js)
 - **UI Components**: shadcn/ui with class-variance-authority
 - **State Management**: Redux Toolkit (@reduxjs/toolkit, react-redux)
-- **Database/ORM**: Prisma v7 with PostgreSQL (Neon adapter)
+- **Database/ORM**: Prisma v7 with PostgreSQL (uses `DATABASE_URL` with pgbouncer for Neon)
 - **Authentication**: better-auth v1.6 with email/password, 6-digit code verification
 - **Real-time**: Socket.IO with cookie-based authentication
-- **Validation**: Zod schemas for API request validation
+- **Validation**: Zod v4 schemas for API request validation
 
 ## Architecture
 
@@ -342,8 +342,8 @@ return ApiErrorHandler.serverError('Internal server error')
 ### Database (Prisma)
 
 - Schema: `prisma/schema.prisma` - defines User, Board, Column, Task, TaskBlock, AuditLog, BoardMember, AutomationRule, Notification, Comment, TaskAttachment, SystemSettings, Webhook, TimeLog, RateLimit, Verification (for email/password reset codes)
-- Client: `lib/prisma.ts` - singleton pattern with PrismaNeon adapter
-- **Connection URLs**: `DATABASE_URL` (pooled connection for app usage), `DIRECT_URL` (direct connection for Prisma migrations/maintenance)
+- Client: `lib/prisma.ts` - uses Proxy-based lazy initialization to defer client creation until first access (ensures DATABASE_URL is loaded)
+- **Connection URLs**: `DATABASE_URL` (pooled connection for app usage, add `?pgbouncer=true` for Neon), `DIRECT_URL` (direct connection for Prisma migrations/maintenance)
 - Models: Uses cuid() for IDs, PostgreSQL dialect, cascading deletes
 - Key relations: User ↔ Board (owner/members), Task ↔ Column, Task ↔ Task (blockers via TaskBlock)
 - **Indexes:** Composite index on Task for stalled queries: `@@index([boardId, completedAt, lastMovedAt])`
@@ -463,6 +463,15 @@ socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
 ```
 
 ### Security Features
+
+**Security Headers (`next.config.mjs`):**
+- Content-Security-Policy (CSP) with strict rules, relaxes `unsafe-eval` in development
+- X-Frame-Options: DENY (prevents clickjacking)
+- X-Content-Type-Options: nosniff (prevents MIME sniffing)
+- Referrer-Policy: strict-origin-when-cross-origin
+- Permissions-Policy: blocks camera, microphone, geolocation, payment
+- Strict-Transport-Security: max-age 31536000 with includeSubDomains (HTTPS enforcement in production)
+- CSP allows connections to Neon Tech and Vercel domains, WebSocket support for local development
 
 **UI Role Guards Pattern:**
 
@@ -696,6 +705,33 @@ The custom `server.ts` runs outside Next.js's type system. When working with HTT
 - `req.url` may be `undefined` - always provide fallback: `parse(req.url || '/', true)`
 - Socket.IO types: Use `import type { Socket } from 'socket.io'` - avoid `'socket.io/dist/typed-events'` (removed in v4)
 - Dynamic imports use `.js` extension even for TypeScript files: `await import('./lib/auth.js')`
+
+### Prisma Lazy Initialization Pattern
+
+The `lib/prisma.ts` uses a Proxy-based pattern to defer Prisma client creation until first access:
+
+```typescript
+// Why: Ensures DATABASE_URL is loaded before client initialization
+// Prevents errors when environment variables load after module import
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    if (!globalForPrisma.prisma) {
+      if (!process.env.DATABASE_URL) {
+        throw new Error('DATABASE_URL environment variable is not set')
+      }
+      globalForPrisma.prisma = new PrismaClient()
+    }
+    return globalForPrisma.prisma[prop as keyof PrismaClient]
+  },
+})
+```
+
+**Benefits:**
+- Defers client creation until first database operation
+- Provides clear error if DATABASE_URL is missing
+- Works correctly with dotenv loading order
+
+**Note:** If using Prisma driver adapters (like Neon), replace `new PrismaClient()` with the adapter pattern.
 
 ### Null-Check Board Role Results
 

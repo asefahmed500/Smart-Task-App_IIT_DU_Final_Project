@@ -34,9 +34,10 @@ interface ColumnProps {
   focusMode?: boolean
   filterAssignee?: string | null
   activeId: string | null
+  effectiveRole?: string | null
 }
 
-function ColumnComponent({ column, boardId, tasks = [], focusMode, filterAssignee, activeId }: ColumnProps) {
+function ColumnComponent({ column, boardId, tasks = [], focusMode, filterAssignee, activeId, effectiveRole }: ColumnProps) {
   const dispatch = useAppDispatch()
   const [updateColumn] = useUpdateColumnMutation()
   const [deleteColumn] = useDeleteColumnMutation()
@@ -50,8 +51,8 @@ function ColumnComponent({ column, boardId, tasks = [], focusMode, filterAssigne
   const [newWipLimit, setNewWipLimit] = useState(column.wipLimit?.toString() || '')
 
   const { data: session } = useGetSessionQuery()
-  const userRole = session?.role
-  const canManageColumn = userRole === 'MANAGER' || userRole === 'ADMIN'
+  // Use board-level role if provided, otherwise fallback to platform role
+  const canManageColumn = effectiveRole === 'MANAGER' || effectiveRole === 'ADMIN' || session?.role === 'ADMIN'
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   })
@@ -182,6 +183,7 @@ function ColumnComponent({ column, boardId, tasks = [], focusMode, filterAssigne
                     task={task}
                     focusMode={focusMode}
                     filterAssignee={filterAssignee}
+                    effectiveRole={effectiveRole}
                     isDragging={activeId === task.id}
                     onClick={() => {
                       dispatch(setSelectedTask(task.id))
@@ -200,7 +202,7 @@ function ColumnComponent({ column, boardId, tasks = [], focusMode, filterAssigne
           </ScrollArea>
         </CardContent>
 
-        {userRole && (
+        {session?.user && (
           <div className="p-3 pt-0">
             <Button
               variant="ghost"
