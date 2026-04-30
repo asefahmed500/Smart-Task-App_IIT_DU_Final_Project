@@ -28,20 +28,32 @@ export async function POST(req: NextRequest) {
     // Hash the new password
     const hashedPassword = await hashPassword(password)
 
-    // Update user password
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-      },
-    })
-
-    // Delete used verification codes
-    await prisma.verification.deleteMany({
-      where: {
-        identifier: email,
-      },
-    })
+    // Update user password and account password in a transaction
+    await prisma.$transaction([
+      // Update user password
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+        },
+      }),
+      // Update Better Auth account password
+      prisma.account.updateMany({
+        where: {
+          userId: user.id,
+          providerId: 'credential',
+        },
+        data: {
+          password: hashedPassword,
+        },
+      }),
+      // Delete used verification codes
+      prisma.verification.deleteMany({
+        where: {
+          identifier: email,
+        },
+      }),
+    ])
 
     return NextResponse.json({
       success: true,

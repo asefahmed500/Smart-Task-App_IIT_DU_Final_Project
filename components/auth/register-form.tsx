@@ -14,6 +14,7 @@ import { Loader2 } from 'lucide-react'
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
 type RegisterFormValues = z.infer<typeof registerSchema>
@@ -39,7 +40,11 @@ function RegisterFormContent() {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: data.name, email: data.email }),
+        body: JSON.stringify({ 
+          name: data.name, 
+          email: data.email,
+          password: data.password
+        }),
       })
 
       const result = await response.json()
@@ -173,6 +178,21 @@ function RegisterFormContent() {
         />
         {errors.email && (
           <p className="text-sm text-destructive">{errors.email.message}</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          type="password"
+          placeholder="••••••••"
+          autoComplete="new-password"
+          {...registerField('password')}
+          disabled={isLoading}
+        />
+        {errors.password && (
+          <p className="text-sm text-destructive">{errors.password.message}</p>
         )}
       </div>
 

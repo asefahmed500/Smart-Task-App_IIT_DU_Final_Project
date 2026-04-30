@@ -117,18 +117,18 @@ export default function TaskCard({
         onClick={onClick}
         className={cn(
           'group transition-all duration-300 cursor-pointer relative',
-          'bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-white/20 dark:border-zinc-800/20',
-          'shadow-[0_2px_4px_rgba(0,0,0,0.02),0_1px_1px_rgba(0,0,0,0.01)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08),0_1px_1px_rgba(0,0,0,0.01)]',
+          'bg-white backdrop-blur-md border border-slate-200/60',
+          'shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08),0_1px_1px_rgba(0,0,0,0.01)]',
           'rounded-[16px] overflow-hidden',
           isDragging && 'opacity-50 rotate-1 shadow-2xl ring-2 ring-primary/30 scale-[1.02] z-50',
-          isStale && 'border-amber-200/30 bg-amber-50/10 dark:border-amber-900/20 dark:bg-amber-950/10',
-          isBlocked && 'border-destructive/30 bg-destructive/10 dark:border-destructive/20 dark:bg-destructive/10',
+          isStale && 'border-amber-200/30 bg-amber-50/10',
+          isBlocked && 'border-destructive/30 bg-destructive/10',
           editingUsers.length > 0 && 'ring-2 ring-primary/30'
         )}
       >
         {/* Glow effect on hover */}
         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-          <div className="absolute -inset-[100%] bg-[radial-gradient(circle_at_50%_50%,rgba(0,0,0,0.03),transparent_70%)] dark:bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.03),transparent_70%)]" />
+          <div className="absolute -inset-[100%] bg-[radial-gradient(circle_at_50%_50%,rgba(0,0,0,0.03),transparent_70%)]" />
         </div>
       {/* Visual Aging Indicator - subtly show cards that haven't moved */}
       {isStale && (

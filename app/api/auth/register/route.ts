@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { hashPassword } from '@/lib/auth'
 
 // Lazy import email functions to avoid edge runtime issues
 const getEmailFunctions = async () => {
@@ -15,12 +16,13 @@ const getEmailFunctions = async () => {
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { name, email } = registerSchema.parse(body)
+    const { name, email, password } = registerSchema.parse(body)
 
     console.log('Registration request for:', email)
 
@@ -41,19 +43,25 @@ export async function POST(req: NextRequest) {
     const userCount = await prisma.user.count()
     console.log('User count:', userCount)
 
-    // Create user with placeholder password (will be changed after verification)
-    // Using a fixed hash for placeholder to avoid bcrypt in serverless
-    const placeholderHash = '$2a$10$placeholder.hash.for.new.user'
-    console.log('Creating user with placeholder password...')
+    // Hash the password
+    const hashedPassword = await hashPassword(password)
+    console.log('Password hashed for:', email)
 
     const user = await prisma.user.create({
       data: {
         name,
         email,
-        password: placeholderHash,
+        password: hashedPassword,
         role: userCount === 0 ? 'ADMIN' : 'MEMBER',
         isActive: true,
         emailVerified: false, // Will be verified after code
+        accounts: {
+          create: {
+            providerId: 'credential',
+            accountId: email,
+            password: hashedPassword,
+          }
+        }
       },
     })
     console.log('User created:', user.id)

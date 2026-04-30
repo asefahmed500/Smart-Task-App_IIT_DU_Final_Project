@@ -1,3 +1,4 @@
+import { Metadata } from "next"
 import { Inter, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
@@ -30,6 +31,14 @@ const geistMono = Geist_Mono({
 // To use actual Waldenburg fonts, add them to /public/fonts and import locally
 const waldenburg = inter
 const waldenburgFH = inter
+
+export const metadata: Metadata = {
+  title: "SmartTask | Next-Gen Kanban for Teams",
+  description: "Optimized, real-time task management with dual-layer RBAC, WIP limits, and advanced automations. Built for modern high-performance teams.",
+  keywords: ["Kanban", "Task Management", "Productivity", "Project Management", "Real-time Collaboration"],
+  authors: [{ name: "SmartTask Team" }],
+  viewport: "width=device-width, initial-scale=1",
+}
 
 export default function RootLayout({
   children,

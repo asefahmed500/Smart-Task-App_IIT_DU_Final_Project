@@ -51,12 +51,12 @@ function VerifyEmailContent() {
       if (response.ok) {
         setStatus('success')
         toast.success('Email verified successfully!', {
-          description: 'Redirecting to set your password...',
+          description: 'You can now log in to your account...',
         })
 
-        // Redirect to set password page
+        // Redirect to login page
         setTimeout(() => {
-          router.push(`/set-password?email=${encodeURIComponent(email)}`)
+          router.push(`/login?email=${encodeURIComponent(email)}`)
         }, 1500)
       } else {
         setStatus('error')
@@ -166,7 +166,7 @@ function VerifyEmailContent() {
             </div>
             <h2 className="text-2xl font-bold mb-2">Email Verified!</h2>
             <p className="text-gray-600 mb-6">
-              Redirecting you to set your password...
+              You can now log in to your account.
             </p>
           </div>
         )}

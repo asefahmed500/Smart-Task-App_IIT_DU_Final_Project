@@ -47,7 +47,7 @@ export default function AddColumnButton({ boardId }: AddColumnButtonProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             onClick={() => setIsEditing(true)}
-            className="w-full h-14 rounded-[20px] border-2 border-dashed border-black/10 hover:border-black/20 hover:bg-black/[0.02] flex items-center justify-center gap-2 text-black/40 hover:text-black/60 transition-all font-bold group"
+            className="w-full h-14 rounded-[20px] border-2 border-dashed border-black/20 hover:border-black/30 hover:bg-black/[0.04] flex items-center justify-center gap-2 text-black/60 hover:text-black/80 transition-all font-bold group"
           >
             <div className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center group-hover:bg-black/10 transition-colors">
               <Plus className="h-4 w-4" />

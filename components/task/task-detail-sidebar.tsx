@@ -121,6 +121,20 @@ export default function TaskDetailSidebar({ taskId }: TaskDetailSidebarProps) {
     }
   }, [taskId, refetch])
 
+  // Fetch board data for role check
+  const { data: board } = useGetBoardQuery(task?.boardId || '', { skip: !task?.boardId })
+
+  // Find available tasks across board for deps
+  const activeBoard = boards?.find(b => b.id === task?.boardId)
+  const availableTasks = activeBoard?.tasks || []
+
+  // Board-level role check: get user's role on this specific board
+  const effectiveRole = activeBoard?.members?.find((m: any) => m.userId === session?.user?.id)?.role || (activeBoard?.ownerId === session?.user?.id ? 'ADMIN' : null)
+  const isManager = effectiveRole === 'MANAGER' || effectiveRole === 'ADMIN'
+
+  const boardEffectiveRole = board?.members?.find((m: any) => m.userId === session?.user?.id)?.role || (board?.ownerId === session?.user?.id ? 'ADMIN' : null)
+  const canManageBoard = boardEffectiveRole === 'MANAGER' || boardEffectiveRole === 'ADMIN'
+
   if (isLoading) {
     return <TaskDetailSkeleton />
   }

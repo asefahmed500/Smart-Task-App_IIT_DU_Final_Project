@@ -36,6 +36,13 @@ async function main() {
       name: 'System Admin',
       password: adminPassword,
       role: 'ADMIN',
+      accounts: {
+        create: {
+          providerId: 'credential',
+          accountId: 'admin@test.com',
+          password: adminPassword,
+        }
+      }
     },
   })
 
@@ -46,6 +53,13 @@ async function main() {
       name: 'Project Manager',
       password: managerPassword,
       role: 'MANAGER',
+      accounts: {
+        create: {
+          providerId: 'credential',
+          accountId: 'manager@test.com',
+          password: managerPassword,
+        }
+      }
     },
   })
 
@@ -56,6 +70,13 @@ async function main() {
       name: 'Team Member',
       password: memberPassword,
       role: 'MEMBER',
+      accounts: {
+        create: {
+          providerId: 'credential',
+          accountId: 'member@test.com',
+          password: memberPassword,
+        }
+      }
     },
   })
 

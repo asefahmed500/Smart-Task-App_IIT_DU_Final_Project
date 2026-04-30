@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 
-export const runtime = 'nodejs'
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const url = req.nextUrl
   const isPublicRoute = url.pathname === '/' || url.pathname.startsWith('/landing')
   const isAuthRoute =
     url.pathname.startsWith('/login') ||
     url.pathname.startsWith('/register') ||
+    url.pathname.startsWith('/forgot-password') ||
     url.pathname.startsWith('/reset-password') ||
+    url.pathname.startsWith('/set-password') ||
     url.pathname.startsWith('/verify-email') ||
     url.pathname.startsWith('/verify-email-sent') ||
     url.pathname.startsWith('/reset-email-sent')

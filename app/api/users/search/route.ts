@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireApiRole } from '@/lib/session'
+import { requireApiAuth } from '@/lib/session'
 import { rateLimit, getIdentifier } from '@/lib/rate-limiter'
 
-// GET /api/users/search?q=... - Search for active users to invite (Manager/Admin only)
+// GET /api/users/search?q=... - Search for active users to invite
 export async function GET(req: NextRequest) {
-  const authResult = await requireApiRole(['MANAGER', 'ADMIN'])
+  const authResult = await requireApiAuth()
   if (authResult instanceof NextResponse) return authResult
 
   // Rate limiting: 20 searches per minute per user

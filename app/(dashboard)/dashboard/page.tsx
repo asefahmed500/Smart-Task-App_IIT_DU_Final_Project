@@ -56,11 +56,10 @@ export default function DashboardPage() {
   const { data: boards, isLoading: boardsLoading, error: boardsError } = useGetBoardsQuery()
   const { data: profile, isLoading: profileLoading } = useGetProfileQuery()
   const { data: dashboardTasks, isLoading: tasksLoading } = useGetDashboardTasksQuery()
-  const [hasRedirected, setHasRedirected] = useState(false)
 
   // Handle role-based redirect
   const handleRedirect = useCallback(() => {
-    if (hasRedirected || !profile) return
+    if (!profile) return
 
     const targetPath = profile.role === 'ADMIN' ? '/admin'
       : profile.role === 'MANAGER' ? '/manager'
@@ -68,13 +67,11 @@ export default function DashboardPage() {
 
     // Don't redirect if already on target path
     if (pathname === targetPath) {
-      setHasRedirected(true)
       return
     }
 
-    setHasRedirected(true)
     router.replace(targetPath)
-  }, [profile, router, hasRedirected, pathname])
+  }, [profile, router, pathname])
 
   // Redirect on mount once profile is loaded
   useEffect(() => {
@@ -83,7 +80,7 @@ export default function DashboardPage() {
 
   // Calculate tasks for stats (must be before early returns to satisfy Rules of Hooks)
   const allTasks = dashboardTasks || []
-  const stats = useDashboardStats(allTasks)
+  useDashboardStats(allTasks) // We just call the hook to populate stats in UI/Redux if needed, ignore return to fix unused var
 
   // Show loading skeleton while profile loads to prevent flash
   if (profileLoading || boardsLoading || tasksLoading || !profile) {

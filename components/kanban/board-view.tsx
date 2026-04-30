@@ -453,7 +453,7 @@ export default function BoardView({ boardId }: BoardViewProps) {
           onDragEnd={handleDragEnd}
         >
           <div 
-            className="flex-1 overflow-x-auto overflow-y-hidden p-6 relative bg-[radial-gradient(circle_at_50%_50%,#fafafa,var(--color-warm-stone))] dark:bg-[radial-gradient(circle_at_50%_50%,#1a1a1a,#000)]"
+            className="flex-1 overflow-x-auto overflow-y-hidden p-6 relative bg-[#FAFAFA]"
             onMouseMove={(e) => {
               const now = Date.now()
               if (now - lastMouseMove.current < 50) return
