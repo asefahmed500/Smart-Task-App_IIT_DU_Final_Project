@@ -3,6 +3,8 @@
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { evaluateAutomationRules } from './automation-actions'
+import { emitNotification } from '@/lib/socket-emitter'
 
 type Role = 'ADMIN' | 'MANAGER' | 'MEMBER'
 
@@ -150,7 +152,7 @@ export async function updateTaskStatus(taskId: string, newColumnId: string, newS
   })
 
   if (task.assigneeId && task.assigneeId !== session.id) {
-    await prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: {
         userId: task.assigneeId,
         type: 'TASK_STATUS_CHANGED',
@@ -158,10 +160,17 @@ export async function updateTaskStatus(taskId: string, newColumnId: string, newS
         link: `/dashboard/board/${task.columnId}`
       }
     })
+    emitNotification({
+      userId: task.assigneeId,
+      type: 'TASK_STATUS_CHANGED',
+      message: `Task "${task.title}" moved to ${newStatusName}`,
+      link: `/dashboard/board/${task.columnId}`,
+      notificationId: notification.id
+    })
   }
 
   if (task.creatorId && task.creatorId !== session.id && task.creatorId !== task.assigneeId) {
-    await prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: {
         userId: task.creatorId,
         type: 'TASK_STATUS_CHANGED',
@@ -169,7 +178,26 @@ export async function updateTaskStatus(taskId: string, newColumnId: string, newS
         link: `/dashboard/board/${task.columnId}`
       }
     })
+    emitNotification({
+      userId: task.creatorId,
+      type: 'TASK_STATUS_CHANGED',
+      message: `Task "${task.title}" moved to ${newStatusName}`,
+      link: `/dashboard/board/${task.columnId}`,
+      notificationId: notification.id
+    })
   }
+
+  // Evaluate automation rules for task moved
+  evaluateAutomationRules('TASK_MOVED', {
+    taskId: task.id,
+    taskTitle: task.title,
+    columnId: task.columnId,
+    columnName: newStatusName,
+    boardId: task.column.boardId,
+    priority: task.priority,
+    assigneeId: task.assigneeId,
+    previousColumnId: oldColumnId
+  }).catch(console.error)
 
   revalidatePath('/admin/reports')
   revalidatePath('/dashboard')
@@ -186,8 +214,8 @@ export async function createTask(data: { title: string, description?: string, pr
   const role = session.role as Role
   let assigneeId = data.assigneeId
 
-  if (role === 'MEMBER' && !assigneeId) {
-    assigneeId = session!.id
+  if (role === 'MEMBER') {
+    assigneeId = session.id
   }
 
   const task = await prisma.task.create({
@@ -206,6 +234,24 @@ export async function createTask(data: { title: string, description?: string, pr
       details: { taskId: task.id, title: task.title },
     }
   })
+
+  // Evaluate automation rules
+  const column = await prisma.column.findUnique({
+    where: { id: task.columnId },
+    select: { name: true, boardId: true }
+  })
+  
+  if (column) {
+    evaluateAutomationRules('TASK_CREATED', {
+      taskId: task.id,
+      taskTitle: task.title,
+      columnId: task.columnId,
+      columnName: column.name,
+      boardId: column.boardId,
+      priority: task.priority,
+      assigneeId: task.assigneeId
+    }).catch(console.error)
+  }
 
   revalidatePath('/dashboard')
   return task
@@ -283,7 +329,7 @@ export async function updateTask(taskId: string, data: any) {
   })
 
   if (data.assigneeId !== undefined && data.assigneeId !== existingTask?.assigneeId && data.assigneeId !== null) {
-    await prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: {
         userId: data.assigneeId,
         type: 'TASK_ASSIGNED',
@@ -291,6 +337,49 @@ export async function updateTask(taskId: string, data: any) {
         link: `/dashboard/board/${existingTask?.columnId}`
       }
     })
+    emitNotification({
+      userId: data.assigneeId,
+      type: 'TASK_ASSIGNED',
+      message: `You have been assigned to task: ${existingTask?.title || task.title}`,
+      link: `/dashboard/board/${existingTask?.columnId}`,
+      notificationId: notification.id
+    })
+
+    // Evaluate automation rules for task assigned
+    const column = await prisma.column.findUnique({
+      where: { id: task.columnId },
+      select: { name: true, boardId: true }
+    })
+    
+    if (column) {
+      evaluateAutomationRules('TASK_ASSIGNED', {
+        taskId: task.id,
+        taskTitle: task.title,
+        columnId: task.columnId,
+        columnName: column.name,
+        boardId: column.boardId,
+        priority: task.priority,
+        assigneeId: task.assigneeId
+      }).catch(console.error)
+    }
+  }
+
+  // Evaluate automation rules for task updated
+  const column = await prisma.column.findUnique({
+    where: { id: task.columnId },
+    select: { name: true, boardId: true }
+  })
+  
+  if (column) {
+    evaluateAutomationRules('TASK_UPDATED', {
+      taskId: task.id,
+      taskTitle: task.title,
+      columnId: task.columnId,
+      columnName: column.name,
+      boardId: column.boardId,
+      priority: task.priority,
+      assigneeId: task.assigneeId
+    }).catch(console.error)
   }
 
   revalidatePath('/dashboard')
@@ -336,13 +425,20 @@ export async function addComment(taskId: string, content: string) {
 
     for (const user of mentionedUsers) {
       if (user.id !== session.id) {
-        await prisma.notification.create({
+        const notification = await prisma.notification.create({
           data: {
             userId: user.id,
             type: 'COMMENT_MENTION',
             message: `${session.name || 'Someone'} mentioned you in a comment on task: ${task?.title}`,
             link: `/dashboard/board/${task?.column.boardId}`
           }
+        })
+        emitNotification({
+          userId: user.id,
+          type: 'COMMENT_MENTION',
+          message: `${session.name || 'Someone'} mentioned you in a comment on task: ${task?.title}`,
+          link: `/dashboard/board/${task?.column.boardId}`,
+          notificationId: notification.id
         })
       }
     }

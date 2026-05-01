@@ -24,11 +24,16 @@ import {
 import { createAutomationRule } from "@/lib/admin-actions"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { getAvailableTriggers, getAvailableConditions, getAvailableActions } from "@/lib/automation-utils"
 
 export function AddRuleDialog() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+
+  const triggers = getAvailableTriggers()
+  const conditions = getAvailableConditions()
+  const actions = getAvailableActions()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -79,7 +84,7 @@ export function AddRuleDialog() {
               <Input
                 id="name"
                 name="name"
-                placeholder="e.g., Auto-Archive Finished Tasks"
+                placeholder="e.g., Auto-notify on High Priority"
                 required
                 className="bg-muted/50 border-primary/10 focus-visible:ring-primary"
               />
@@ -92,10 +97,9 @@ export function AddRuleDialog() {
                     <SelectValue placeholder="Select trigger" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TASK_CREATED">Task Created</SelectItem>
-                    <SelectItem value="TASK_MOVED">Task Moved</SelectItem>
-                    <SelectItem value="TASK_COMPLETED">Task Completed</SelectItem>
-                    <SelectItem value="MEMBER_JOINED">Member Joined</SelectItem>
+                    {triggers.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -106,22 +110,25 @@ export function AddRuleDialog() {
                     <SelectValue placeholder="Select action" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SEND_NOTIFICATION">Send Notification</SelectItem>
-                    <SelectItem value="ASSIGN_DEFAULT_MEMBER">Assign Member</SelectItem>
-                    <SelectItem value="MOVE_TO_COLUMN">Move to Column</SelectItem>
-                    <SelectItem value="LOG_TO_SYSTEM">Log to System</SelectItem>
+                    {actions.map((a) => (
+                      <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="condition">Condition (Optional)</Label>
-              <Input
-                id="condition"
-                name="condition"
-                placeholder="e.g., if priority == HIGH"
-                className="bg-muted/50 border-primary/10 focus-visible:ring-primary font-mono text-xs"
-              />
+              <Select name="condition">
+                <SelectTrigger className="bg-muted/50 border-primary/10">
+                  <SelectValue placeholder="No condition (always run)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {conditions.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -140,5 +147,5 @@ export function AddRuleDialog() {
         </form>
       </DialogContent>
     </Dialog>
-  )
+   )
 }

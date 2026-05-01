@@ -5,6 +5,7 @@ import { getSession } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { Role } from '../generated/prisma/client'
 import bcrypt from 'bcryptjs'
+import { notifyAdminsNewUser } from '@/lib/notification-utils'
 
 async function checkAdmin() {
   const session = await getSession()
@@ -116,6 +117,9 @@ export async function createUser(data: { name: string, email: string, password: 
       details: { targetUserId: user.id, email: user.email, role: user.role },
     }
   })
+
+  // Notify other admins of new user (exclude the creator)
+  notifyAdminsNewUser(user.id, user.name, user.email, session.id).catch(console.error)
 
   revalidatePath('/admin')
   revalidatePath('/admin/users')

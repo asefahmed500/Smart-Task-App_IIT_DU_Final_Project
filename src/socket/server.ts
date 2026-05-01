@@ -10,6 +10,7 @@ const io = new Server(httpServer, {
 })
 
 const boardRooms = new Map<string, Set<string>>()
+const userSockets = new Map<string, Set<string>>() // userId -> Set of socket ids
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id)
@@ -81,6 +82,33 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id)
     boardRooms.forEach((sockets) => sockets.delete(socket.id))
+    // Clean up user socket mapping
+    userSockets.forEach((sockets, userId) => {
+      sockets.delete(socket.id)
+      if (sockets.size === 0) {
+        userSockets.delete(userId)
+      }
+    })
+  })
+
+  // Register user for personal notifications
+  socket.on('register-user', (userId: string) => {
+    if (!userSockets.has(userId)) {
+      userSockets.set(userId, new Set())
+    }
+    userSockets.get(userId)!.add(socket.id)
+    socket.join(`user:${userId}`)
+    console.log(`Socket ${socket.id} registered for user ${userId}`)
+  })
+
+  socket.on('notification', (data: {
+    userId: string
+    type: string
+    message: string
+    link?: string
+  }) => {
+    // Emit to user's personal room
+    io.to(`user:${data.userId}`).emit('notification', data)
   })
 })
 

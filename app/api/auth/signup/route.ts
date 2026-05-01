@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import prisma from '@/lib/prisma'
 import { login } from '@/lib/auth'
+import { notifyAdminsNewUser } from '@/lib/notification-utils'
 
 export async function POST(request: Request) {
   try {
@@ -29,6 +30,9 @@ export async function POST(request: Request) {
         role: 'MEMBER' // Default role
       }
     })
+
+    // Notify admins of new user signup
+    notifyAdminsNewUser(user.id, user.name, user.email).catch(console.error)
 
     // Log the user in immediately after signup
     await login({ id: user.id, email: user.email, name: user.name, image: user.image, role: user.role })

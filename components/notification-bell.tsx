@@ -5,9 +5,10 @@ import { Bell, CheckCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/notification-actions'
+import { getNotifications, markNotificationRead, markAllNotificationsRead, getCurrentUserId } from '@/lib/notification-actions'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useNotificationListener } from '@/components/kanban/socket-hooks'
 
 interface Notification {
   id: string
@@ -21,12 +22,34 @@ interface Notification {
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [userId, setUserId] = useState<string | undefined>(undefined)
+  const router = useRouter()
 
+  // Get current user ID on mount
+  useEffect(() => {
+    getCurrentUserId().then(setUserId).catch(() => {})
+  }, [])
+
+  // Load notifications initially and poll every 30s
   useEffect(() => {
     loadNotifications()
     const interval = setInterval(loadNotifications, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  // Listen for real-time notifications via Socket.io
+  useNotificationListener(userId, (data) => {
+    const newNotification = {
+      id: data.notificationId || Date.now().toString(),
+      type: data.type,
+      message: data.message,
+      link: data.link || null,
+      isRead: false,
+      createdAt: new Date(),
+    }
+    setNotifications(prev => [newNotification, ...prev])
+    setUnreadCount(prev => prev + 1)
+  })
 
   const loadNotifications = async () => {
     try {
@@ -41,7 +64,7 @@ export function NotificationBell() {
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.isRead) {
       await markNotificationRead(notification.id)
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n)
       )
       setUnreadCount(prev => Math.max(0, prev - 1))
@@ -64,11 +87,11 @@ export function NotificationBell() {
       case 'TASK_STATUS_CHANGED': return '🔄'
       case 'DUE_DATE_REMINDER': return '⏰'
       case 'OVERDUE': return '⚠️'
+      case 'NEW_USER_SIGNUP': return '🎉'
+      case 'AUTOMATION_TRIGGERED': return '⚡'
       default: return '🔔'
     }
   }
-
-  const router = useRouter()
 
   return (
     <DropdownMenu>
@@ -76,7 +99,7 @@ export function NotificationBell() {
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="size-5" />
           {unreadCount > 0 && (
-            <Badge 
+            <Badge
               className="absolute -top-1 -right-1 size-5 p-0 flex items-center justify-center text-[10px] bg-red-500"
             >
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -88,9 +111,9 @@ export function NotificationBell() {
         <div className="flex items-center justify-between p-3 border-b sticky top-0 bg-background">
           <span className="font-semibold">Notifications</span>
           {unreadCount > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="text-xs h-8"
               onClick={handleMarkAllRead}
             >
@@ -99,7 +122,7 @@ export function NotificationBell() {
             </Button>
           )}
         </div>
-        
+
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-muted-foreground p-4">
             <Bell className="size-8 opacity-20 mb-2" />

@@ -62,6 +62,33 @@ export function useBoardEvents(boardId: string, onEvent: (event: string, data: a
   }, [socket, isConnected, boardId, onEvent])
 }
 
+/**
+ * Hook to listen for real-time notifications via Socket.io
+ * @param userId - The current user's ID
+ * @param onNotification - Callback when a notification is received
+ */
+export function useNotificationListener(userId: string | undefined, onNotification: (notification: any) => void) {
+  const { socket, isConnected } = useSocket()
+
+  useEffect(() => {
+    if (!socket || !isConnected || !userId) return
+
+    // Register user for personal notifications
+    socket.emit('register-user', userId)
+
+    // Listen for notifications
+    const handleNotification = (data: any) => {
+      onNotification(data)
+    }
+
+    socket.on('notification', handleNotification)
+
+    return () => {
+      socket.off('notification', handleNotification)
+    }
+  }, [socket, isConnected, userId, onNotification])
+}
+
 export function getSocket() {
   if (!socket) {
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
