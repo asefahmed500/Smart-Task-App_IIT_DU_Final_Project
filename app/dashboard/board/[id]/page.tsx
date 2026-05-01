@@ -13,7 +13,7 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
   if (!board) notFound()
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col gap-6 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="h-[calc(100vh-12rem)] flex flex-col gap-6 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Board Header */}
       <BoardHeader board={board} currentUser={session} />
 

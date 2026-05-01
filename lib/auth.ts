@@ -8,7 +8,8 @@ const key = new TextEncoder().encode(secretKey)
 export interface JWTPayload {
   id: string
   email: string
-  name?: string | null
+  name: string | null
+  image: string | null
   role: 'ADMIN' | 'MANAGER' | 'MEMBER'
   [key: string]: unknown
 }

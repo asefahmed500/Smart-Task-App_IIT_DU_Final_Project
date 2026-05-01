@@ -20,10 +20,12 @@ import { SetWipLimitDialog } from './set-wip-limit-dialog'
 import { RenameColumnDialog } from './rename-column-dialog'
 import { useState } from 'react'
 
+import { Column, Task, User } from '@/types/kanban'
+
 interface ColumnContainerProps {
-  column: any
-  tasks: any[]
-  currentUser: any
+  column: Column
+  tasks: Task[]
+  currentUser: User
   boardId: string
   onTaskClick: (taskId: string) => void
 }

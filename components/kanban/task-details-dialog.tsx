@@ -43,17 +43,18 @@ import {
 } from '@/lib/task-actions'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { User, Task, Comment, ChecklistItem } from '@/types/kanban'
 
 interface TaskDetailsDialogProps {
   taskId: string | null
   isOpen: boolean
   onClose: () => void
-  boardMembers: any[]
-  currentUser: any
+  boardMembers: User[]
+  currentUser: User
 }
 
 export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, currentUser }: TaskDetailsDialogProps) {
-  const [task, setTask] = useState<any>(null)
+  const [task, setTask] = useState<Task | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [newComment, setNewComment] = useState('')
@@ -70,7 +71,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     try {
       const data = await getTaskDetails(taskId!)
       setTask(data)
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Failed to load task details')
       onClose()
     } finally {
@@ -82,9 +83,11 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     setUpdating(true)
     try {
       await updateTask(taskId!, { [field]: value })
-      setTask({ ...task, [field]: value })
+      if (task) {
+        setTask({ ...task, [field]: value })
+      }
       toast.success('Task updated')
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Failed to update task')
     } finally {
       setUpdating(false)
@@ -95,28 +98,41 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     if (!newComment.trim()) return
     try {
       const comment = await addComment(taskId!, newComment)
-      setTask({ ...task, comments: [comment, ...task.comments] })
+      if (task) {
+        setTask({ ...task, comments: [comment, ...(task.comments || [])] })
+      }
       setNewComment('')
       toast.success('Comment added')
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Failed to add comment')
     }
   }
 
   const handleAddChecklistItem = async () => {
-    if (!newChecklistItem.trim()) return
+    if (!newChecklistItem.trim() || !task) return
     try {
       const item = await addChecklistItem(taskId!, newChecklistItem)
+      
       const updatedChecklists = [...(task.checklists || [])]
       if (updatedChecklists.length === 0) {
-        updatedChecklists.push({ items: [item] })
+        // Create a mock checklist if it's the first item
+        updatedChecklists.push({ 
+          id: item.checklistId, 
+          title: 'Task Checklist', 
+          taskId: taskId!, 
+          items: [item] 
+        })
       } else {
-        updatedChecklists[0].items.push(item)
+        // Add to the first existing checklist
+        const firstChecklist = { ...updatedChecklists[0] }
+        firstChecklist.items = [...firstChecklist.items, item]
+        updatedChecklists[0] = firstChecklist
       }
+      
       setTask({ ...task, checklists: updatedChecklists })
       setNewChecklistItem('')
       toast.success('Item added')
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Failed to add checklist item')
     }
   }
@@ -124,14 +140,16 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const handleToggleChecklistItem = async (itemId: string, isCompleted: boolean) => {
     try {
       await toggleChecklistItem(itemId, isCompleted)
-      const updatedChecklists = task.checklists.map((cl: any) => ({
-        ...cl,
-        items: cl.items.map((item: any) => 
-          item.id === itemId ? { ...item, isCompleted } : item
-        )
-      }))
-      setTask({ ...task, checklists: updatedChecklists })
-    } catch (error: any) {
+      if (task) {
+        const updatedChecklists = (task.checklists || []).map((cl) => ({
+          ...cl,
+          items: cl.items.map((item: ChecklistItem) => 
+            item.id === itemId ? { ...item, isCompleted } : item
+          )
+        }))
+        setTask({ ...task, checklists: updatedChecklists })
+      }
+    } catch (error) {
       toast.error('Failed to update item')
     }
   }
@@ -139,13 +157,15 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const handleDeleteChecklistItem = async (itemId: string) => {
     try {
       await deleteChecklistItem(itemId)
-      const updatedChecklists = task.checklists.map((cl: any) => ({
-        ...cl,
-        items: cl.items.filter((item: any) => item.id !== itemId)
-      }))
-      setTask({ ...task, checklists: updatedChecklists })
+      if (task) {
+        const updatedChecklists = (task.checklists || []).map((cl) => ({
+          ...cl,
+          items: cl.items.filter((item: ChecklistItem) => item.id !== itemId)
+        }))
+        setTask({ ...task, checklists: updatedChecklists })
+      }
       toast.success('Item removed')
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Failed to delete item')
     }
   }
@@ -156,7 +176,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       await deleteTask(taskId!)
       toast.success('Task deleted')
       onClose()
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Failed to delete task')
     }
   }
@@ -165,7 +185,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0 overflow-hidden bg-background/95 backdrop-blur-2xl border-primary/10">
+      <DialogContent className="max-w-[1100px] w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden bg-background/95 backdrop-blur-2xl border-primary/10 shadow-2xl shadow-primary/5 rounded-3xl">
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="size-8 animate-spin text-primary" />
@@ -176,7 +196,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-                    {task.column.name}
+                    {task.column?.name || 'No Column'}
                   </Badge>
                   <span className="text-xs text-muted-foreground">ID: {task.id.slice(-6).toUpperCase()}</span>
                 </div>
@@ -223,7 +243,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                     </div>
                   </div>
                   <div className="space-y-2">
-                    {task.checklists?.[0]?.items.map((item: any) => (
+                    {task.checklists?.[0]?.items.map((item: ChecklistItem) => (
                       <div key={item.id} className="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors group">
                         <div className="flex items-center gap-3 flex-1">
                           <input 
@@ -281,15 +301,15 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                       </div>
                     </div>
                     <div className="space-y-6 pt-4">
-                      {task.comments.map((comment: any) => (
+                      {(task.comments || []).map((comment: Comment) => (
                         <div key={comment.id} className="flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
                           <Avatar className="size-8 ring-1 ring-primary/10">
-                            <AvatarImage src={comment.user.image} />
-                            <AvatarFallback>{comment.user.name?.[0] || 'U'}</AvatarFallback>
+                            <AvatarImage src={comment.user.image || undefined} />
+                            <AvatarFallback>{(comment.user.name?.[0] || 'U') as string}</AvatarFallback>
                           </Avatar>
                           <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold">{comment.user.name}</span>
+                              <span className="text-sm font-semibold">{comment.user.name || 'Anonymous'}</span>
                               <span className="text-[10px] text-muted-foreground">{new Date(comment.createdAt).toLocaleString()}</span>
                             </div>
                             <div className="p-3 bg-muted/20 rounded-2xl rounded-tl-none border border-primary/5 text-sm">
@@ -318,8 +338,8 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                           <SelectItem key={member.id} value={member.id}>
                             <div className="flex items-center gap-2">
                               <Avatar className="size-4">
-                                <AvatarImage src={member.image} />
-                                <AvatarFallback>{member.name?.[0] || 'U'}</AvatarFallback>
+                                <AvatarImage src={member.image || undefined} />
+                                <AvatarFallback>{(member.name?.[0] || 'U') as string}</AvatarFallback>
                               </Avatar>
                               {member.name}
                             </div>
@@ -358,7 +378,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                 <div className="pt-6 border-t border-primary/5 space-y-4 text-xs text-muted-foreground">
                   <div className="flex items-center justify-between">
                     <span>Created by</span>
-                    <span className="font-medium text-foreground">{task.creator.name}</span>
+                    <span className="font-medium text-foreground">{task.creator?.name || 'Unknown'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Created on</span>

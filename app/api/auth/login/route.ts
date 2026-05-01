@@ -25,10 +25,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
-    await login({ id: user.id, email: user.email, name: user.name, role: user.role })
+    await login({ id: user.id, email: user.email, name: user.name, image: user.image, role: user.role })
 
     return NextResponse.json({ 
-      user: { id: user.id, email: user.email, name: user.name, role: user.role } 
+      user: { id: user.id, email: user.email, name: user.name, image: user.image, role: user.role } 
     })
 
   } catch (error) {

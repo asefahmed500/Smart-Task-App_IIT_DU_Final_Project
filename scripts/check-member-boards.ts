@@ -1,7 +1,6 @@
-import prisma from '../lib/prisma'
 import dotenv from 'dotenv'
-
 dotenv.config({ path: '.env.local' })
+import prisma from '../lib/prisma'
 
 async function main() {
   const boards = await prisma.board.findMany({

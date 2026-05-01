@@ -31,33 +31,11 @@ import { Plus, Zap } from 'lucide-react'
 import { AddColumnDialog } from './add-column-dialog'
 import { TaskDetailsDialog } from './task-details-dialog'
 
-interface Task {
-  id: string
-  title: string
-  description?: string | null
-  priority: string
-  columnId: string
-  assignee?: any
-  checklists: any[]
-}
-
-interface Column {
-  id: string
-  name: string
-  order: number
-  tasks: Task[]
-}
-
-interface Board {
-  id: string
-  name: string
-  columns: Column[]
-  members: any[]
-}
+import { Board, Task, Column, User } from '@/types/kanban'
 
 interface KanbanBoardProps {
   board: Board
-  currentUser: any
+  currentUser: User
 }
 
 export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardProps) {
@@ -67,7 +45,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
-  const columnsId = useMemo(() => board.columns.map((col: any) => col.id), [board.columns])
+  const columnsId = useMemo(() => board.columns.map((col: Column) => col.id), [board.columns])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -105,25 +83,25 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
 
     // Dropping a Task over another Task
     if (isActiveATask && isOverATask) {
-      setBoard((prev: any) => {
-        const activeIndex = prev.columns.flatMap((c: any) => c.tasks).findIndex((t: any) => t.id === activeId)
-        const overIndex = prev.columns.flatMap((c: any) => c.tasks).findIndex((t: any) => t.id === overId)
+      setBoard((prev: Board) => {
+        const activeIndex = prev.columns.flatMap((c: Column) => c.tasks).findIndex((t: Task) => t.id === activeId)
+        const overIndex = prev.columns.flatMap((c: Column) => c.tasks).findIndex((t: Task) => t.id === overId)
         
         // Find columns
-        const activeColumn = prev.columns.find((c: any) => c.tasks.some((t: any) => t.id === activeId))
-        const overColumn = prev.columns.find((c: any) => c.tasks.some((t: any) => t.id === overId))
+        const activeColumn = prev.columns.find((c: Column) => c.tasks.some((t: Task) => t.id === activeId))
+        const overColumn = prev.columns.find((c: Column) => c.tasks.some((t: Task) => t.id === overId))
 
-        if (activeColumn.id !== overColumn.id) {
+        if (activeColumn && overColumn && activeColumn.id !== overColumn.id) {
           // Move between columns
-          const newColumns = prev.columns.map((col: any) => {
+          const newColumns = prev.columns.map((col: Column) => {
             if (col.id === activeColumn.id) {
-              return { ...col, tasks: col.tasks.filter((t: any) => t.id !== activeId) }
+              return { ...col, tasks: col.tasks.filter((t: Task) => t.id !== activeId) }
             }
             if (col.id === overColumn.id) {
-              const activeTask = activeColumn.tasks.find((t: any) => t.id === activeId)
+              const activeTask = activeColumn.tasks.find((t: Task) => t.id === activeId)
               const newTasks = [...col.tasks]
-              const targetIndex = col.tasks.findIndex((t: any) => t.id === overId)
-              newTasks.splice(targetIndex, 0, activeTask)
+              const targetIndex = col.tasks.findIndex((t: Task) => t.id === overId)
+              newTasks.splice(targetIndex, 0, activeTask!)
               return { ...col, tasks: newTasks }
             }
             return col
@@ -138,18 +116,18 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
     // Dropping a Task over a Column
     const isOverAColumn = over.data.current?.type === 'Column'
     if (isActiveATask && isOverAColumn) {
-      setBoard((prev: any) => {
-        const activeColumn = prev.columns.find((c: any) => c.tasks.some((t: any) => t.id === activeId))
+      setBoard((prev: Board) => {
+        const activeColumn = prev.columns.find((c: Column) => c.tasks.some((t: Task) => t.id === activeId))
         const overColumnId = overId as string
 
-        if (activeColumn.id !== overColumnId) {
-          const newColumns = prev.columns.map((col: any) => {
+        if (activeColumn && activeColumn.id !== overColumnId) {
+          const newColumns = prev.columns.map((col: Column) => {
             if (col.id === activeColumn.id) {
-              return { ...col, tasks: col.tasks.filter((t: any) => t.id !== activeId) }
+              return { ...col, tasks: col.tasks.filter((t: Task) => t.id !== activeId) }
             }
             if (col.id === overColumnId) {
-              const activeTask = activeColumn.tasks.find((t: any) => t.id === activeId)
-              return { ...col, tasks: [...col.tasks, activeTask] }
+              const activeTask = activeColumn.tasks.find((t: Task) => t.id === activeId)
+              return { ...col, tasks: [...col.tasks, activeTask!] }
             }
             return col
           })
@@ -178,7 +156,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
       const overIndex = board.columns.findIndex((c: any) => c.id === overId)
       const newColumns = arrayMove(board.columns, activeIndex, overIndex)
       
-      setBoard((prev: any) => ({ ...prev, columns: newColumns }))
+      setBoard((prev: Board) => ({ ...prev, columns: newColumns }))
       
       try {
         await reorderColumns(board.id, newColumns.map((c: Column) => c.id))
@@ -232,7 +210,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
       >
         <div className="flex gap-6 h-full min-w-full">
           <SortableContext items={columnsId} strategy={horizontalListSortingStrategy}>
-            {board.columns.map((col: any) => (
+            {board.columns.map((col: Column) => (
               <ColumnContainer 
                 key={col.id} 
                 column={col} 

@@ -24,7 +24,8 @@ export async function getBoardData(boardId: string) {
                   id: true,
                   name: true,
                   image: true,
-                  email: true
+                  email: true,
+                  role: true
                 }
               },
               _count: {
@@ -36,9 +37,7 @@ export async function getBoardData(boardId: string) {
               },
               checklists: {
                 include: {
-                  items: {
-                    select: { isCompleted: true }
-                  }
+                  items: true
                 }
               }
             }
