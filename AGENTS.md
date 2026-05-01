@@ -2,22 +2,19 @@
 
 ## Key Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Checks DB, starts Socket.io (3001), then Next.js (3002) |
-| `npm run db:setup` | `prisma db push && prisma generate && npm run seed` |
-| `npm run db:check` | Verifies DATABASE_URL before dev |
-| `npm run typecheck` | `tsc --noEmit` - **primary verification** |
-| `npm run build` | `next build` - passes if typecheck passes |
-| `npm run check-users` | Debug: list users in DB |
-| `npm run check-boards` | Debug: list boards for member |
+- `npm run dev` - Checks DB, starts Socket.io (3001), then Next.js (3002)
+- `npm run db:setup` - `prisma db push && prisma generate && npm run seed`
+- `npm run db:check` - Verifies DATABASE_URL before dev
+- `npm run typecheck` - `tsc --noEmit` (primary verification)
+- `npm run build` - `next build` (passes if typecheck passes)
+- `npm run check-users` / `check-boards` - Debug scripts in `scripts/`
 
 ## Setup
 
 - Requires `.env.local` with `DATABASE_URL` (Neon PostgreSQL) and `DIRECT_URL` for Prisma CLI
-- `npm run postinstall` auto-runs `prisma generate`
-- Prisma client output: `generated/prisma` (not `node_modules/`)
 - ESM project (`"type": "module"` in package.json) - use `.cjs` extension for CommonJS configs (e.g., `next.config.cjs`)
+- Prisma client output: `generated/prisma` (not `node_modules/`)
+- `npm run postinstall` auto-runs `prisma generate`
 
 ## Architecture
 
