@@ -41,6 +41,7 @@ export function CreateBoardDialog({ isOpen, onClose, onSuccess }: CreateBoardDia
       onClose()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to create board'
+      toast.error(message)
     } finally {
       setLoading(false)
     }

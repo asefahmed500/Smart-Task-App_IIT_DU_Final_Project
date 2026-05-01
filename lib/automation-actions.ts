@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/prisma'
 import { emitNotification } from '@/lib/socket-emitter'
-import { Priority } from '@/types/kanban'
+import { Priority } from '@/lib/prisma'
 
 type Trigger = 'TASK_CREATED' | 'TASK_MOVED' | 'TASK_UPDATED' | 'TASK_ASSIGNED'
 type Action = 'SEND_NOTIFICATION' | 'MOVE_TASK' | 'SET_PRIORITY' | 'ADD_TAG'
@@ -182,7 +182,7 @@ async function handleSetPriority(params: string, context: TaskContext): Promise<
       await prisma.task.update({
         where: { id: context.taskId },
         data: {
-          priority: priority as any,
+          priority: priority as Priority,
           version: { increment: 1 }
         }
       })

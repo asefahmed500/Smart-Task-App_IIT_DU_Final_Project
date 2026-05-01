@@ -8,10 +8,10 @@ import { getSession } from '@/lib/auth'
  * If called with a session, only checks for the current user's tasks
  * If called without a session (by cron), checks all users' tasks
  */
-export async function POST(request: Request) {
+export async function POST() {
   try {
     // Optional: Check if this is an authenticated request or a cron job
-    const session = await getSession()
+    await getSession()
     
     // Run the notification checks
     const result = await runNotificationChecks()

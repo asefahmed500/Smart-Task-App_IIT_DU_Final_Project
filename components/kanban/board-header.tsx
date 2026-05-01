@@ -1,12 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Layout, Calendar, Users, Settings, Edit2, ArrowLeft } from 'lucide-react'
+import { Layout, Calendar, Users, Edit2, ArrowLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ManageMembersDialog } from './manage-members-dialog'
 import { EditBoardDialog } from './edit-board-dialog'
-import { Badge } from '@/components/ui/badge'
 import Image from 'next/image'
 import { Board, User } from '@/types/kanban'
 

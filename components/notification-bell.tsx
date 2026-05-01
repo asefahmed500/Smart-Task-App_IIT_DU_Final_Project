@@ -21,7 +21,6 @@ interface Notification {
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [userId, setUserId] = useState<string | undefined>(undefined)
   const router = useRouter()
 
   const loadNotifications = async () => {
@@ -29,14 +28,14 @@ export function NotificationBell() {
       const data = await getNotifications() as { notifications: Notification[], unreadCount: number }
       setNotifications(data.notifications)
       setUnreadCount(data.unreadCount)
-    } catch (_e) {
+    } catch {
       // Not logged in or error
     }
   }
 
   // Get current user ID on mount
   useEffect(() => {
-    getCurrentUserId().then(setUserId).catch(() => {})
+    void getCurrentUserId().catch(() => {})
   }, [])
 
   // Initial load

@@ -29,11 +29,10 @@ interface AddTaskDialogProps {
   isOpen: boolean
   onClose: () => void
   columnId: string
-  boardId: string
   currentUser: User
 }
 
-export function AddTaskDialog({ isOpen, onClose, columnId, boardId, currentUser }: AddTaskDialogProps) {
+export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTaskDialogProps) {
   const [loading, setLoading] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -59,6 +58,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, boardId, currentUser 
       onClose()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to create task'
+      toast.error(message)
     } finally {
       setLoading(false)
     }

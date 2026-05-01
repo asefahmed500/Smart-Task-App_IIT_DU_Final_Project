@@ -37,6 +37,7 @@ export function AddColumnDialog({ isOpen, onClose, boardId }: AddColumnDialogPro
       onClose()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to add column'
+      toast.error(message)
     } finally {
       setLoading(false)
     }

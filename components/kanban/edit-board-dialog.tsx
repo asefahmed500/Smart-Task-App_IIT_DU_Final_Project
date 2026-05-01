@@ -42,6 +42,7 @@ export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps
       onClose()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to update board'
+      toast.error(message)
     } finally {
       setLoading(false)
     }

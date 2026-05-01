@@ -54,12 +54,15 @@ export interface Task {
   version: number;
   createdAt: string | Date;
   updatedAt: string | Date;
-  column?: { id: string; name: string };
+  column?: { id: string; name: string; boardId: string };
   creator?: User;
   assignee?: User | null;
+  attachments?: Attachment[];
   comments?: Comment[];
   checklists?: Checklist[];
   tags?: Tag[];
+  timeEntries?: TimeEntry[];
+  reviews?: Review[];
   _count?: {
     comments: number;
     attachments: number;
@@ -67,11 +70,41 @@ export interface Task {
   };
 }
 
+export interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  taskId: string;
+  createdAt: string | Date;
+}
+
 export interface Tag {
   id: string;
   name: string;
   color: string;
   boardId: string | null;
+}
+
+export interface TimeEntry {
+  id: string;
+  duration: number; // in minutes
+  description: string | null;
+  userId: string;
+  taskId: string;
+  createdAt: string | Date;
+  user?: User;
+}
+
+export interface Review {
+  id: string;
+  status: 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
+  feedback: string | null;
+  reviewerId: string;
+  taskId: string;
+  createdAt: string | Date;
+  reviewer?: User;
 }
 
 export interface Board {

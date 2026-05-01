@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -18,7 +18,6 @@ import {
   SortableContext,
   arrayMove,
   horizontalListSortingStrategy,
-  verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { createPortal } from 'react-dom'
 import { ColumnContainer } from './column-container'
@@ -47,7 +46,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
 
-  const { isConnected } = useSocket(initialBoard.id)
+  useSocket(initialBoard.id)
 
   const handleBoardEvent = useCallback((event: string, data: Record<string, unknown>) => {
     if (event === 'task:moved') {
@@ -182,7 +181,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
       try {
         await reorderColumns(board.id, newColumns.map((c: Column) => c.id))
         toast.success('Columns reordered')
-      } catch (error: unknown) {
+      } catch {
         toast.error('Failed to save column order')
         setBoard(initialBoard)
       }

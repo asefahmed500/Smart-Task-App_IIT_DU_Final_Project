@@ -38,6 +38,7 @@ export function RenameColumnDialog({ isOpen, onClose, columnId, boardId, current
       onClose()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to rename column'
+      toast.error(message)
     } finally {
       setLoading(false)
     }

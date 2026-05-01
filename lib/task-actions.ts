@@ -8,7 +8,7 @@ import { emitNotification } from '@/lib/socket-emitter'
 
 type Role = 'ADMIN' | 'MANAGER' | 'MEMBER'
 
-async function checkTaskPermission(taskId: string, action: 'update' | 'delete') {
+async function checkTaskPermission(taskId: string) {
   const session = await getSession()
   if (!session) throw new Error('Unauthorized')
 
@@ -50,7 +50,7 @@ async function checkTaskPermission(taskId: string, action: 'update' | 'delete') 
   throw new Error('Unauthorized')
 }
 
-async function checkBoardPermission(columnId: string, action: 'create') {
+async function checkBoardPermission(columnId: string) {
   const session = await getSession()
   if (!session) throw new Error('Unauthorized')
 
@@ -79,7 +79,7 @@ async function checkBoardPermission(columnId: string, action: 'create') {
 }
 
 export async function updateTaskStatus(taskId: string, newColumnId: string, newStatusName: string, clientVersion?: number) {
-  await checkTaskPermission(taskId, 'update')
+  await checkTaskPermission(taskId)
   const session = await getSession()
   if (!session) throw new Error('Unauthorized')
 
@@ -207,7 +207,7 @@ export async function updateTaskStatus(taskId: string, newColumnId: string, newS
 import { Priority } from '../generated/prisma/enums'
 
 export async function createTask(data: { title: string, description?: string, priority: Priority, columnId: string, assigneeId?: string }) {
-  await checkBoardPermission(data.columnId, 'create')
+  await checkBoardPermission(data.columnId)
   const session = await getSession()
   if (!session) throw new Error('Unauthorized')
 
@@ -258,7 +258,7 @@ export async function createTask(data: { title: string, description?: string, pr
 }
 
 export async function deleteTask(taskId: string) {
-  await checkTaskPermission(taskId, 'delete')
+  await checkTaskPermission(taskId)
   const session = await getSession()
   if (!session) throw new Error('Unauthorized')
 
@@ -303,7 +303,7 @@ export async function getTaskDetails(taskId: string) {
 }
 
 export async function updateTask(taskId: string, data: Record<string, unknown>) {
-  await checkTaskPermission(taskId, 'update')
+  await checkTaskPermission(taskId)
   const session = await getSession()
   if (!session) throw new Error('Unauthorized')
 
@@ -629,13 +629,35 @@ export async function addAttachment(taskId: string, data: { name: string, url: s
   return attachment
 }
 
+export async function deleteAttachment(attachmentId: string, taskId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  await prisma.attachment.delete({
+    where: { id: attachmentId }
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId: session.id,
+      action: 'DELETE_ATTACHMENT',
+      details: { taskId, attachmentId },
+    }
+  })
+
+  revalidatePath('/dashboard')
+}
+
 export async function getTaskActivityLog(taskId: string) {
   const session = await getSession()
   if (!session) throw new Error('Unauthorized')
 
   const logs = await prisma.auditLog.findMany({
     where: {
-      details: { path: ['taskId'], equals: taskId }
+      OR: [
+        { details: { path: ['taskId'], equals: taskId } },
+        { details: { path: ['details', 'taskId'], equals: taskId } }
+      ]
     },
     orderBy: { createdAt: 'desc' },
     take: 50,
@@ -647,4 +669,227 @@ export async function getTaskActivityLog(taskId: string) {
   })
 
   return logs
+}
+
+// --- TAGS ---
+
+export async function getBoardTags(boardId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  return await prisma.tag.findMany({
+    where: {
+      OR: [
+        { boardId: boardId },
+        { boardId: null } // Global tags
+      ]
+    },
+    orderBy: { name: 'asc' }
+  })
+}
+
+export async function createTag(boardId: string | null, name: string, color: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  const tag = await prisma.tag.create({
+    data: {
+      name,
+      color,
+      boardId
+    }
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId: session.id,
+      action: 'CREATE_TAG',
+      details: { tagId: tag.id, name, boardId },
+    }
+  })
+
+  return tag
+}
+
+export async function addTagToTask(taskId: string, tagId: string) {
+  await checkTaskPermission(taskId)
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  const task = await prisma.task.update({
+    where: { id: taskId },
+    data: {
+      tags: { connect: { id: tagId } },
+      version: { increment: 1 }
+    },
+    include: { tags: true }
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId: session.id,
+      action: 'ADD_TAG_TO_TASK',
+      details: { taskId, tagId },
+    }
+  })
+
+  revalidatePath('/dashboard')
+  return task
+}
+
+export async function removeTagFromTask(taskId: string, tagId: string) {
+  await checkTaskPermission(taskId)
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  const task = await prisma.task.update({
+    where: { id: taskId },
+    data: {
+      tags: { disconnect: { id: tagId } },
+      version: { increment: 1 }
+    },
+    include: { tags: true }
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId: session.id,
+      action: 'REMOVE_TAG_FROM_TASK',
+      details: { taskId, tagId },
+    }
+  })
+
+  revalidatePath('/dashboard')
+  return task
+}
+
+// --- TIME TRACKING ---
+
+export async function logTime(taskId: string, duration: number, description: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  const entry = await prisma.timeEntry.create({
+    data: {
+      taskId,
+      userId: session.id,
+      duration,
+      description
+    }
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId: session.id,
+      action: 'LOG_TIME',
+      details: { taskId, entryId: entry.id, duration },
+    }
+  })
+
+  revalidatePath('/dashboard')
+  return entry
+}
+
+export async function getTimeEntries(taskId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  return await prisma.timeEntry.findMany({
+    where: { taskId },
+    include: { user: true },
+    orderBy: { createdAt: 'desc' }
+  })
+}
+
+// --- REVIEWS ---
+
+export async function submitForReview(taskId: string, reviewerId: string) {
+  await checkTaskPermission(taskId)
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  const review = await prisma.review.create({
+    data: {
+      taskId,
+      reviewerId,
+      status: 'PENDING'
+    }
+  })
+
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { version: { increment: 1 } }
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId: session.id,
+      action: 'SUBMIT_FOR_REVIEW',
+      details: { taskId, reviewId: review.id, reviewerId },
+    }
+  })
+
+  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { title: true } })
+
+  const notification = await prisma.notification.create({
+    data: {
+      userId: reviewerId,
+      type: 'REVIEW_REQUESTED',
+      message: `${session.name} requested a review for task: ${task?.title}`,
+      link: `/dashboard/board/${taskId}` // This should be the board link really, but we'll use task id as marker
+    }
+  })
+
+  emitNotification({
+    userId: reviewerId,
+    type: 'REVIEW_REQUESTED',
+    message: `${session.name} requested a review for task: ${task?.title}`,
+    link: `/dashboard/board/${taskId}`,
+    notificationId: notification.id
+  })
+
+  revalidatePath('/dashboard')
+  return review
+}
+
+export async function completeReview(reviewId: string, status: 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED', feedback: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  const review = await prisma.review.update({
+    where: { id: reviewId },
+    data: {
+      status,
+      feedback
+    },
+    include: { task: true }
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId: session.id,
+      action: 'COMPLETE_REVIEW',
+      details: { reviewId, status, taskId: review.taskId },
+    }
+  })
+
+  const notification = await prisma.notification.create({
+    data: {
+      userId: review.task.creatorId,
+      type: 'REVIEW_COMPLETED',
+      message: `Review completed for task "${review.task.title}": ${status}`,
+      link: `/dashboard/board/${review.taskId}`
+    }
+  })
+
+  emitNotification({
+    userId: review.task.creatorId,
+    type: 'REVIEW_COMPLETED',
+    message: `Review completed for task "${review.task.title}": ${status}`,
+    link: `/dashboard/board/${review.taskId}`,
+    notificationId: notification.id
+  })
+
+  revalidatePath('/dashboard')
+  return review
 }

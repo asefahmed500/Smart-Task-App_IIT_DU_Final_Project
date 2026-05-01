@@ -46,7 +46,6 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
     image: string | null
   }>>([])
   const [isSearching, setIsSearching] = useState(false)
-  const [loading, setLoading] = useState(false)
 
   const handleSearch = async (val: string) => {
     setSearch(val)
@@ -74,7 +73,6 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
   }
 
   const handleAddMember = async (userId: string) => {
-    setLoading(true)
     try {
       await addBoardMember(boardId, userId)
       toast.success('Member added successfully')
@@ -84,13 +82,11 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
       const message = error instanceof Error ? error.message : 'Failed to add member'
       toast.error(message)
     } finally {
-      setLoading(false)
     }
   }
 
   const handleRemoveMember = async (userId: string) => {
     if (!confirm('Are you sure you want to remove this member?')) return
-    setLoading(true)
     try {
       await removeBoardMember(boardId, userId)
       toast.success('Member removed successfully')
@@ -98,7 +94,6 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
       const message = error instanceof Error ? error.message : 'Failed to remove member'
       toast.error(message)
     } finally {
-      setLoading(false)
     }
   }
 
