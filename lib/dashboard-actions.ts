@@ -113,21 +113,21 @@ export async function getMemberDashboardData() {
     }).length,
     activeBoardCount: myBoards.length,
     unreadNotifications,
-    myTasks: myTasks.map(t => ({
+     myTasks: myTasks.map(t => ({
       id: t.id,
       title: t.title,
-      priority: t.priority,
+      priority: t.priority as string,
       column: { name: t.column.name, board: { id: t.column.board.id, name: t.column.board.name } }
     })),
     focusTasks: activeTasks.slice(0, 3).map(t => ({
       id: t.id,
       title: t.title,
-      priority: t.priority,
+      priority: t.priority as string,
       column: { name: t.column.name, board: { id: t.column.board.id, name: t.column.board.name } }
     })),
     recentActivity: recentActivity.map(a => ({
       action: a.action,
-      details: a.details,
+      details: a.details as Record<string, unknown>,
       createdAt: a.createdAt.toISOString()
     }))
   }

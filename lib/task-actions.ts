@@ -302,7 +302,7 @@ export async function getTaskDetails(taskId: string) {
   return task
 }
 
-export async function updateTask(taskId: string, data: any) {
+export async function updateTask(taskId: string, data: Record<string, unknown>) {
   await checkTaskPermission(taskId, 'update')
   const session = await getSession()
   if (!session) throw new Error('Unauthorized')
@@ -331,14 +331,14 @@ export async function updateTask(taskId: string, data: any) {
   if (data.assigneeId !== undefined && data.assigneeId !== existingTask?.assigneeId && data.assigneeId !== null) {
     const notification = await prisma.notification.create({
       data: {
-        userId: data.assigneeId,
+        userId: data.assigneeId as string,
         type: 'TASK_ASSIGNED',
         message: `You have been assigned to task: ${existingTask?.title || task.title}`,
         link: `/dashboard/board/${existingTask?.columnId}`
       }
     })
     emitNotification({
-      userId: data.assigneeId,
+      userId: data.assigneeId as string,
       type: 'TASK_ASSIGNED',
       message: `You have been assigned to task: ${existingTask?.title || task.title}`,
       link: `/dashboard/board/${existingTask?.columnId}`,

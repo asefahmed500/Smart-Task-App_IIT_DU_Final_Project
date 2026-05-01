@@ -23,6 +23,7 @@ import { createTask } from '@/lib/task-actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { User } from '@/types/kanban'
+import { Priority } from '@/generated/prisma/enums'
 
 interface AddTaskDialogProps {
   isOpen: boolean
@@ -49,15 +50,15 @@ export function AddTaskDialog({ isOpen, onClose, columnId, boardId, currentUser 
       await createTask({
         title,
         description,
-        priority: priority as any,
+        priority: priority as Priority,
         columnId,
       })
       toast.success('Task created successfully')
       setTitle('')
       setDescription('')
       onClose()
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create task')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to create task'
     } finally {
       setLoading(false)
     }

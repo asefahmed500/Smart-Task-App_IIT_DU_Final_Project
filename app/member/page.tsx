@@ -14,7 +14,7 @@ export default async function MemberPage() {
     redirect('/manager')
   }
 
-  const data = await getMemberDashboardData() as any
+  const data = await getMemberDashboardData()
 
   return (
     <MemberDashboardClient 

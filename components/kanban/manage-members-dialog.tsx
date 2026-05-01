@@ -28,13 +28,24 @@ interface ManageMembersDialogProps {
   isOpen: boolean
   onClose: () => void
   boardId: string
-  members: any[]
+  members: Array<{
+    id: string
+    name: string | null
+    email: string
+    image: string | null
+    role: string
+  }>
 }
 
 export function ManageMembersDialog({ isOpen, onClose, boardId, members }: ManageMembersDialogProps) {
-  const [searchResults, setSearchResults] = useState<any[]>([])
-  const [isSearching, setIsSearching] = useState(false)
   const [search, setSearch] = useState('')
+  const [searchResults, setSearchResults] = useState<Array<{
+    id: string
+    name: string | null
+    email: string
+    image: string | null
+  }>>([])
+  const [isSearching, setIsSearching] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleSearch = async (val: string) => {
@@ -49,8 +60,13 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
       const results = await searchUsers(val)
       // Filter out existing members
       const filtered = results.filter(r => !members.some(m => m.id === r.id))
-      setSearchResults(filtered)
-    } catch (error) {
+      setSearchResults(filtered as Array<{
+        id: string
+        name: string | null
+        email: string
+        image: string | null
+      }>)
+    } catch (error: unknown) {
       console.error(error)
     } finally {
       setIsSearching(false)
@@ -64,8 +80,9 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
       toast.success('Member added successfully')
       setSearch('')
       setSearchResults([])
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to add member')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to add member'
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -77,8 +94,9 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
     try {
       await removeBoardMember(boardId, userId)
       toast.success('Member removed successfully')
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to remove member')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to remove member'
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -127,11 +145,11 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
                       >
                         <div className="flex items-center gap-3">
                           <Avatar className="size-8">
-                            <AvatarImage src={user.image} />
+                            <AvatarImage src={user.image ?? undefined} />
                             <AvatarFallback>{user.name?.[0] || 'U'}</AvatarFallback>
                           </Avatar>
                           <div className="flex flex-col items-start">
-                            <span className="text-sm font-medium">{user.name}</span>
+                            <span className="text-sm font-medium">{user.name || 'Unnamed'}</span>
                             <span className="text-[10px] text-muted-foreground">{user.email}</span>
                           </div>
                         </div>
@@ -150,7 +168,7 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
 
               {search.length >= 2 && !isSearching && searchResults.length === 0 && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-primary/10 rounded-xl p-4 text-center text-xs text-muted-foreground z-50">
-                  No users found matching "{search}"
+                  No users found matching {search}
                 </div>
               )}
             </div>
@@ -163,11 +181,11 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
                 <div key={member.id} className="flex items-center justify-between p-2 rounded-xl bg-muted/30 border border-primary/5 group">
                   <div className="flex items-center gap-3">
                     <Avatar className="size-8">
-                      <AvatarImage src={member.image} />
+                      <AvatarImage src={member.image ?? undefined} />
                       <AvatarFallback>{member.name?.[0] || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium leading-none">{member.name}</span>
+                      <span className="text-sm font-medium leading-none">{member.name || 'Unnamed'}</span>
                       <span className="text-[10px] text-muted-foreground">{member.email}</span>
                     </div>
                   </div>
@@ -177,6 +195,7 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
                       {member.role}
                     </Badge>
                     <Button 
+                      type="button"
                       variant="ghost" 
                       size="icon" 
                       className="size-7 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"

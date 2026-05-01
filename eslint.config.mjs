@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Add exclusions for generated and scratch folders
+    "generated/**",
+    "scratch/**",
   ]),
 ]);
 

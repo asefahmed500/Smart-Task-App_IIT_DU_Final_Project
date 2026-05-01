@@ -49,7 +49,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
 
   const { isConnected } = useSocket(initialBoard.id)
 
-  const handleBoardEvent = useCallback((event: string, data: any) => {
+  const handleBoardEvent = useCallback((event: string, data: Record<string, unknown>) => {
     if (event === 'task:moved') {
       setBoard((prev: Board) => {
         const newColumns = prev.columns.map((col: Column) => {
@@ -173,8 +173,8 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
     if (activeId === overId) return
 
     if (active.data.current?.type === 'Column' && over.data.current?.type === 'Column') {
-      const activeIndex = board.columns.findIndex((c: any) => c.id === activeId)
-      const overIndex = board.columns.findIndex((c: any) => c.id === overId)
+      const activeIndex = board.columns.findIndex((c: Column) => c.id === activeId)
+      const overIndex = board.columns.findIndex((c: Column) => c.id === overId)
       const newColumns = arrayMove(board.columns, activeIndex, overIndex)
       
       setBoard((prev: Board) => ({ ...prev, columns: newColumns }))
@@ -182,7 +182,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
       try {
         await reorderColumns(board.id, newColumns.map((c: Column) => c.id))
         toast.success('Columns reordered')
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast.error('Failed to save column order')
         setBoard(initialBoard)
       }
@@ -216,14 +216,15 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
             })
             
             toast.success(`Task moved to ${overColumn.name}`)
-          } catch (error: any) {
-            if (error.message?.includes('Conflict')) {
-              setConflictModalOpen(true)
-            } else {
-              toast.error(error.message || "Failed to move task")
-            }
-            setBoard(initialBoard)
-          }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to move task"
+        if (message.includes('Conflict')) {
+          setConflictModalOpen(true)
+        } else {
+          toast.error(message)
+        }
+        setBoard(initialBoard)
+      }
         }
       }
     }

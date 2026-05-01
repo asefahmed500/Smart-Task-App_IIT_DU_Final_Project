@@ -8,7 +8,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuIte
 import { getNotifications, markNotificationRead, markAllNotificationsRead, getCurrentUserId } from '@/lib/notification-actions'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { useNotificationListener } from '@/components/kanban/socket-hooks'
 
 interface Notification {
   id: string
@@ -25,41 +24,32 @@ export function NotificationBell() {
   const [userId, setUserId] = useState<string | undefined>(undefined)
   const router = useRouter()
 
-  // Get current user ID on mount
-  useEffect(() => {
-    getCurrentUserId().then(setUserId).catch(() => {})
-  }, [])
-
-  // Load notifications initially and poll every 30s
-  useEffect(() => {
-    loadNotifications()
-    const interval = setInterval(loadNotifications, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  // Listen for real-time notifications via Socket.io
-  useNotificationListener(userId, (data) => {
-    const newNotification = {
-      id: data.notificationId || Date.now().toString(),
-      type: data.type,
-      message: data.message,
-      link: data.link || null,
-      isRead: false,
-      createdAt: new Date(),
-    }
-    setNotifications(prev => [newNotification, ...prev])
-    setUnreadCount(prev => prev + 1)
-  })
-
   const loadNotifications = async () => {
     try {
       const data = await getNotifications() as { notifications: Notification[], unreadCount: number }
       setNotifications(data.notifications)
       setUnreadCount(data.unreadCount)
-    } catch (e) {
+    } catch (_e) {
       // Not logged in or error
     }
   }
+
+  // Get current user ID on mount
+  useEffect(() => {
+    getCurrentUserId().then(setUserId).catch(() => {})
+  }, [])
+
+  // Initial load
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadNotifications()
+  }, [])
+
+  // Poll every 30s
+  useEffect(() => {
+    const interval = setInterval(() => { void loadNotifications() }, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.isRead) {

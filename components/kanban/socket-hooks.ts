@@ -36,13 +36,13 @@ export function useSocket(boardId?: string) {
   return { socket, isConnected }
 }
 
-export function useBoardEvents(boardId: string, onEvent: (event: string, data: any) => void) {
+export function useBoardEvents(boardId: string, onEvent: (event: string, data: Record<string, unknown>) => void) {
   const { socket, isConnected } = useSocket(boardId)
 
   useEffect(() => {
     if (!socket || !isConnected) return
 
-    const handlers: Record<string, (data: any) => void> = {
+    const handlers: Record<string, (data: Record<string, unknown>) => void> = {
       'task:moved': (data) => onEvent('task:moved', data),
       'task:created': (data) => onEvent('task:created', data),
       'task:updated': (data) => onEvent('task:updated', data),
@@ -67,7 +67,7 @@ export function useBoardEvents(boardId: string, onEvent: (event: string, data: a
  * @param userId - The current user's ID
  * @param onNotification - Callback when a notification is received
  */
-export function useNotificationListener(userId: string | undefined, onNotification: (notification: any) => void) {
+export function useNotificationListener(userId: string | undefined, onNotification: (notification: Record<string, unknown>) => void) {
   const { socket, isConnected } = useSocket()
 
   useEffect(() => {
@@ -76,8 +76,8 @@ export function useNotificationListener(userId: string | undefined, onNotificati
     // Register user for personal notifications
     socket.emit('register-user', userId)
 
-    // Listen for notifications
-    const handleNotification = (data: any) => {
+  // Listen for notifications
+  const handleNotification = (data: Record<string, unknown>) => {
       onNotification(data)
     }
 

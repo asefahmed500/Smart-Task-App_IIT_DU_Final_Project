@@ -85,8 +85,9 @@ export default function AdminBoardsPage() {
       await deleteBoard(boardId)
       toast.success('Board deleted')
       loadData()
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete board')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete board'
+      toast.error(message)
     }
   }
 
@@ -96,8 +97,9 @@ export default function AdminBoardsPage() {
       await addBoardMember(selectedBoard.id, userId)
       toast.success('Member added')
       loadData()
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to add member')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to add member'
+      toast.error(message)
     }
   }
 
@@ -107,8 +109,9 @@ export default function AdminBoardsPage() {
       await removeBoardMember(selectedBoard.id, userId)
       toast.success('Member removed')
       loadData()
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to remove member')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to remove member'
+      toast.error(message)
     }
   }
 

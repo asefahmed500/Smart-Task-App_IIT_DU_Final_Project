@@ -48,7 +48,7 @@ import {
 } from '@/lib/task-actions'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { User, Task, Comment, ChecklistItem } from '@/types/kanban'
+import { User, Task, Comment, ChecklistItem, Checklist, Priority } from '@/types/kanban'
 
 interface TaskDetailsDialogProps {
   taskId: string | null
@@ -67,7 +67,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
-  const [activityLog, setActivityLog] = useState<any[]>([])
+  const [activityLog, setActivityLog] = useState<Array<{ id: string; user: any; action: string; createdAt: string | Date }>>([])
   const [activityFilter, setActivityFilter] = useState<string>('all')
   const [showActivity, setShowActivity] = useState(false)
 
@@ -85,8 +85,24 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   })()
 
   useEffect(() => {
+    if (showActivity && taskId) {
+      getTaskActivityLog(taskId).then(setActivityLog).catch((error: unknown) => {
+        console.error('Failed to load activity log', error)
+      })
+    }
+  }, [showActivity, taskId])
+
+  useEffect(() => {
+    if (isOpen && taskId) {
+      fetchTaskDetails()
+    }
+  }, [isOpen, taskId])
+
+  useEffect(() => {
     if (isOpen && isAdmin) {
-      getAllUsers().then(setAllUsers).catch(console.error)
+      getAllUsers().then(setAllUsers).catch((error: unknown) => {
+        console.error(error)
+      })
     }
   }, [isOpen, isAdmin])
 
@@ -111,7 +127,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     try {
       const data = await getTaskDetails(taskId!)
       setTask(data)
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to load task details')
       onClose()
     } finally {
@@ -119,7 +135,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     }
   }
 
-  const handleUpdate = async (field: string, value: any) => {
+  const handleUpdate = async (field: string, value: string | Priority | null) => {
     setUpdating(true)
     try {
       await updateTask(taskId!, { [field]: value })
@@ -127,7 +143,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
         setTask({ ...task, [field]: value })
       }
       toast.success('Task updated')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to update task')
     } finally {
       setUpdating(false)
@@ -143,7 +159,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       }
       setNewComment('')
       toast.success('Comment added')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to add comment')
     }
   }
@@ -156,8 +172,9 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
         setTask({ ...task, comments: (task.comments || []).filter(c => c.id !== commentId) })
       }
       toast.success('Comment deleted')
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete comment')
+    } catch (_error: unknown) {
+       const message = _error instanceof Error ? _error.message : 'Failed to delete comment'
+      toast.error(message)
     }
   }
 
@@ -185,7 +202,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       setTask({ ...task, checklists: updatedChecklists })
       setNewChecklistItem('')
       toast.success('Item added')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to add checklist item')
     }
   }
@@ -194,7 +211,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     try {
       await toggleChecklistItem(itemId, isCompleted)
       if (task) {
-        const updatedChecklists = (task.checklists || []).map((cl) => ({
+         const updatedChecklists = (task.checklists || []).map((cl: Checklist) => ({
           ...cl,
           items: cl.items.map((item: ChecklistItem) => 
             item.id === itemId ? { ...item, isCompleted } : item
@@ -202,8 +219,9 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
         }))
         setTask({ ...task, checklists: updatedChecklists })
       }
-    } catch (error) {
-      toast.error('Failed to update item')
+    } catch (_error: unknown) {
+       const message = _error instanceof Error ? _error.message : 'Failed to update item'
+      toast.error(message)
     }
   }
 
@@ -218,7 +236,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
         setTask({ ...task, checklists: updatedChecklists })
       }
       toast.success('Item removed')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to delete item')
     }
   }
@@ -244,7 +262,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       setEditingItemId(null)
       setEditingContent('')
       toast.success('Item updated')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to update item')
     }
   }
@@ -260,7 +278,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       await deleteTask(taskId!)
       toast.success('Task deleted')
       onClose()
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to delete task')
     }
   }
@@ -513,22 +531,22 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                           <p className="text-xs text-muted-foreground">No activity yet</p>
                         ) : (
                           filteredActivityLog.map((log) => (
-                            <div key={log.id} className="flex gap-3 text-xs">
-                              <Avatar className="size-6">
-                                <AvatarImage src={log.user?.image || undefined} />
-                                <AvatarFallback className="text-[8px]">
-                                  {log.user?.name?.[0] || 'U'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">{log.user?.name || 'Unknown'}</span>
-                                  <span className="text-muted-foreground">
-                                    {log.action.replace(/_/g, ' ').toLowerCase()}
-                                  </span>
-                                </div>
-                                <span className="text-muted-foreground">
-                                  {new Date(log.createdAt).toLocaleString()}
+                        <div key={log.id} className="flex gap-3 text-xs">
+                          <Avatar className="size-6">
+                            <AvatarImage src={(log.user as any)?.image || undefined} />
+                            <AvatarFallback className="text-[8px]">
+                              {(log.user as any)?.name?.[0] || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{(log.user as any)?.name || 'Unknown'}</span>
+                              <span className="text-muted-foreground">
+                                {String(log.action).replace(/_/g, ' ').toLowerCase()}
+                              </span>
+                            </div>
+                            <span className="text-muted-foreground">
+                              {new Date(log.createdAt as string | number | Date).toLocaleString()}
                                 </span>
                               </div>
                             </div>
@@ -598,7 +616,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                     <Input 
                       type="date" 
                       value={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
-                      onChange={(e) => handleUpdate('dueDate', e.target.value ? new Date(e.target.value) : null)}
+                      onChange={(e) => handleUpdate('dueDate', e.target.value ? e.target.value : null)}
                       className="bg-background/50 border-primary/5 h-9"
                     />
                   </div>

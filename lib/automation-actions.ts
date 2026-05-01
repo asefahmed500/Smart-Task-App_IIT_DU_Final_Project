@@ -2,6 +2,7 @@
 
 import prisma from '@/lib/prisma'
 import { emitNotification } from '@/lib/socket-emitter'
+import { Priority } from '@/types/kanban'
 
 type Trigger = 'TASK_CREATED' | 'TASK_MOVED' | 'TASK_UPDATED' | 'TASK_ASSIGNED'
 type Action = 'SEND_NOTIFICATION' | 'MOVE_TASK' | 'SET_PRIORITY' | 'ADD_TAG'
@@ -177,18 +178,18 @@ async function handleMoveTask(params: string, context: TaskContext): Promise<voi
 async function handleSetPriority(params: string, context: TaskContext): Promise<void> {
   const priority = params.replace('priority:', '').toUpperCase()
   
-  if (['LOW', 'MEDIUM', 'HIGH', 'URGENT'].includes(priority)) {
-    await prisma.task.update({
-      where: { id: context.taskId },
-      data: {
-        priority: priority as any,
-        version: { increment: 1 }
-      }
-    })
+    if (['LOW', 'MEDIUM', 'HIGH', 'URGENT'].includes(priority)) {
+      await prisma.task.update({
+        where: { id: context.taskId },
+        data: {
+          priority: priority as any,
+          version: { increment: 1 }
+        }
+      })
+    }
   }
-}
 
-async function handleAddTag(params: string, context: TaskContext): Promise<void> {
+  async function handleAddTag(params: string, context: TaskContext): Promise<void> {
   const tagName = params.replace('tag:', '')
   
   let tag = await prisma.tag.findFirst({

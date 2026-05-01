@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Calendar, MoreVertical, Paperclip, MessageSquare, CheckSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Task, ChecklistItem, Checklist } from '@/types/kanban'
 
 interface TaskCardProps {
-  task: any
+  task: Task
   isOverlay?: boolean
   onClick?: () => void
 }
@@ -104,7 +105,7 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
           <div className="flex items-center gap-3">
             {task.assignee ? (
               <Avatar className="size-6 border border-primary/10">
-                <AvatarImage src={task.assignee.image} />
+                <AvatarImage src={task.assignee.image ?? undefined} />
                 <AvatarFallback className="text-[8px] bg-primary/10 text-primary">
                   {task.assignee.name?.[0] || task.assignee.email[0].toUpperCase()}
                 </AvatarFallback>
@@ -116,25 +117,25 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
             )}
 
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-              {(task._count?.comments > 0) && (
+               {(task._count?.comments ?? 0) > 0 && (
                 <div className="flex items-center gap-1" title="Comments">
                   <MessageSquare className="size-3" />
-                  <span>{task._count.comments}</span>
+                  <span>{task._count?.comments}</span>
                 </div>
               )}
-              {(task._count?.attachments > 0) && (
+              {(task._count?.attachments ?? 0) > 0 && (
                 <div className="flex items-center gap-1" title="Attachments">
                   <Paperclip className="size-3" />
-                  <span>{task._count.attachments}</span>
+                  <span>{task._count?.attachments}</span>
                 </div>
               )}
-              {task.checklists?.length > 0 && (
+               {(task.checklists?.length ?? 0) > 0 && (
                 <div className="flex items-center gap-1" title="Checklist progress">
                   <CheckSquare className="size-3" />
                   <span>
-                    {task.checklists.reduce((acc: number, cl: any) => acc + cl.items.filter((i: any) => i.isCompleted).length, 0)}
+                    {task.checklists?.reduce((acc: number, cl: Checklist) => acc + (cl.items?.filter((i: ChecklistItem) => i.isCompleted).length || 0), 0)}
                     /
-                    {task.checklists.reduce((acc: number, cl: any) => acc + cl.items.length, 0)}
+                    {task.checklists?.reduce((acc: number, cl: Checklist) => acc + (cl.items?.length || 0), 0)}
                   </span>
                 </div>
               )}

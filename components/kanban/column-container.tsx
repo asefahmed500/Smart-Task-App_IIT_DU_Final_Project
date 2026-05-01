@@ -62,8 +62,8 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, onTaskCli
     try {
       await deleteColumn(column.id, boardId)
       toast.success('Column deleted')
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete column')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete column'
     }
   }
 

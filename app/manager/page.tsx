@@ -14,7 +14,7 @@ export default async function ManagerPage() {
     redirect('/dashboard')
   }
 
-  const data = await getManagerDashboardData() as any
+  const data = await getManagerDashboardData()
 
   return (
     <ManagerDashboardClient 

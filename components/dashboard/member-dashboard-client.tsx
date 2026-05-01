@@ -6,17 +6,17 @@ import { CheckCircle2, ListTodo, LayoutGrid, Bell, Focus, Clock } from 'lucide-r
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
-interface Task {
-  id: string
-  title: string
-  priority: string
-  column: { name: string; board: { id: string; name: string } }
-}
-
 interface Activity {
   action: string
   details: Record<string, unknown>
   createdAt: string
+}
+
+interface DashboardTask {
+  id: string
+  title: string
+  priority: string
+  column: { name: string; board: { id: string; name: string } }
 }
 
 interface MemberDashboardClientProps {
@@ -26,8 +26,8 @@ interface MemberDashboardClientProps {
     completedTasks: number
     activeBoardCount: number
     unreadNotifications: number
-    myTasks: Task[]
-    focusTasks: Task[]
+    myTasks: DashboardTask[]
+    focusTasks: DashboardTask[]
     recentActivity: Activity[]
   }
 }
