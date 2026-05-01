@@ -1,7 +1,0 @@
-Total messages: 5 (Errors: 2, Warnings: 0)
-
-[ERROR] Loading the image 'http://assets.iceable.com/img/noise-transparent.png' violates the following Content Security Policy directive: "img-src 'self' data: blob: https://*.githubusercontent.com". The action has been blocked. @ http://localhost:3000/dashboard:24
-[INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
-[LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
-[ERROR] Failed to load resource: the server responded with a status of 400 (Bad Request) @ http://localhost:3000/api/socket:0
-[LOG] [Socket] Server initialized @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
