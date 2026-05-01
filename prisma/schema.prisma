@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String?
+  email         String         @unique
+  password      String
+  role          Role           @default(MEMBER)
+  image         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  auditLogs     AuditLog[]
+  ownedBoards   Board[]        @relation("BoardOwner")
+  comments      Comment[]
+  notifications Notification[]
+  tasks         Task[]         @relation("TaskAssignee")
+  createdTasks  Task[]         @relation("TaskCreator")
+  timeEntries   TimeEntry[]
+  boards        Board[]        @relation("BoardMembers")
+}
+
+model Board {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  owner       User     @relation("BoardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  columns     Column[]
+  tags        Tag[]
+  members     User[]   @relation("BoardMembers")
+}
+
+model Column {
+  id        String   @id @default(cuid())
+  name      String
+  order     Int      @default(0)
+  wipLimit  Int      @default(0)
+  boardId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  priority    Priority     @default(MEDIUM)
+  dueDate     DateTime?
+  version     Int          @default(1)
+  columnId    String
+  assigneeId  String?
+  creatorId   String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  attachments Attachment[]
+  checklists  Checklist[]
+  comments    Comment[]
+  reviews     Review[]
+  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  column      Column       @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
+  timeEntries TimeEntry[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  userId    String
+  taskId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  type      String
+  size      Int
+  taskId    String
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Checklist {
+  id        String          @id @default(cuid())
+  title     String
+  taskId    String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  task      Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  items     ChecklistItem[]
+}
+
+model ChecklistItem {
+  id          String    @id @default(cuid())
+  content     String
+  isCompleted Boolean   @default(false)
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+}
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  duration    Int
+  description String?
+  userId      String
+  taskId      String
+  createdAt   DateTime @default(now())
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  status     String
+  feedback   String?
+  reviewerId String
+  taskId     String
+  createdAt  DateTime @default(now())
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Tag {
+  id      String  @id @default(cuid())
+  name    String
+  color   String
+  boardId String?
+  board   Board?  @relation(fields: [boardId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   Json
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AutomationRule {
+  id        String   @id @default(cuid())
+  name      String
+  trigger   String
+  condition String?
+  action    String
+  enabled   Boolean  @default(true)
+  boardId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
