@@ -22,19 +22,23 @@ import {
 import { createTask } from '@/lib/task-actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { User } from '@/types/kanban'
 
 interface AddTaskDialogProps {
   isOpen: boolean
   onClose: () => void
   columnId: string
   boardId: string
+  currentUser: User
 }
 
-export function AddTaskDialog({ isOpen, onClose, columnId, boardId }: AddTaskDialogProps) {
+export function AddTaskDialog({ isOpen, onClose, columnId, boardId, currentUser }: AddTaskDialogProps) {
   const [loading, setLoading] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('MEDIUM')
+
+  const isMember = currentUser.role === 'MEMBER'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,6 +105,11 @@ export function AddTaskDialog({ isOpen, onClose, columnId, boardId }: AddTaskDia
               </SelectContent>
             </Select>
           </div>
+          {isMember && (
+            <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
+              You will be automatically assigned to this task
+            </div>
+          )}
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel

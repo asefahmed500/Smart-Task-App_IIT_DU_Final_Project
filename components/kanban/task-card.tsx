@@ -86,6 +86,20 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
           </p>
         )}
 
+        {task.tags && task.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {task.tags.map((tag: { id: string; name: string; color: string }) => (
+              <span
+                key={tag.id}
+                className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                style={{ backgroundColor: tag.color + '20', color: tag.color, border: `1px solid ${tag.color}30` }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2 border-t border-primary/5">
           <div className="flex items-center gap-3">
             {task.assignee ? (
@@ -96,8 +110,8 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <div className="size-6 rounded-full border border-dashed border-primary/20 flex items-center justify-center bg-muted/30">
-                <span className="text-[8px] text-muted-foreground">?</span>
+              <div className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-primary/20 bg-muted/30 text-muted-foreground">
+                Unassigned
               </div>
             )}
 

@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "npm run db:check && next dev",
+    "dev": "npm run db:check && concurrently \"npm run socket:dev\" \"next dev\"",
+    "socket:dev": "npx tsx src/socket/server.ts",
     "build": "next build",
     "start": "next start",
     "db:check": "npx tsx scripts/db-check.ts",
@@ -69,6 +70,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.1.7",
     "postcss": "^8",

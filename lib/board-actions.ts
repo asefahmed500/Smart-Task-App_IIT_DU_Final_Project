@@ -39,7 +39,8 @@ export async function getBoardData(boardId: string) {
                 include: {
                   items: true
                 }
-              }
+              },
+              tags: true
             }
           }
         }
@@ -52,7 +53,8 @@ export async function getBoardData(boardId: string) {
           image: true,
           role: true
         }
-      }
+      },
+      tags: true
     }
   })
 
@@ -397,4 +399,118 @@ export async function removeBoardMember(boardId: string, userId: string) {
   })
 
   revalidatePath(`/dashboard/board/${boardId}`)
+}
+
+export async function createTag(boardId: string | null, name: string, color: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const role = session.role as 'ADMIN' | 'MANAGER' | 'MEMBER'
+
+  if (!boardId && role !== 'ADMIN') {
+    throw new Error('Only admins can create global tags')
+  }
+
+  if (boardId && role === 'MEMBER') {
+    throw new Error('Members cannot create tags')
+  }
+
+  if (boardId) {
+    const board = await prisma.board.findUnique({ where: { id: boardId } })
+    if (!board) throw new Error('Board not found')
+  }
+
+  const tag = await prisma.tag.create({
+    data: { name, color, boardId }
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId: session.id,
+      action: 'CREATE_TAG',
+      details: { tagId: tag.id, name, boardId },
+    }
+  })
+
+  if (boardId) revalidatePath(`/dashboard/board/${boardId}`)
+  return tag
+}
+
+export async function deleteTag(tagId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const role = session.role as 'ADMIN' | 'MANAGER' | 'MEMBER'
+  if (role === 'MEMBER') throw new Error('Members cannot delete tags')
+
+  const tag = await prisma.tag.findUnique({ 
+    where: { id: tagId },
+    include: { board: { include: { members: { select: { id: true } } } } }
+  })
+  
+  if (!tag || !tag.board) throw new Error('Tag not found')
+
+  if (tag.boardId && role !== 'ADMIN') {
+    const isMember = tag.board.members.some((m: { id: string }) => m.id === session.id)
+    if (!isMember) throw new Error('Not a member of this board')
+  }
+
+  await prisma.tag.delete({ where: { id: tagId } })
+
+  if (tag.boardId) revalidatePath(`/dashboard/board/${tag.boardId}`)
+}
+
+export async function getTagsForBoard(boardId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  const board = await prisma.board.findUnique({
+    where: { id: boardId },
+    include: {
+      tags: {
+        include: {
+          _count: { select: { tasks: true } }
+        }
+      }
+    }
+  })
+
+  const globalTags = await prisma.tag.findMany({
+    where: { boardId: null },
+    include: { _count: { select: { tasks: true } } }
+  })
+
+  return [...(board?.tags || []), ...globalTags]
+}
+
+export async function addTagToTask(taskId: string, tagId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { tags: { connect: { id: tagId } } }
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId: session.id,
+      action: 'ADD_TAG_TO_TASK',
+      details: { taskId, tagId },
+    }
+  })
+
+  revalidatePath('/dashboard')
+}
+
+export async function removeTagFromTask(taskId: string, tagId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { tags: { disconnect: { id: tagId } } }
+  })
+
+  revalidatePath('/dashboard')
 }

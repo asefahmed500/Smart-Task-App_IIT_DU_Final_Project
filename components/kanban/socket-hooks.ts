@@ -1,0 +1,118 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { io, Socket } from 'socket.io-client'
+
+let socket: Socket | null = null
+
+export function useSocket(boardId?: string) {
+  const [isConnected, setIsConnected] = useState(false)
+
+  useEffect(() => {
+    if (!socket) {
+      socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
+        transports: ['websocket', 'polling']
+      })
+    }
+
+    socket.on('connect', () => {
+      setIsConnected(true)
+      if (boardId) {
+        socket?.emit('join-board', boardId)
+      }
+    })
+
+    socket.on('disconnect', () => {
+      setIsConnected(false)
+    })
+
+    return () => {
+      if (boardId) {
+        socket?.emit('leave-board', boardId)
+      }
+    }
+  }, [boardId])
+
+  return { socket, isConnected }
+}
+
+export function useBoardEvents(boardId: string, onEvent: (event: string, data: any) => void) {
+  const { socket, isConnected } = useSocket(boardId)
+
+  useEffect(() => {
+    if (!socket || !isConnected) return
+
+    const handlers: Record<string, (data: any) => void> = {
+      'task:moved': (data) => onEvent('task:moved', data),
+      'task:created': (data) => onEvent('task:created', data),
+      'task:updated': (data) => onEvent('task:updated', data),
+      'task:deleted': (data) => onEvent('task:deleted', data),
+      'column:created': (data) => onEvent('column:created', data),
+    }
+
+    Object.entries(handlers).forEach(([event, handler]) => {
+      socket.on(event, handler)
+    })
+
+    return () => {
+      Object.keys(handlers).forEach((event) => {
+        socket.off(event)
+      })
+    }
+  }, [socket, isConnected, boardId, onEvent])
+}
+
+export function getSocket() {
+  if (!socket) {
+    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
+      transports: ['websocket', 'polling'],
+      autoConnect: false
+    })
+  }
+  return socket
+}
+
+export function emitTaskMoved(boardId: string, data: {
+  taskId: string
+  newColumnId: string
+  oldColumnId: string
+  userId: string
+  userName: string
+}) {
+  const s = getSocket()
+  if (!s.connected) {
+    s.connect()
+  }
+  s.emit('task:moved', { boardId, ...data })
+}
+
+export function emitTaskCreated(boardId: string, data: {
+  taskId: string
+  columnId: string
+}) {
+  const s = getSocket()
+  if (!s.connected) {
+    s.connect()
+  }
+  s.emit('task:created', { boardId, ...data })
+}
+
+export function emitTaskUpdated(boardId: string, data: {
+  taskId: string
+}) {
+  const s = getSocket()
+  if (!s.connected) {
+    s.connect()
+  }
+  s.emit('task:updated', { boardId, ...data })
+}
+
+export function emitTaskDeleted(boardId: string, data: {
+  taskId: string
+}) {
+  const s = getSocket()
+  if (!s.connected) {
+    s.connect()
+  }
+  s.emit('task:deleted', { boardId, ...data })
+}

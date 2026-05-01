@@ -66,7 +66,8 @@ model Task {
   attachments Attachment[]
   checklists  Checklist[]
   comments    Comment[]
-  reviews     Review[]
+  reviews Review[]
+  tags     Tag[]
   assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
   column      Column       @relation(fields: [columnId], references: [id], onDelete: Cascade)
   creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
@@ -140,6 +141,7 @@ model Tag {
   color   String
   boardId String?
   board   Board?  @relation(fields: [boardId], references: [id])
+  tasks Task[]
 }
 
 model Notification {

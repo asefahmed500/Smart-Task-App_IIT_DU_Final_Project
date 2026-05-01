@@ -167,6 +167,7 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, onTaskCli
         onClose={() => setIsAddTaskOpen(false)} 
         columnId={column.id}
         boardId={boardId}
+        currentUser={currentUser}
       />
 
       <SetWipLimitDialog

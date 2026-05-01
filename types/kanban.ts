@@ -51,6 +51,7 @@ export interface Task {
   columnId: string;
   assigneeId: string | null;
   creatorId: string;
+  version: number;
   createdAt: string | Date;
   updatedAt: string | Date;
   column?: { id: string; name: string };
@@ -58,11 +59,19 @@ export interface Task {
   assignee?: User | null;
   comments?: Comment[];
   checklists?: Checklist[];
+  tags?: Tag[];
   _count?: {
     comments: number;
     attachments: number;
     checklists: number;
   };
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  boardId: string | null;
 }
 
 export interface Board {

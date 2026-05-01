@@ -262,6 +262,13 @@ export async function getAllBoards() {
           email: true,
         }
       },
+      members: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        }
+      },
       _count: {
         select: {
           members: true,

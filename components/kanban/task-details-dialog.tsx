@@ -30,16 +30,21 @@ import {
   Trash2,
   X,
   Send,
-  Loader2
+  Loader2,
+  Edit2
 } from 'lucide-react'
 import { 
   getTaskDetails, 
   updateTask, 
   deleteTask, 
   addComment, 
+  deleteComment,
   addChecklistItem, 
   toggleChecklistItem, 
-  deleteChecklistItem 
+  deleteChecklistItem,
+  updateChecklistItem,
+  getAllUsers,
+  getTaskActivityLog
 } from '@/lib/task-actions'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -59,12 +64,47 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const [updating, setUpdating] = useState(false)
   const [newComment, setNewComment] = useState('')
   const [newChecklistItem, setNewChecklistItem] = useState('')
+  const [allUsers, setAllUsers] = useState<User[]>([])
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editingContent, setEditingContent] = useState('')
+  const [activityLog, setActivityLog] = useState<any[]>([])
+  const [activityFilter, setActivityFilter] = useState<string>('all')
+  const [showActivity, setShowActivity] = useState(false)
+
+  const isMember = currentUser.role === 'MEMBER'
+  const isAdmin = currentUser.role === 'ADMIN'
+
+  const eligibleAssignees = (() => {
+    if (isMember) {
+      return [currentUser]
+    }
+    if (isAdmin && allUsers.length > 0) {
+      return allUsers
+    }
+    return boardMembers
+  })()
+
+  useEffect(() => {
+    if (isOpen && isAdmin) {
+      getAllUsers().then(setAllUsers).catch(console.error)
+    }
+  }, [isOpen, isAdmin])
 
   useEffect(() => {
     if (isOpen && taskId) {
       fetchTaskDetails()
     }
   }, [isOpen, taskId])
+
+  useEffect(() => {
+    if (showActivity && taskId) {
+      getTaskActivityLog(taskId).then(setActivityLog).catch(console.error)
+    }
+  }, [showActivity, taskId])
+
+  const filteredActivityLog = activityFilter === 'all' 
+    ? activityLog 
+    : activityLog.filter(log => log.action === activityFilter)
 
   const fetchTaskDetails = async () => {
     setLoading(true)
@@ -105,6 +145,19 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       toast.success('Comment added')
     } catch (error) {
       toast.error('Failed to add comment')
+    }
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm('Delete this comment?')) return
+    try {
+      await deleteComment(commentId, taskId!)
+      if (task) {
+        setTask({ ...task, comments: (task.comments || []).filter(c => c.id !== commentId) })
+      }
+      toast.success('Comment deleted')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete comment')
     }
   }
 
@@ -170,6 +223,37 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     }
   }
 
+  const handleStartEdit = (itemId: string, content: string) => {
+    setEditingItemId(itemId)
+    setEditingContent(content)
+  }
+
+  const handleSaveEdit = async (itemId: string) => {
+    if (!editingContent.trim()) return
+    try {
+      await updateChecklistItem(itemId, editingContent)
+      if (task) {
+        const updatedChecklists = (task.checklists || []).map(cl => ({
+          ...cl,
+          items: cl.items.map(item => 
+            item.id === itemId ? { ...item, content: editingContent } : item
+          )
+        }))
+        setTask({ ...task, checklists: updatedChecklists })
+      }
+      setEditingItemId(null)
+      setEditingContent('')
+      toast.success('Item updated')
+    } catch (error) {
+      toast.error('Failed to update item')
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null)
+    setEditingContent('')
+  }
+
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this task?')) return
     try {
@@ -199,9 +283,10 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                     {task.column?.name || 'No Column'}
                   </Badge>
                   <span className="text-xs text-muted-foreground">ID: {task.id.slice(-6).toUpperCase()}</span>
+                  <span className="text-xs text-muted-foreground">v{task.version}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {currentUser?.role !== 'MEMBER' && (
+                  {(currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER' || task?.creatorId === currentUser?.id || task?.assigneeId === currentUser?.id) && (
                     <Button variant="ghost" size="icon" className="size-8 text-red-500 hover:text-red-600 hover:bg-red-500/10" onClick={handleDelete}>
                       <Trash2 className="size-4" />
                     </Button>
@@ -236,12 +321,39 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                 </section>
 
                 <section className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                      <CheckSquare className="size-4" />
-                      Checklist
-                    </div>
-                  </div>
+                  {(() => {
+                    const allItems = task.checklists?.flatMap(cl => cl.items) || []
+                    const completedCount = allItems.filter(i => i.isCompleted).length
+                    const totalCount = allItems.length
+                    const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
+                    
+                    return (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                            <CheckSquare className="size-4" />
+                            Checklist
+                            {totalCount > 0 && (
+                              <span className="text-xs font-normal text-muted-foreground/60">
+                                ({completedCount}/{totalCount} completed)
+                              </span>
+                            )}
+                          </div>
+                          {totalCount > 0 && (
+                            <div className="flex items-center gap-2">
+                              <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-green-500 transition-all duration-300"
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-muted-foreground">{Math.round(progress)}%</span>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )
+                  })()}
                   <div className="space-y-2">
                     {task.checklists?.[0]?.items.map((item: ChecklistItem) => (
                       <div key={item.id} className="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors group">
@@ -252,16 +364,47 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                             onChange={(e) => handleToggleChecklistItem(item.id, e.target.checked)}
                             className="rounded border-primary/20 cursor-pointer" 
                           />
-                          <span className={cn("text-sm", item.isCompleted && "line-through text-muted-foreground")}>{item.content}</span>
+                          {editingItemId === item.id ? (
+                            <div className="flex-1 flex gap-2">
+                              <Input 
+                                value={editingContent}
+                                onChange={(e) => setEditingContent(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(item.id)}
+                                className="h-7 text-sm"
+                                autoFocus
+                              />
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-green-500" onClick={() => handleSaveEdit(item.id)}>Save</Button>
+                              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCancelEdit}>Cancel</Button>
+                            </div>
+                          ) : (
+                            <span 
+                              className={cn("text-sm cursor-pointer hover:text-primary", item.isCompleted && "line-through text-muted-foreground")}
+                              onClick={() => handleStartEdit(item.id, item.content)}
+                            >
+                              {item.content}
+                            </span>
+                          )}
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="size-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500"
-                          onClick={() => handleDeleteChecklistItem(item.id)}
-                        >
-                          <X className="size-3" />
-                        </Button>
+                        {editingItemId !== item.id && (
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="size-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                              onClick={() => handleStartEdit(item.id, item.content)}
+                            >
+                              <Edit2 className="size-3" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="size-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500"
+                              onClick={() => handleDeleteChecklistItem(item.id)}
+                            >
+                              <X className="size-3" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     ))}
                     <div className="flex gap-2 pt-2">
@@ -301,25 +444,99 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                       </div>
                     </div>
                     <div className="space-y-6 pt-4">
-                      {(task.comments || []).map((comment: Comment) => (
-                        <div key={comment.id} className="flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                          <Avatar className="size-8 ring-1 ring-primary/10">
-                            <AvatarImage src={comment.user.image || undefined} />
-                            <AvatarFallback>{(comment.user.name?.[0] || 'U') as string}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold">{comment.user.name || 'Anonymous'}</span>
-                              <span className="text-[10px] text-muted-foreground">{new Date(comment.createdAt).toLocaleString()}</span>
-                            </div>
-                            <div className="p-3 bg-muted/20 rounded-2xl rounded-tl-none border border-primary/5 text-sm">
-                              {comment.content}
+                      {(task.comments || []).map((comment: Comment) => {
+                        const canDelete = 
+                          currentUser.role === 'ADMIN' ||
+                          (currentUser.role === 'MANAGER') ||
+                          (comment.userId === currentUser.id && (Date.now() - new Date(comment.createdAt).getTime()) < 5 * 60 * 1000)
+                        return (
+                          <div key={comment.id} className="flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <Avatar className="size-8 ring-1 ring-primary/10">
+                              <AvatarImage src={comment.user.image || undefined} />
+                              <AvatarFallback>{(comment.user.name?.[0] || 'U') as string}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold">{comment.user.name || 'Anonymous'}</span>
+                                  <span className="text-[10px] text-muted-foreground">{new Date(comment.createdAt).toLocaleString()}</span>
+                                </div>
+                                {canDelete && (
+                                  <Button variant="ghost" size="icon" className="size-6 text-muted-foreground hover:text-red-500" onClick={() => handleDeleteComment(comment.id)}>
+                                    <Trash2 className="size-3" />
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="p-3 bg-muted/20 rounded-2xl rounded-tl-none border border-primary/5 text-sm">
+                                {comment.content}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
+                </section>
+
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                      <Clock className="size-4" />
+                      Activity
+                    </div>
+                    {!showActivity && (
+                      <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowActivity(true)}>
+                        Show Activity
+                      </Button>
+                    )}
+                  </div>
+                  {showActivity && (
+                    <>
+                      <div className="flex gap-2 flex-wrap">
+                        <Select value={activityFilter} onValueChange={setActivityFilter}>
+                          <SelectTrigger className="h-7 text-xs bg-muted/20 border-primary/5">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            <SelectItem value="CREATE_TASK">Created</SelectItem>
+                            <SelectItem value="UPDATE_TASK_STATUS">Status Changed</SelectItem>
+                            <SelectItem value="UPDATE_TASK">Updated</SelectItem>
+                            <SelectItem value="ADD_COMMENT">Comment</SelectItem>
+                            <SelectItem value="ADD_TAG_TO_TASK">Tag Added</SelectItem>
+                            <SelectItem value="ADD_CHECKLIST_ITEM">Checklist</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                        {filteredActivityLog.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No activity yet</p>
+                        ) : (
+                          filteredActivityLog.map((log) => (
+                            <div key={log.id} className="flex gap-3 text-xs">
+                              <Avatar className="size-6">
+                                <AvatarImage src={log.user?.image || undefined} />
+                                <AvatarFallback className="text-[8px]">
+                                  {log.user?.name?.[0] || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{log.user?.name || 'Unknown'}</span>
+                                  <span className="text-muted-foreground">
+                                    {log.action.replace(/_/g, ' ').toLowerCase()}
+                                  </span>
+                                </div>
+                                <span className="text-muted-foreground">
+                                  {new Date(log.createdAt).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
                 </section>
               </div>
 
@@ -334,17 +551,29 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {boardMembers.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
+                        {isMember ? (
+                          <SelectItem value={currentUser.id}>
                             <div className="flex items-center gap-2">
                               <Avatar className="size-4">
-                                <AvatarImage src={member.image || undefined} />
-                                <AvatarFallback>{(member.name?.[0] || 'U') as string}</AvatarFallback>
+                                <AvatarImage src={currentUser.image || undefined} />
+                                <AvatarFallback>{(currentUser.name?.[0] || 'U') as string}</AvatarFallback>
                               </Avatar>
-                              {member.name}
+                              Assign to me
                             </div>
                           </SelectItem>
-                        ))}
+                        ) : (
+                          eligibleAssignees.map((member) => (
+                            <SelectItem key={member.id} value={member.id}>
+                              <div className="flex items-center gap-2">
+                                <Avatar className="size-4">
+                                  <AvatarImage src={member.image || undefined} />
+                                  <AvatarFallback>{(member.name?.[0] || 'U') as string}</AvatarFallback>
+                                </Avatar>
+                                {member.name}
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
