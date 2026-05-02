@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { getSession } from "@/lib/auth"
+import { getSession } from "@/lib/auth-server"
 import { redirect } from "next/navigation"
 import { DemoKanban } from "@/components/demo-kanban"
 

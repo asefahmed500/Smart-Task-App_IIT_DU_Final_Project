@@ -1,8 +1,9 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/app-sidebar"
-import { getSession } from "@/lib/auth"
+import { getSession } from "@/lib/auth-server"
 import { redirect } from "next/navigation"
+import { NotificationBell } from "@/components/notification-bell"
 
 export default async function MemberLayout({
   children,
@@ -11,24 +12,41 @@ export default async function MemberLayout({
 }) {
   const session = await getSession()
 
-  if (!session || session.role !== 'MEMBER') {
+  if (!session || !['ADMIN', 'MANAGER', 'MEMBER'].includes(session.role)) {
     redirect('/login')
   }
 
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <div className="flex min-h-screen bg-background">
+        <div className="flex min-h-screen bg-background w-full">
           <AppSidebar user={session} />
-          <main className="flex-1 overflow-auto">
-            <div className="flex h-16 items-center border-b px-6 bg-background/95 backdrop-blur sticky top-0 z-10">
-              <SidebarTrigger />
-              <div className="ml-4 flex items-center gap-2">
-                <span className="text-sm font-medium text-muted-foreground">Member Dashboard</span>
+          <main className="flex-1 flex flex-col min-w-0">
+            {/* Premium Header */}
+            <header className="h-16 border-b px-4 md:px-8 bg-background/80 backdrop-blur-md sticky top-0 z-50 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <SidebarTrigger />
+                <div className="h-4 w-px bg-border hidden md:block" />
+                <nav className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="hover:text-foreground transition-colors cursor-pointer font-medium">Member</span>
+                  <span>/</span>
+                  <span className="text-foreground font-semibold">Workspace</span>
+                </nav>
               </div>
-            </div>
-            <div className="p-6">
-              {children}
+              <div className="flex items-center gap-4">
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-primary/5 border border-primary/10 text-[10px] font-bold uppercase tracking-tighter text-primary">
+                  Personal Productivity
+                </div>
+                <NotificationBell userId={session.id} />
+              </div>
+            </header>
+
+            {/* Content with Noise Overlay and Max Width Control */}
+            <div className="flex-1 relative overflow-y-auto">
+              <div className="absolute inset-0 bg-noise opacity-[0.03] pointer-events-none" />
+              <div className="mx-auto w-full p-4 md:p-6 lg:p-10 space-y-8">
+                {children}
+              </div>
             </div>
           </main>
         </div>
@@ -36,3 +54,4 @@ export default async function MemberLayout({
     </TooltipProvider>
   )
 }
+

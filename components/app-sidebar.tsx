@@ -93,27 +93,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
           </SidebarMenu>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Communication</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href="/messages">
-                  <MessageSquare className="size-4" />
-                  <span>Messages</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href="/activity">
-                  <History className="size-4" />
-                  <span>Recent Activity</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
+
       </SidebarContent>
       <SidebarFooter className="border-t p-4">
         <SidebarMenu>

@@ -24,6 +24,7 @@ model User {
   createdTasks  Task[]         @relation("TaskCreator")
   timeEntries   TimeEntry[]
   boards        Board[]        @relation("BoardMembers")
+  reviews       Review[]       @relation("ReviewReviewer")
 }
 
 model Board {
@@ -133,6 +134,7 @@ model Review {
   taskId     String
   createdAt  DateTime @default(now())
   task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewer   User     @relation("ReviewReviewer", fields: [reviewerId], references: [id])
 }
 
 model Tag {
@@ -187,4 +189,16 @@ enum Priority {
   LOW
   MEDIUM
   HIGH
+  URGENT
+}
+
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, token])
 }

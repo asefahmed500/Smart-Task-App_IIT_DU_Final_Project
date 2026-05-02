@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/auth'
+import { getSession } from '@/lib/auth-server'
 import { redirect } from 'next/navigation'
 import { getAuditLogs } from '@/lib/admin-actions'
 import { 
@@ -23,7 +23,8 @@ export default async function AuditLogsPage() {
     redirect('/login')
   }
 
-  const logs = await getAuditLogs()
+  const logsResult = await getAuditLogs()
+  const logs = logsResult.success ? (logsResult.data as any[]) : []
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

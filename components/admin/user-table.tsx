@@ -55,7 +55,7 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
 
   const handleRoleChange = async (userId: string, role: string) => {
     try {
-      await updateUserRole(userId, role as Role)
+      await updateUserRole({ userId, role: role as Role })
       toast.success(`User role updated to ${role}`)
       setUsers(users.map(u => u.id === userId ? { ...u, role: role as Role } : u))
     } catch (error: unknown) {
@@ -69,7 +69,7 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
     if (!userToEdit) return
     setIsActionLoading(true)
     try {
-      await updateUserDetails(userToEdit.id, editData)
+      await updateUserDetails({ userId: userToEdit.id, ...editData })
       toast.success("User details updated")
       setUsers(users.map(u => u.id === userToEdit.id ? { ...u, ...editData } : u))
       setUserToEdit(null)
@@ -85,7 +85,7 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
     if (!userToDelete) return
     setIsActionLoading(true)
     try {
-      await deleteUser(userToDelete.id)
+      await deleteUser({ userId: userToDelete.id })
       toast.success("User deleted successfully")
       setUsers(users.filter(u => u.id !== userToDelete.id))
       setUserToDelete(null)

@@ -116,3 +116,11 @@ export interface Board {
   columns: Column[];
   updatedAt: string | Date;
 }
+
+export type ActionResult<T = any> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+  fieldErrors?: Record<string, string[]>;
+};

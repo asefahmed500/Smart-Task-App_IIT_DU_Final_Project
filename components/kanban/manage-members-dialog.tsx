@@ -56,15 +56,19 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
 
     setIsSearching(true)
     try {
-      const results = await searchUsers(val)
-      // Filter out existing members
-      const filtered = results.filter(r => !members.some(m => m.id === r.id))
-      setSearchResults(filtered as Array<{
-        id: string
-        name: string | null
-        email: string
-        image: string | null
-      }>)
+      const result = await searchUsers({ query: val })
+      if (result.success && result.data) {
+        // Filter out existing members
+        const filtered = result.data.filter((r: any) => !members.some(m => m.id === r.id))
+        setSearchResults(filtered as Array<{
+          id: string
+          name: string | null
+          email: string
+          image: string | null
+        }>)
+      } else {
+        setSearchResults([])
+      }
     } catch (error: unknown) {
       console.error(error)
     } finally {
@@ -74,10 +78,14 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
 
   const handleAddMember = async (userId: string) => {
     try {
-      await addBoardMember(boardId, userId)
-      toast.success('Member added successfully')
-      setSearch('')
-      setSearchResults([])
+      const result = await addBoardMember({ boardId, userId })
+      if (result.success) {
+        toast.success('Member added successfully')
+        setSearch('')
+        setSearchResults([])
+      } else {
+        toast.error(result.error || 'Failed to add member')
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to add member'
       toast.error(message)
@@ -88,8 +96,12 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
   const handleRemoveMember = async (userId: string) => {
     if (!confirm('Are you sure you want to remove this member?')) return
     try {
-      await removeBoardMember(boardId, userId)
-      toast.success('Member removed successfully')
+      const result = await removeBoardMember({ boardId, userId })
+      if (result.success) {
+        toast.success('Member removed successfully')
+      } else {
+        toast.error(result.error || 'Failed to remove member')
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to remove member'
       toast.error(message)

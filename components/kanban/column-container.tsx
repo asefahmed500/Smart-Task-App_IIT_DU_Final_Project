@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { deleteColumn } from '@/lib/board-actions'
+import { deleteColumn, undoLastAction } from '@/lib/board-actions'
 import { toast } from 'sonner'
 import { AddTaskDialog } from './add-task-dialog'
 import { SetWipLimitDialog } from './set-wip-limit-dialog'
@@ -60,8 +60,20 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, onTaskCli
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this column? Tasks will be moved to another column if available.')) return
     try {
-      await deleteColumn(column.id, boardId)
-      toast.success('Column deleted')
+      const result = await deleteColumn({ columnId: column.id, boardId })
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete column')
+      }
+      toast.success('Column deleted', {
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            const result = await undoLastAction()
+            if (result.success) toast.success('Column restored')
+            else toast.error(result.error || 'Failed to undo')
+          }
+        }
+      })
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to delete column'
       toast.error(message)

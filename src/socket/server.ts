@@ -70,27 +70,6 @@ io.on('connection', (socket) => {
     socket.to(`board:${data.boardId}`).emit('column:created', data)
   })
 
-  socket.on('notification', (data: {
-    userId: string
-    type: string
-    message: string
-    link?: string
-  }) => {
-    io.emit(`notification:${data.userId}`, data)
-  })
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id)
-    boardRooms.forEach((sockets) => sockets.delete(socket.id))
-    // Clean up user socket mapping
-    userSockets.forEach((sockets, userId) => {
-      sockets.delete(socket.id)
-      if (sockets.size === 0) {
-        userSockets.delete(userId)
-      }
-    })
-  })
-
   // Register user for personal notifications
   socket.on('register-user', (userId: string) => {
     if (!userSockets.has(userId)) {
@@ -106,11 +85,26 @@ io.on('connection', (socket) => {
     type: string
     message: string
     link?: string
+    notificationId?: string
   }) => {
     // Emit to user's personal room
+    console.log(`Emitting notification to user:${data.userId}`, data.type)
     io.to(`user:${data.userId}`).emit('notification', data)
   })
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id)
+    boardRooms.forEach((sockets) => sockets.delete(socket.id))
+    // Clean up user socket mapping
+    userSockets.forEach((sockets, userId) => {
+      sockets.delete(socket.id)
+      if (sockets.size === 0) {
+        userSockets.delete(userId)
+      }
+    })
+  })
 })
+
 
 const PORT = process.env.SOCKET_PORT || 3001
 

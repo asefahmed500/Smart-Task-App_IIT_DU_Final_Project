@@ -34,9 +34,13 @@ export function SetWipLimitDialog({ isOpen, onClose, columnId, boardId, currentL
 
     setLoading(true)
     try {
-      await updateColumnWipLimit(columnId, numLimit, boardId)
-      toast.success('WIP limit updated')
-      onClose()
+      const result = await updateColumnWipLimit({ columnId, wipLimit: numLimit })
+      if (result.success) {
+        toast.success('WIP limit updated')
+        onClose()
+      } else {
+        toast.error(result.error || 'Failed to update WIP limit')
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to update WIP limit'
       toast.error(message)

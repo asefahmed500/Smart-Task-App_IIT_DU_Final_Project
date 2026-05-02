@@ -1,7 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/app-sidebar"
-import { getSession } from "@/lib/auth"
+import { getSession } from "@/lib/auth-server"
 import { redirect } from "next/navigation"
 import { NotificationBell } from "@/components/notification-bell"
 
@@ -29,7 +29,7 @@ export default async function DashboardLayout({
                   {session.role} Workspace
                 </span>
               </div>
-              <NotificationBell />
+              <NotificationBell userId={session.id} />
             </div>
             <div className="p-6">
               {children}

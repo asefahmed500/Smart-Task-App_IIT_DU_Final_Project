@@ -23,13 +23,15 @@ import { createPortal } from 'react-dom'
 import { ColumnContainer } from './column-container'
 import { TaskCard } from './task-card'
 import { updateTaskStatus } from '@/lib/task-actions'
-import { reorderColumns } from '@/lib/board-actions'
+import { reorderColumns, undoLastAction } from '@/lib/board-actions'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { AddColumnDialog } from './add-column-dialog'
 import { TaskDetailsDialog } from './task-details-dialog'
 import { useSocket, useBoardEvents, emitTaskMoved } from './socket-hooks'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 import { Board, Task, Column, User } from '@/types/kanban'
 
@@ -72,6 +74,19 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
   }, [])
 
   useBoardEvents(initialBoard.id, handleBoardEvent)
+
+  const handleUndo = async () => {
+    try {
+      const result = await undoLastAction()
+      if (result.success) {
+        toast.success('Action undone')
+      } else {
+        toast.error(result.error || 'Failed to undo')
+      }
+    } catch (error) {
+      toast.error('Failed to undo last action')
+    }
+  }
 
   const columnsId = useMemo(() => board.columns.map((col: Column) => col.id), [board.columns])
 
@@ -179,8 +194,13 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
       setBoard((prev: Board) => ({ ...prev, columns: newColumns }))
       
       try {
-        await reorderColumns(board.id, newColumns.map((c: Column) => c.id))
-        toast.success('Columns reordered')
+        const result = await reorderColumns({ boardId: board.id, columnIds: newColumns.map((c: Column) => c.id) })
+        if (result.success) {
+          toast.success('Columns reordered')
+        } else {
+          toast.error(result.error || 'Failed to save column order')
+          setBoard(initialBoard)
+        }
       } catch {
         toast.error('Failed to save column order')
         setBoard(initialBoard)
@@ -199,22 +219,37 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
           const oldColumnId = activeTask.columnId
           
           try {
-            await updateTaskStatus(
-              activeId as string, 
-              overColumnId as string, 
-              overColumn.name,
-              activeTask.version
-            )
-            
-            emitTaskMoved(board.id, {
-              taskId: activeId as string,
-              newColumnId: overColumnId as string,
-              oldColumnId,
-              userId: currentUser.id,
-              userName: currentUser.name || currentUser.email
+            const result = await updateTaskStatus({
+              taskId: activeTask.id,
+              columnId: overColumn.id,
+              statusName: overColumn.name,
+              version: activeTask.version
             })
             
-            toast.success(`Task moved to ${overColumn.name}`)
+            if (result.success) {
+              emitTaskMoved(board.id, {
+                taskId: activeId as string,
+                newColumnId: overColumnId as string,
+                oldColumnId,
+                userId: currentUser.id,
+                userName: currentUser.name || currentUser.email
+              })
+              
+              toast.success(`Task moved to ${overColumn.name}`, {
+                action: {
+                  label: 'Undo',
+                  onClick: handleUndo
+                }
+              })
+            } else {
+              const message = result.error || "Failed to move task"
+              if (message.includes('Conflict')) {
+                setConflictModalOpen(true)
+              } else {
+                toast.error(message)
+              }
+              setBoard(initialBoard)
+            }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Failed to move task"
         if (message.includes('Conflict')) {
@@ -253,7 +288,28 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
           onDragOver={onDragOver}
           onDragEnd={onDragEnd}
         >
-          <div className="flex gap-6 h-full min-w-full">
+          <div className="flex flex-col gap-4 min-w-full">
+            {/* WIP Status Summary */}
+            <div className="flex items-center gap-3 px-1">
+              {board.columns.some(col => col.wipLimit > 0 && col.tasks.length > col.wipLimit) ? (
+                <div className="flex items-center gap-2 text-xs font-medium text-red-500 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20 animate-pulse">
+                  <ShieldAlert className="size-3.5" />
+                  WIP Limit Violation Detected
+                </div>
+              ) : board.columns.some(col => col.wipLimit > 0 && col.tasks.length === col.wipLimit) ? (
+                <div className="flex items-center gap-2 text-xs font-medium text-yellow-600 bg-yellow-500/10 px-3 py-1.5 rounded-full border border-yellow-500/20">
+                  <AlertTriangle className="size-3.5" />
+                  Some columns are at capacity
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20">
+                  <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Flow is within limits
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-6 h-full min-w-full">
             <SortableContext items={columnsId} strategy={horizontalListSortingStrategy}>
               {board.columns.map((col: Column) => (
                 <ColumnContainer 
@@ -280,6 +336,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
               </div>
             )}
           </div>
+        </div>
 
           <AddColumnDialog
             isOpen={isAddColumnOpen}

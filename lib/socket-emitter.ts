@@ -12,10 +12,6 @@ function getSocket(): Socket {
   return socket
 }
 
-/**
- * Emit a notification event to the socket server
- * The server will then forward it to the target user's room
- */
 export function emitNotification(data: {
   userId: string
   type: string
@@ -23,6 +19,19 @@ export function emitNotification(data: {
   link?: string
   notificationId: string
 }) {
-  const s = getSocket()
-  s.emit('notification', data)
+  try {
+    const s = getSocket()
+    s.emit('notification', data)
+  } catch (error) {
+    console.error('Socket notification error:', error)
+  }
+}
+
+export function emitBoardEvent(event: string, data: any) {
+  try {
+    const s = getSocket()
+    s.emit(event, data)
+  } catch (error) {
+    console.error(`Socket event error (${event}):`, error)
+  }
 }

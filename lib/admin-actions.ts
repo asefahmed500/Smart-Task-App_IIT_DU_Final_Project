@@ -1,407 +1,407 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { getSession } from '@/lib/auth'
+import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
-import { Role } from '../generated/prisma/client'
+import { Role } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { notifyAdminsNewUser } from '@/lib/notification-utils'
+import { ActionResult } from '@/types/kanban'
+import { idSchema, roleSchema } from './schemas'
+import { z } from 'zod'
+import { 
+  getAutomationRules, 
+  createAutomationRule, 
+  updateAutomationRule, 
+  deleteAutomationRule, 
+  toggleAutomationRule 
+} from './automation-actions'
+
+const createUserSchema = z.object({
+  name: z.string().min(1).max(50),
+  email: z.string().email(),
+  password: z.string().min(6),
+  role: roleSchema
+})
+
+const updateUserSchema = z.object({
+  id: idSchema,
+  name: z.string().min(1).max(50).optional(),
+  email: z.string().email().optional(),
+  role: roleSchema.optional()
+})
 
 async function checkAdmin() {
   const session = await getSession()
   if (!session || session.role !== 'ADMIN') {
-    throw new Error('Unauthorized: Admin access required')
+    return { success: false, error: 'Unauthorized: Admin access required' }
   }
-  return session
+  return { success: true, session }
 }
 
-export async function getUsers() {
-  await checkAdmin()
-  return await prisma.user.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    }
-  })
-}
+export async function getUsers(): Promise<ActionResult> {
+  const auth = await checkAdmin()
+  if (!auth.success) return auth
 
-export async function updateUserRole(userId: string, role: Role) {
-  await checkAdmin()
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data: { role },
-  })
-
-  // Log the action
-  const session = await getSession()
-  await prisma.auditLog.create({
-    data: {
-      userId: session!.id,
-      action: 'UPDATE_USER_ROLE',
-      details: { targetUserId: userId, newRole: role },
-    }
-  })
-
-  revalidatePath('/admin')
-  revalidatePath('/admin/users')
-  return user
-}
-
-export async function updateUserDetails(userId: string, data: { name?: string, email?: string }) {
-  await checkAdmin()
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data,
-  })
-
-  // Log the action
-  const session = await getSession()
-  await prisma.auditLog.create({
-    data: {
-      userId: session!.id,
-      action: 'UPDATE_USER_DETAILS',
-      details: { targetUserId: userId, ...data },
-    }
-  })
-
-  revalidatePath('/admin')
-  revalidatePath('/admin/users')
-  return user
-}
-
-export async function deleteUser(userId: string) {
-  const session = await checkAdmin()
-  
-  if (userId === session.id) {
-    throw new Error('Cannot delete your own admin account')
-  }
-
-  await prisma.user.delete({
-    where: { id: userId },
-  })
-
-  // Log the action
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'DELETE_USER',
-      details: { targetUserId: userId },
-    }
-  })
-
-  revalidatePath('/admin')
-  revalidatePath('/admin/users')
-}
-
-export async function createUser(data: { name: string, email: string, password: string, role: Role }) {
-  const session = await checkAdmin()
-  
-  const hashedPassword = await bcrypt.hash(data.password, 10)
-  
-  const user = await prisma.user.create({
-    data: {
-      ...data,
-      password: hashedPassword
-    }
-  })
-
-  // Log the action
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'CREATE_USER',
-      details: { targetUserId: user.id, email: user.email, role: user.role },
-    }
-  })
-
-  // Notify other admins of new user (exclude the creator)
-  notifyAdminsNewUser(user.id, user.name, user.email, session.id).catch(console.error)
-
-  revalidatePath('/admin')
-  revalidatePath('/admin/users')
-  return user
-}
-
-export async function getAuditLogs() {
-  await checkAdmin()
-  return await prisma.auditLog.findMany({
-    take: 50,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      user: {
-        select: {
-          name: true,
-          email: true,
-        }
-      }
-    }
-  })
-}
-
-export async function getAdminStats() {
-  await checkAdmin()
-  const [userCount, boardCount, totalLogs, recentLogsCount, last7DaysLogs] = await Promise.all([
-    prisma.user.count(),
-    prisma.board.count(),
-    prisma.auditLog.count(),
-    prisma.auditLog.count({
-      where: {
-        createdAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
-      }
-    }),
-    prisma.auditLog.groupBy({
-      by: ['createdAt'],
-      where: {
-        createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-        }
-      },
-      _count: true,
-    })
-  ])
-
-  // Formatting for the chart
-  const activityData = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
-    const dateStr = d.toISOString().split('T')[0]
-    
-    const count = last7DaysLogs
-      .filter(log => log.createdAt.toISOString().split('T')[0] === dateStr)
-      .reduce((sum, log) => sum + log._count, 0)
-
-    return {
-      name: d.toLocaleDateString('en-US', { weekday: 'short' }),
-      value: count
-    }
-  })
-
-  // Real health check: Just a ping to DB
-  let dbStatus = 'STABLE'
-  let latency = '0ms'
   try {
-    const start = Date.now()
-    await prisma.$queryRaw`SELECT 1`
-    latency = `${Date.now() - start}ms`
-  } catch {
-    dbStatus = 'DEGRADED'
-  }
-
-  const automationExecCount = await prisma.auditLog.count({
-    where: {
-      action: { in: ['CREATE_AUTOMATION_RULE', 'TOGGLE_AUTOMATION_RULE', 'EXECUTE_AUTOMATION_RULE'] },
-      createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-    }
-  })
-
-  return {
-    userCount,
-    boardCount,
-    totalLogs,
-    logCount: recentLogsCount,
-    activityData,
-    dbStatus,
-    latency,
-    automationExecCount
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      }
+    })
+    return { success: true, data: users }
+  } catch (error) {
+    return { success: false, error: 'Failed to fetch users' }
   }
 }
 
-export async function getUserProfile() {
-  const session = await getSession()
-  if (!session) {
-    throw new Error('Unauthorized')
-  }
+export async function updateUserRole(input: { userId: string, role: Role }): Promise<ActionResult> {
+  const { userId, role } = input
+  const auth = await checkAdmin()
+  if (!auth.success) return auth
 
-  return await prisma.user.findUnique({
-    where: { id: session.id },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      image: true,
-      createdAt: true,
-    }
-  })
+  try {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { role },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: auth.session!.id,
+        action: 'UPDATE_USER_ROLE',
+        details: { targetUserId: userId, newRole: role },
+      }
+    })
+
+    revalidatePath('/admin')
+    return { success: true, data: user }
+  } catch (error) {
+    return { success: false, error: 'Failed to update user role' }
+  }
 }
 
-export async function updateUserProfile(data: { name?: string, image?: string }) {
-  const session = await getSession()
-  if (!session) {
-    throw new Error('Unauthorized')
+export async function deleteUser(input: { userId: string }): Promise<ActionResult> {
+  const { userId } = input
+  const auth = await checkAdmin()
+  if (!auth.success) return auth
+
+  if (userId === auth.session!.id) {
+    return { success: false, error: 'Cannot delete your own admin account' }
   }
 
-  const user = await prisma.user.update({
-    where: { id: session.id },
-    data,
-  })
+  try {
+    await prisma.user.delete({
+      where: { id: userId },
+    })
 
-  // Log the action
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'UPDATE_PROFILE',
-      details: { ...data },
-    }
-  })
+    await prisma.auditLog.create({
+      data: {
+        userId: auth.session!.id,
+        action: 'DELETE_USER',
+        details: { targetUserId: userId },
+      }
+    })
 
-  revalidatePath('/profile')
-  revalidatePath('/admin')
-  return user
+    revalidatePath('/admin')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: 'Failed to delete user' }
+  }
 }
 
-export async function getAllBoards() {
-  await checkAdmin()
-  return await prisma.board.findMany({
-    include: {
-      owner: {
-        select: {
-          name: true,
-          email: true,
-        }
-      },
-      members: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        }
-      },
-      _count: {
-        select: {
-          members: true,
-          columns: true,
+export async function createUser(data: any): Promise<ActionResult> {
+  const auth = await checkAdmin()
+  if (!auth.success) return auth
+
+  const validation = createUserSchema.safeParse(data)
+  if (!validation.success) {
+    return { success: false, error: 'Validation failed', fieldErrors: validation.error.flatten().fieldErrors }
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(validation.data.password, 10)
+    
+    const user = await prisma.user.create({
+      data: {
+        ...validation.data,
+        password: hashedPassword
+      }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: auth.session!.id,
+        action: 'CREATE_USER',
+        details: { targetUserId: user.id, email: user.email, role: user.role },
+      }
+    })
+
+    notifyAdminsNewUser(user.id, user.name, user.email, auth.session!.id).catch(console.error)
+
+    revalidatePath('/admin')
+    return { success: true, data: user }
+  } catch (error) {
+    return { success: false, error: 'Failed to create user' }
+  }
+}
+
+export async function updateUserDetails(input: { userId: string, name?: string, email?: string }): Promise<ActionResult> {
+  const { userId, ...data } = input
+  const auth = await checkAdmin()
+  if (!auth.success) return auth
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data,
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: auth.session!.id,
+        action: 'UPDATE_USER_DETAILS',
+        details: { targetUserId: userId, ...data },
+      }
+    })
+
+    revalidatePath('/admin')
+    return { success: true, data: user }
+  } catch (error) {
+    return { success: false, error: 'Failed to update user details' }
+  }
+}
+
+export { 
+  getAutomationRules, 
+  createAutomationRule, 
+  updateAutomationRule, 
+  deleteAutomationRule, 
+  toggleAutomationRule 
+}
+
+export async function getAuditLogs(): Promise<ActionResult> {
+  const auth = await checkAdmin()
+  if (!auth.success) return auth
+
+  try {
+    const logs = await prisma.auditLog.findMany({
+      take: 100,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+          }
         }
       }
-    }
-  })
-}
-export async function getAutomationRules() {
-  await checkAdmin()
-  return await prisma.automationRule.findMany({
-    orderBy: { createdAt: 'desc' }
-  })
-}
-
-export async function createAutomationRule(data: { name: string, trigger: string, action: string, condition?: string }) {
-  const session = await checkAdmin()
-  const rule = await prisma.automationRule.create({
-    data
-  })
-
-  // Log the action
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'CREATE_AUTOMATION_RULE',
-      details: { ruleId: rule.id, name: rule.name },
-    }
-  })
-
-  revalidatePath('/admin/automation')
-  return rule
-}
-
-export async function toggleAutomationRule(ruleId: string, enabled: boolean) {
-  const session = await checkAdmin()
-  const rule = await prisma.automationRule.update({
-    where: { id: ruleId },
-    data: { enabled }
-  })
-
-  // Log the action
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'TOGGLE_AUTOMATION_RULE',
-      details: { ruleId, enabled },
-    }
-  })
-
-  revalidatePath('/admin/automation')
-  return rule
-}
-
-export async function deleteAutomationRule(ruleId: string) {
-  const session = await checkAdmin()
-  await prisma.automationRule.delete({
-    where: { id: ruleId }
-  })
-
-  // Log the action
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'DELETE_AUTOMATION_RULE',
-      details: { ruleId },
-    }
-  })
-
-  revalidatePath('/admin/automation')
-}
-
-export async function getSystemReports() {
-  await checkAdmin()
-  
-  const [taskCount, completedTaskCount, userCount] = await Promise.all([
-    prisma.task.count(),
-    prisma.task.count({ 
-      where: { 
-        column: { 
-          name: { contains: 'Done', mode: 'insensitive' } 
-        } 
-      } 
-    }),
-    prisma.user.count()
-  ])
-
-  const completionRate = taskCount > 0 ? Math.round((completedTaskCount / taskCount) * 100) : 0
-  
-  // Real throughput based on audit logs
-  const logs = await prisma.auditLog.findMany({
-    where: {
-      action: 'UPDATE_TASK_STATUS',
-      details: { path: ['newStatus'], equals: 'Done' }
-    },
-    take: 500,
-    orderBy: { createdAt: 'desc' }
-  })
-
-  const throughputData = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
-    const dateStr = d.toISOString().split('T')[0]
-    const count = logs.filter(l => l.createdAt.toISOString().split('T')[0] === dateStr).length
-    return {
-      name: d.toLocaleDateString('en-US', { weekday: 'short' }),
-      tasks: count
-    }
-  })
-
-  return {
-    metrics: [
-      { title: "Total Tasks", value: taskCount.toString(), change: "Live", icon: "Layers", color: "text-blue-500" },
-      { title: "Completion Rate", value: `${completionRate}%`, change: "Real-time", icon: "TrendingUp", color: "text-green-500" },
-      { title: "Resolved Tasks", value: `${completedTaskCount}`, change: "System-wide", icon: "BarChart3", color: "text-purple-500" },
-      { title: "Total Users", value: userCount.toString(), change: "Active", icon: "Users", color: "text-orange-500" },
-    ],
-    throughputData: throughputData.map(d => ({ name: d.name, value: d.tasks }))
+    })
+    return { success: true, data: logs }
+  } catch (error) {
+    return { success: false, error: 'Failed to fetch audit logs' }
   }
 }
 
-export async function getAutomationStats() {
-  await checkAdmin()
-  const execCount = await prisma.auditLog.count({
-    where: {
-      action: 'EXECUTE_AUTOMATION_RULE',
-      createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+export async function getAdminStats(): Promise<ActionResult> {
+  const auth = await checkAdmin()
+  if (!auth.success) return auth
+
+  try {
+    const [userCount, boardCount, totalLogs, recentLogsCount, last7DaysLogs] = await Promise.all([
+      prisma.user.count(),
+      prisma.board.count(),
+      prisma.auditLog.count(),
+      prisma.auditLog.count({
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+          }
+        }
+      }),
+      prisma.auditLog.groupBy({
+        by: ['createdAt'],
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          }
+        },
+        _count: true,
+      })
+    ])
+
+    const activityData = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (6 - i))
+      const dateStr = d.toISOString().split('T')[0]
+      
+      const count = last7DaysLogs
+        .filter(log => log.createdAt.toISOString().split('T')[0] === dateStr)
+        .reduce((sum, log) => sum + log._count, 0)
+
+      return {
+        name: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        value: count
+      }
+    })
+
+    let dbStatus = 'STABLE'
+    let latency = '0ms'
+    try {
+      const start = Date.now()
+      await prisma.$queryRaw`SELECT 1`
+      latency = `${Date.now() - start}ms`
+    } catch {
+      dbStatus = 'DEGRADED'
     }
-  })
-  return { execCount }
+
+    const automationExecCount = await prisma.auditLog.count({
+      where: {
+        action: { in: ['AUTOMATION_EXECUTED'] },
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+      }
+    })
+
+    return {
+      success: true,
+      data: {
+        userCount,
+        boardCount,
+        totalLogs,
+        logCount: recentLogsCount,
+        activityData,
+        dbStatus,
+        latency,
+        automationExecCount
+      }
+    }
+  } catch (error) {
+    return { success: false, error: 'Failed to fetch admin stats' }
+  }
+}
+
+export async function getUserProfile(): Promise<ActionResult> {
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        image: true,
+        createdAt: true,
+      }
+    })
+    return { success: true, data: user }
+  } catch (error) {
+    return { success: false, error: 'Failed to fetch profile' }
+  }
+}
+
+export async function updateUserProfile(data: { name?: string, image?: string }): Promise<ActionResult> {
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: session.id },
+      data,
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'UPDATE_PROFILE',
+        details: { ...data },
+      }
+    })
+
+    revalidatePath('/profile')
+    return { success: true, data: user }
+  } catch (error) {
+    return { success: false, error: 'Failed to update profile' }
+  }
+}
+
+export async function getAllBoards(): Promise<ActionResult> {
+  const auth = await checkAdmin()
+  if (!auth.success) return auth
+
+  try {
+    const boards = await prisma.board.findMany({
+      include: {
+        owner: { select: { name: true, email: true } },
+        members: { select: { id: true, name: true, email: true } },
+        _count: { select: { members: true, columns: true } }
+      }
+    })
+    return { success: true, data: boards }
+  } catch (error) {
+    return { success: false, error: 'Failed to fetch boards' }
+  }
+}
+
+export async function getSystemReports(): Promise<ActionResult> {
+  const auth = await checkAdmin()
+  if (!auth.success) return auth
+
+  try {
+    const [taskCount, completedTaskCount, userCount] = await Promise.all([
+      prisma.task.count(),
+      prisma.task.count({ 
+        where: { 
+          column: { 
+            name: { contains: 'Done', mode: 'insensitive' } 
+          } 
+        } 
+      }),
+      prisma.user.count()
+    ])
+
+    const completionRate = taskCount > 0 ? Math.round((completedTaskCount / taskCount) * 100) : 0
+    
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        action: 'UPDATE_TASK_STATUS',
+        details: { path: ['newStatus'], equals: 'Done' }
+      },
+      take: 500,
+      orderBy: { createdAt: 'desc' }
+    })
+
+    const throughputData = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (6 - i))
+      const dateStr = d.toISOString().split('T')[0]
+      const count = logs.filter(l => l.createdAt.toISOString().split('T')[0] === dateStr).length
+      return {
+        name: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        value: count
+      }
+    })
+
+    return {
+      success: true,
+      data: {
+        metrics: [
+          { title: "Total Tasks", value: taskCount.toString(), change: "Live", icon: "Layers", color: "text-blue-500" },
+          { title: "Completion Rate", value: `${completionRate}%`, change: "Real-time", icon: "TrendingUp", color: "text-green-500" },
+          { title: "Resolved Tasks", value: `${completedTaskCount}`, change: "System-wide", icon: "BarChart3", color: "text-purple-500" },
+          { title: "Total Users", value: userCount.toString(), change: "Active", icon: "Users", color: "text-orange-500" },
+        ],
+        throughputData
+      }
+    }
+  } catch (error) {
+    return { success: false, error: 'Failed to fetch system reports' }
+  }
 }

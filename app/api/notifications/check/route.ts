@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { runNotificationChecks } from '@/lib/notification-utils'
-import { getSession } from '@/lib/auth'
+import { getSession } from '@/lib/auth-server'
 
 /**
  * API route to check for due date reminders and overdue tasks

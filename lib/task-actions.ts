@@ -1,247 +1,152 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { getSession } from '@/lib/auth'
+import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
 import { evaluateAutomationRules } from './automation-actions'
-import { emitNotification } from '@/lib/socket-emitter'
+import { emitNotification, emitBoardEvent } from '@/lib/socket-emitter'
+import { 
+  createTaskSchema, 
+  updateTaskSchema, 
+  moveTaskSchema, 
+  createCommentSchema,
+  addChecklistItemSchema,
+  toggleChecklistItemSchema,
+  addAttachmentSchema,
+  logTimeSchema,
+  submitReviewSchema,
+  completeReviewSchema,
+  idSchema,
+  createTagSchema,
+  manageTaskTagSchema,
+  updateChecklistItemSchema
+} from './schemas'
+import { Priority, Role } from '@/lib/prisma'
+import { ActionResult } from '@/types/kanban'
+import { checkBoardPermission, getTagsForBoard } from './board-actions'
 
-type Role = 'ADMIN' | 'MANAGER' | 'MEMBER'
+// No need to redefine Role if imported from prisma
 
-async function checkTaskPermission(taskId: string) {
+/**
+ * Helper to check task-level permissions
+ */
+async function checkTaskPermission(input: { taskId: string, allowedRoles?: string[] }) {
+  const { taskId, allowedRoles = ['ADMIN', 'MANAGER', 'MEMBER'] } = input;
   const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+  if (!session) return { success: false, error: 'Unauthorized: Please log in' }
 
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    include: {
-      column: { 
-        include: { 
-          board: {
-            include: {
-              members: { select: { id: true } }
-            }
-          } 
-        } 
-      },
-      assignee: true
-    }
-  })
-
-  if (!task) throw new Error('Task not found')
-
-  const board = task.column.board
-  const role = session.role as Role
-
-  if (role === 'ADMIN') return true
-
-  const isMember = board.members.some(m => m.id === session.id)
-  if (!isMember) throw new Error('Not a member of this board')
-
-  if (role === 'MANAGER') return true
-
-  if (role === 'MEMBER') {
-    if (task.assigneeId !== session.id && task.creatorId !== session.id) {
-      throw new Error('You can only edit/delete tasks assigned to you or created by you')
-    }
-    return true
-  }
-
-  throw new Error('Unauthorized')
-}
-
-async function checkBoardPermission(columnId: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  const column = await prisma.column.findUnique({
-    where: { id: columnId },
-    include: { board: { include: { members: { select: { id: true } } } } }
-  })
-
-  if (!column) throw new Error('Column not found')
-
-  const board = column.board
-  const role = session.role as Role
-
-  if (role === 'ADMIN') return true
-
-  const isMember = board.members.some(m => m.id === session.id)
-  if (!isMember) throw new Error('Not a member of this board')
-
-  if (role === 'MANAGER') return true
-
-  if (role === 'MEMBER') {
-    return true
-  }
-
-  throw new Error('Unauthorized')
-}
-
-export async function updateTaskStatus(taskId: string, newColumnId: string, newStatusName: string, clientVersion?: number) {
-  await checkTaskPermission(taskId)
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  if (clientVersion !== undefined) {
-    const currentTask = await prisma.task.findUnique({
+  try {
+    const task = await prisma.task.findUnique({
       where: { id: taskId },
-      select: { version: true }
-    })
-    if (currentTask && currentTask.version !== clientVersion) {
-      throw new Error('Conflict: Task was modified by another user. Please refresh and try again.')
-    }
-  }
-
-  const targetColumn = await prisma.column.findUnique({
-    where: { id: newColumnId },
-    select: { wipLimit: true, board: { include: { members: { select: { id: true } } } } }
-  })
-
-  if (!targetColumn) throw new Error('Column not found')
-
-  const role = session.role as Role
-  const isManagerOrAdmin = role === 'ADMIN' || role === 'MANAGER'
-
-  if (targetColumn.wipLimit > 0 && !isManagerOrAdmin) {
-    const currentTaskCount = await prisma.task.count({
-      where: { columnId: newColumnId, id: { not: taskId } }
-    })
-
-    if (currentTaskCount >= targetColumn.wipLimit) {
-      throw new Error(`WIP limit exceeded (${currentTaskCount}/${targetColumn.wipLimit}). Contact a manager to override.`)
-    }
-  }
-
-  const existingTask = await prisma.task.findUnique({
-    where: { id: taskId },
-    select: { columnId: true, title: true }
-  })
-  const oldColumnId = existingTask?.columnId || ''
-
-  const task = await prisma.task.update({
-    where: { id: taskId },
-    data: { 
-      columnId: newColumnId,
-      updatedAt: new Date(),
-      version: { increment: 1 }
-    },
-    include: {
-      column: true
-    }
-  })
-
-  const currentTaskCount = await prisma.task.count({
-    where: { columnId: newColumnId }
-  })
-  const wasOverride = targetColumn.wipLimit > 0 && currentTaskCount > targetColumn.wipLimit
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: wasOverride ? 'UPDATE_TASK_STATUS_OVERRIDE' : 'UPDATE_TASK_STATUS',
-      details: { 
-        taskId, 
-        newStatus: newStatusName,
-        columnId: newColumnId,
-        wipLimit: targetColumn.wipLimit,
-        taskCountAfter: currentTaskCount,
-        override: wasOverride
-      },
-    }
-  })
-
-  if (task.assigneeId && task.assigneeId !== session.id) {
-    const notification = await prisma.notification.create({
-      data: {
-        userId: task.assigneeId,
-        type: 'TASK_STATUS_CHANGED',
-        message: `Task "${task.title}" moved to ${newStatusName}`,
-        link: `/dashboard/board/${task.columnId}`
+      include: {
+        column: { 
+          include: { 
+            board: {
+              include: {
+                members: { select: { id: true, role: true } }
+              }
+            } 
+          } 
+        }
       }
     })
-    emitNotification({
-      userId: task.assigneeId,
-      type: 'TASK_STATUS_CHANGED',
-      message: `Task "${task.title}" moved to ${newStatusName}`,
-      link: `/dashboard/board/${task.columnId}`,
-      notificationId: notification.id
-    })
+
+    if (!task) return { success: false, error: 'Task not found' }
+
+    const board = task.column.board
+    const userRole = session.role as Role
+    const isAdmin = userRole === 'ADMIN'
+    const isOwner = board.ownerId === session.id
+    const membership = board.members.find(m => m.id === session.id)
+    const isMember = !!membership
+
+    // Admin has full access
+    if (isAdmin) return { success: true, task, session }
+
+    // Check board membership or ownership
+    if (!isMember && !isOwner) {
+      return { success: false, error: 'Forbidden: You are not a member of this board' }
+    }
+
+    // Manager/Owner have full access on the board
+    if (isOwner || membership?.role === 'MANAGER' || userRole === 'MANAGER') {
+      return { success: true, task, session }
+    }
+
+    // If only MANAGER/ADMIN allowed but user is just a MEMBER
+    if (allowedRoles.includes('MANAGER') && !allowedRoles.includes('MEMBER')) {
+      return { success: false, error: 'Forbidden: Manager permissions required' }
+    }
+
+    // Default Member access: can only edit/delete tasks they created or are assigned to
+    const isCreator = task.creatorId === session.id
+    const isAssignee = task.assigneeId === session.id
+
+    if (!isCreator && !isAssignee) {
+       // At this point, the user is a MEMBER (not ADMIN/MANAGER/Owner)
+       // If they aren't the creator or assignee, they can only proceed if MEMBER_ALL is allowed
+       if (!allowedRoles.includes('MEMBER_ALL')) {
+         return { success: false, error: 'Forbidden: You do not have permission to modify this task' }
+       }
+    }
+
+    return { success: true, task, session, isCreator, isAssignee }
+  } catch (error) {
+    console.error('[CHECK_TASK_PERMISSION_ERROR]', error)
+    return { success: false, error: 'Failed to verify task permissions' }
   }
-
-  if (task.creatorId && task.creatorId !== session.id && task.creatorId !== task.assigneeId) {
-    const notification = await prisma.notification.create({
-      data: {
-        userId: task.creatorId,
-        type: 'TASK_STATUS_CHANGED',
-        message: `Task "${task.title}" moved to ${newStatusName}`,
-        link: `/dashboard/board/${task.columnId}`
-      }
-    })
-    emitNotification({
-      userId: task.creatorId,
-      type: 'TASK_STATUS_CHANGED',
-      message: `Task "${task.title}" moved to ${newStatusName}`,
-      link: `/dashboard/board/${task.columnId}`,
-      notificationId: notification.id
-    })
-  }
-
-  // Evaluate automation rules for task moved
-  evaluateAutomationRules('TASK_MOVED', {
-    taskId: task.id,
-    taskTitle: task.title,
-    columnId: task.columnId,
-    columnName: newStatusName,
-    boardId: task.column.boardId,
-    priority: task.priority,
-    assigneeId: task.assigneeId,
-    previousColumnId: oldColumnId
-  }).catch(console.error)
-
-  revalidatePath('/admin/reports')
-  revalidatePath('/dashboard')
-  return task
 }
 
-import { Priority } from '../generated/prisma/enums'
+// --- TASK CRUD ---
 
-export async function createTask(data: { title: string, description?: string, priority: Priority, columnId: string, assigneeId?: string }) {
-  await checkBoardPermission(data.columnId)
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  const role = session.role as Role
-  let assigneeId = data.assigneeId
-
-  if (role === 'MEMBER') {
-    assigneeId = session.id
+export async function createTask(input: any): Promise<ActionResult> {
+  const validation = createTaskSchema.safeParse(input)
+  if (!validation.success) {
+    return { success: false, error: 'Validation failed', fieldErrors: validation.error.flatten().fieldErrors }
   }
 
-  const task = await prisma.task.create({
-    data: {
-      ...data,
-      ...(assigneeId && { assigneeId }),
-      creatorId: session!.id
-    }
-  })
+  try {
+    const column = await prisma.column.findUnique({
+      where: { id: validation.data.columnId },
+      include: { board: true }
+    })
 
-  // Create audit log
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'CREATE_TASK',
-      details: { taskId: task.id, title: task.title },
-    }
-  })
+    if (!column) return { success: false, error: 'Column not found' }
 
-  // Evaluate automation rules
-  const column = await prisma.column.findUnique({
-    where: { id: task.columnId },
-    select: { name: true, boardId: true }
-  })
-  
-  if (column) {
+    // Board permission check
+    const perm = await checkBoardPermission({ 
+      boardId: column.boardId, 
+      allowedRoles: ['ADMIN', 'MANAGER', 'MEMBER'] 
+    })
+    if (!perm.success) return perm as any
+
+    const session = (perm as any).session
+
+    const task = await prisma.task.create({
+      data: {
+        ...validation.data,
+        creatorId: session.id,
+        dueDate: validation.data.dueDate ? new Date(validation.data.dueDate) : null
+      }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'CREATE_TASK',
+        details: { 
+          taskId: task.id, 
+          title: task.title, 
+          columnId: task.columnId,
+          boardId: column.boardId
+        },
+      }
+    })
+
+    // Real-time update
+    emitBoardEvent('task:created', { boardId: column.boardId, task })
+
+    // Automation
     evaluateAutomationRules('TASK_CREATED', {
       taskId: task.id,
       taskTitle: task.title,
@@ -250,646 +155,991 @@ export async function createTask(data: { title: string, description?: string, pr
       boardId: column.boardId,
       priority: task.priority,
       assigneeId: task.assigneeId
-    }).catch(console.error)
+    }).catch(err => console.error('[AUTOMATION_ERROR]', err))
+
+    revalidatePath(`/dashboard/board/${column.boardId}`)
+    return { success: true, data: task }
+  } catch (error) {
+    console.error('[CREATE_TASK_ERROR]', error)
+    return { success: false, error: 'Failed to create task' }
+  }
+}
+
+export async function updateTask(input: { id: string } & any): Promise<ActionResult> {
+  const { id: taskId, ...rest } = input
+  const validation = updateTaskSchema.safeParse({ ...rest, id: taskId })
+  if (!validation.success) {
+    return { success: false, error: 'Validation failed', fieldErrors: validation.error.flatten().fieldErrors }
   }
 
-  revalidatePath('/dashboard')
-  return task
-}
+  const perm = await checkTaskPermission({ taskId })
+  if (!perm.success) return perm
 
-export async function deleteTask(taskId: string) {
-  await checkTaskPermission(taskId)
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+  try {
+    const existingTask = perm.task!
+    const session = perm.session!
 
-  await prisma.task.delete({
-    where: { id: taskId }
-  })
-
-  // Create audit log
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'DELETE_TASK',
-      details: { taskId },
+    // Conflict detection
+    if (validation.data.version !== existingTask.version) {
+      return { success: false, error: 'Conflict: Task was modified by another user' }
     }
-  })
 
-  revalidatePath('/dashboard')
-}
+    const { id, version, ...data } = validation.data
 
-export async function getTaskDetails(taskId: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    include: {
-      assignee: true,
-      creator: true,
-      column: true,
-      comments: {
-        include: { user: true },
-        orderBy: { createdAt: 'desc' }
-      },
-      attachments: true,
-      checklists: {
-        include: { items: { orderBy: { id: 'asc' } } }
-      }
-    }
-  })
-
-  return task
-}
-
-export async function updateTask(taskId: string, data: Record<string, unknown>) {
-  await checkTaskPermission(taskId)
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  const existingTask = await prisma.task.findUnique({
-    where: { id: taskId },
-    select: { assigneeId: true, title: true, columnId: true }
-  })
-
-  const task = await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      ...data,
-      version: { increment: 1 }
-    }
-  })
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'UPDATE_TASK',
-      details: { taskId, updatedFields: Object.keys(data) },
-    }
-  })
-
-  if (data.assigneeId !== undefined && data.assigneeId !== existingTask?.assigneeId && data.assigneeId !== null) {
-    const notification = await prisma.notification.create({
+    const task = await prisma.task.update({
+      where: { id: taskId },
       data: {
-        userId: data.assigneeId as string,
-        type: 'TASK_ASSIGNED',
-        message: `You have been assigned to task: ${existingTask?.title || task.title}`,
-        link: `/dashboard/board/${existingTask?.columnId}`
+        ...data,
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        version: { increment: 1 }
+      },
+      include: { column: true }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'UPDATE_TASK',
+        details: { 
+          taskId, 
+          updatedFields: Object.keys(data), 
+          previousVersion: version,
+          boardId: task.column.boardId
+        },
       }
     })
-    emitNotification({
-      userId: data.assigneeId as string,
-      type: 'TASK_ASSIGNED',
-      message: `You have been assigned to task: ${existingTask?.title || task.title}`,
-      link: `/dashboard/board/${existingTask?.columnId}`,
-      notificationId: notification.id
-    })
 
-    // Evaluate automation rules for task assigned
-    const column = await prisma.column.findUnique({
-      where: { id: task.columnId },
-      select: { name: true, boardId: true }
-    })
-    
-    if (column) {
-      evaluateAutomationRules('TASK_ASSIGNED', {
-        taskId: task.id,
-        taskTitle: task.title,
-        columnId: task.columnId,
-        columnName: column.name,
-        boardId: column.boardId,
-        priority: task.priority,
-        assigneeId: task.assigneeId
-      }).catch(console.error)
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: task.column.boardId, task })
+
+    // Assignment notification
+    if (data.assigneeId && data.assigneeId !== existingTask.assigneeId && data.assigneeId !== session.id) {
+      const notification = await prisma.notification.create({
+        data: {
+          userId: data.assigneeId,
+          type: 'TASK_ASSIGNED',
+          message: `You have been assigned to task: ${task.title}`,
+          link: `/dashboard/board/${task.column.boardId}`
+        }
+      })
+      emitNotification({
+        userId: data.assigneeId,
+        type: 'TASK_ASSIGNED',
+        message: `You have been assigned to task: ${task.title}`,
+        link: `/dashboard/board/${task.column.boardId}`,
+        notificationId: notification.id
+      })
     }
-  }
 
-  // Evaluate automation rules for task updated
-  const column = await prisma.column.findUnique({
-    where: { id: task.columnId },
-    select: { name: true, boardId: true }
-  })
-  
-  if (column) {
+    // Automation
     evaluateAutomationRules('TASK_UPDATED', {
       taskId: task.id,
       taskTitle: task.title,
       columnId: task.columnId,
-      columnName: column.name,
-      boardId: column.boardId,
+      columnName: task.column.name,
+      boardId: task.column.boardId,
       priority: task.priority,
       assigneeId: task.assigneeId
-    }).catch(console.error)
-  }
+    }).catch(err => console.error('[AUTOMATION_ERROR]', err))
 
-  revalidatePath('/dashboard')
-  return task
+    revalidatePath(`/dashboard/board/${task.column.boardId}`)
+    return { success: true, data: task }
+  } catch (error) {
+    console.error('[UPDATE_TASK_ERROR]', error)
+    return { success: false, error: 'Failed to update task' }
+  }
 }
 
-export async function addComment(taskId: string, content: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+export async function updateTaskStatus(input: { taskId: string, columnId: string, statusName: string, version?: number }): Promise<ActionResult> {
+  const { taskId, columnId: newColumnId, statusName: newStatusName, version: clientVersion } = input
+  const validation = moveTaskSchema.safeParse({ taskId, columnId: newColumnId, version: clientVersion || 1 })
+  if (!validation.success) {
+    return { success: false, error: 'Validation failed', fieldErrors: validation.error.flatten().fieldErrors }
+  }
 
-  const comment = await prisma.comment.create({
-    data: {
-      content,
-      taskId,
-      userId: session.id
-    },
-    include: {
-      user: true
+  const perm = await checkTaskPermission({ taskId })
+  if (!perm.success) return perm
+
+  const session = perm.session!
+
+  try {
+    const existingTask = perm.task!
+    if (clientVersion !== undefined && existingTask.version !== clientVersion) {
+      return { success: false, error: 'Conflict: Task was modified by another user' }
     }
-  })
 
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'ADD_COMMENT',
-      details: { taskId, commentId: comment.id },
-    }
-  })
-
-  const mentionRegex = /@(\w+)/g
-  const mentions = content.match(mentionRegex)
-  
-  if (mentions) {
-    const mentionedNames = mentions.map(m => m.slice(1))
-    const mentionedUsers = await prisma.user.findMany({
-      where: { name: { in: mentionedNames } }
+    const targetColumn = await prisma.column.findUnique({
+      where: { id: newColumnId },
+      include: { board: true }
     })
 
+    if (!targetColumn) return { success: false, error: 'Target column not found' }
+
+    // WIP Limit Check
+    const role = session.role as Role
+    const isManagerOrAdmin = role === 'ADMIN' || role === 'MANAGER'
+
+    if (targetColumn.wipLimit > 0 && !isManagerOrAdmin) {
+      const currentTaskCount = await prisma.task.count({
+        where: { columnId: newColumnId, id: { not: taskId } }
+      })
+
+      if (currentTaskCount >= targetColumn.wipLimit) {
+        return { success: false, error: `WIP limit exceeded in "${targetColumn.name}".` }
+      }
+    }
+
+    const task = await prisma.task.update({
+      where: { id: taskId },
+      data: { 
+        columnId: newColumnId,
+        updatedAt: new Date(),
+        version: { increment: 1 }
+      },
+      include: { column: true }
+    })
+
+    const wasOverride = targetColumn.wipLimit > 0 && (await prisma.task.count({ where: { columnId: newColumnId } })) > targetColumn.wipLimit
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: wasOverride ? 'UPDATE_TASK_STATUS_OVERRIDE' : 'UPDATE_TASK_STATUS',
+        details: { 
+          taskId, 
+          newStatus: newStatusName,
+          columnId: newColumnId,
+          override: wasOverride,
+          previousColumnId: existingTask.columnId,
+          boardId: task.column.boardId
+        },
+      }
+    })
+
+    // Real-time update
+    emitBoardEvent('task:moved', { 
+      boardId: task.column.boardId,
+      taskId, 
+      columnId: newColumnId, 
+      previousColumnId: existingTask.columnId,
+      task 
+    })
+
+    // Notifications
+    const notifyUsers = new Set<string>()
+    if (task.assigneeId && task.assigneeId !== session.id) notifyUsers.add(task.assigneeId)
+    if (task.creatorId && task.creatorId !== session.id) notifyUsers.add(task.creatorId)
+
+    for (const userId of notifyUsers) {
+      const notification = await prisma.notification.create({
+        data: {
+          userId,
+          type: 'TASK_STATUS_CHANGED',
+          message: `Task "${task.title}" moved to ${newStatusName}`,
+          link: `/dashboard/board/${task.column.boardId}`
+        }
+      })
+      emitNotification({
+        userId,
+        type: 'TASK_STATUS_CHANGED',
+        message: `Task "${task.title}" moved to ${newStatusName}`,
+        link: `/dashboard/board/${task.column.boardId}`,
+        notificationId: notification.id
+      })
+    }
+
+    // Automation
+    evaluateAutomationRules('TASK_MOVED', {
+      taskId: task.id,
+      taskTitle: task.title,
+      columnId: task.columnId,
+      columnName: newStatusName,
+      boardId: task.column.boardId,
+      priority: task.priority,
+      assigneeId: task.assigneeId,
+      previousColumnId: existingTask.columnId
+    }).catch(err => console.error('[AUTOMATION_ERROR]', err))
+
+    revalidatePath(`/dashboard/board/${task.column.boardId}`)
+    return { success: true, data: task }
+  } catch (error) {
+    console.error('[MOVE_TASK_ERROR]', error)
+    return { success: false, error: 'Failed to move task' }
+  }
+}
+
+export async function deleteTask(input: { id: string }): Promise<ActionResult> {
+  const { id: taskId } = input
+  const validation = idSchema.safeParse(taskId)
+  if (!validation.success) return { success: false, error: 'Invalid Task ID' }
+
+  const perm = await checkTaskPermission({ taskId })
+  if (!perm.success) return perm
+
+  try {
+    const task = await prisma.task.delete({
+      where: { id: taskId },
+      include: { 
+        column: true,
+        tags: true,
+        checklists: {
+          include: { items: true }
+        },
+        attachments: true
+      }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: perm.session!.id,
+        action: 'DELETE_TASK',
+        details: { 
+          taskId, 
+          title: task.title, 
+          boardId: task.column.boardId,
+          fullTask: task // Store full task for undo
+        },
+      }
+    })
+
+    // Real-time update
+    emitBoardEvent('task:deleted', { boardId: task.column.boardId, taskId })
+
+    revalidatePath(`/dashboard/board/${task.column.boardId}`)
+    return { success: true }
+  } catch (error) {
+    console.error('[DELETE_TASK_ERROR]', error)
+    return { success: false, error: 'Failed to delete task' }
+  }
+}
+
+export async function getTaskDetails(input: { id: string }): Promise<ActionResult> {
+  const { id: taskId } = input
+  const validation = idSchema.safeParse(taskId)
+  if (!validation.success) return { success: false, error: 'Invalid Task ID' }
+
+  const perm = await checkTaskPermission({ taskId, allowedRoles: ['ADMIN', 'MANAGER', 'MEMBER', 'MEMBER_ALL'] })
+  if (!perm.success) return perm
+
+  try {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      select: { title: true, column: { select: { boardId: true } } }
+      include: {
+        assignee: true,
+        creator: true,
+        column: { include: { board: true } },
+        comments: {
+          include: { user: true },
+          orderBy: { createdAt: 'desc' }
+        },
+        attachments: { orderBy: { createdAt: 'desc' } },
+        checklists: {
+          include: { items: { orderBy: { id: 'asc' } } }
+        },
+        tags: true,
+        timeEntries: { include: { user: true }, orderBy: { createdAt: 'desc' } },
+        reviews: { include: { reviewer: true }, orderBy: { createdAt: 'desc' } }
+      }
     })
 
-    for (const user of mentionedUsers) {
-      if (user.id !== session.id) {
-        const notification = await prisma.notification.create({
-          data: {
+    if (!task) return { success: false, error: 'Task not found' }
+
+    return { success: true, data: task }
+  } catch (error) {
+    console.error('[GET_TASK_DETAILS_ERROR]', error)
+    return { success: false, error: 'Failed to fetch task details' }
+  }
+}
+
+// --- COMMENTS ---
+
+export async function addComment(input: { taskId: string, content: string }): Promise<ActionResult> {
+  const { taskId, content } = input
+  const validation = createCommentSchema.safeParse({ taskId, content })
+  if (!validation.success) {
+    return { success: false, error: 'Validation failed', fieldErrors: validation.error.flatten().fieldErrors }
+  }
+
+  const perm = await checkTaskPermission({ taskId, allowedRoles: ['ADMIN', 'MANAGER', 'MEMBER', 'MEMBER_ALL'] })
+  if (!perm.success) return perm
+
+  const session = perm.session!
+  const taskData = perm.task!
+
+  try {
+    const comment = await prisma.comment.create({
+      data: { content: validation.data.content, taskId, userId: session.id },
+      include: { user: true }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'ADD_COMMENT',
+        details: { 
+          taskId, 
+          commentId: comment.id,
+          boardId: taskData.column.boardId
+        },
+      }
+    })
+
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: taskData.column.boardId, taskId })
+
+    // Mentions
+    const mentionRegex = /@(\w+)/g
+    const mentions = validation.data.content.match(mentionRegex)
+    if (mentions) {
+      const mentionedNames = mentions.map(m => m.slice(1))
+      const mentionedUsers = await prisma.user.findMany({
+        where: { name: { in: mentionedNames } }
+      })
+
+      for (const user of mentionedUsers) {
+        if (user.id !== session.id) {
+          const notification = await prisma.notification.create({
+            data: {
+              userId: user.id,
+              type: 'COMMENT_MENTION',
+              message: `${session.name || 'Someone'} mentioned you on task: ${taskData.title}`,
+              link: `/dashboard/board/${taskData.column.boardId}`
+            }
+          })
+          emitNotification({
             userId: user.id,
             type: 'COMMENT_MENTION',
-            message: `${session.name || 'Someone'} mentioned you in a comment on task: ${task?.title}`,
-            link: `/dashboard/board/${task?.column.boardId}`
-          }
-        })
-        emitNotification({
-          userId: user.id,
-          type: 'COMMENT_MENTION',
-          message: `${session.name || 'Someone'} mentioned you in a comment on task: ${task?.title}`,
-          link: `/dashboard/board/${task?.column.boardId}`,
-          notificationId: notification.id
-        })
+            message: `${session.name || 'Someone'} mentioned you on task: ${taskData.title}`,
+            link: `/dashboard/board/${taskData.column.boardId}`,
+            notificationId: notification.id
+          })
+        }
       }
     }
-  }
 
-  revalidatePath('/dashboard')
-  return comment
+    return { success: true, data: comment }
+  } catch (error) {
+    console.error('[ADD_COMMENT_ERROR]', error)
+    return { success: false, error: 'Failed to add comment' }
+  }
 }
 
-export async function deleteComment(commentId: string, taskId: string) {
+export async function deleteComment(input: { id: string }): Promise<ActionResult> {
+  const { id: commentId } = input
+  const validation = idSchema.safeParse(commentId)
+  if (!validation.success) return { success: false, error: 'Invalid ID' }
+
   const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+  if (!session) return { success: false, error: 'Unauthorized' }
 
-  const comment = await prisma.comment.findUnique({
-    where: { id: commentId },
-    include: { task: { include: { column: { include: { board: { include: { members: { select: { id: true } } } } } } } } }
-  })
+  try {
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: { task: { include: { column: { include: { board: true } } } } }
+    })
 
-  if (!comment) throw new Error('Comment not found')
+    if (!comment) return { success: false, error: 'Comment not found' }
 
-  const role = session.role as Role
-  const task = comment.task
-  const board = task.column.board
+    // Use checkTaskPermission to get user role context
+    const perm = await checkTaskPermission({ taskId: comment.taskId })
+    if (!perm.success) return perm
 
-  if (role === 'ADMIN') {
-    // Admin can delete any comment
-  } else if (role === 'MANAGER') {
-    const isBoardMember = board.members.some(m => m.id === session.id)
-    if (!isBoardMember) throw new Error('Not a member of this board')
-  } else {
-    // Member: can only delete own comment within 5 minutes
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-    if (comment.userId !== session.id) {
-      throw new Error('You can only delete your own comments')
+    const isOwner = comment.userId === session.id
+    const isAdmin = session.role === 'ADMIN'
+    const isBoardManager = perm.task?.column.board.ownerId === session.id || 
+                       perm.task?.column.board.members.find(m => m.id === session.id)?.role === 'MANAGER'
+
+    if (!isOwner && !isAdmin && !isBoardManager) {
+      return { success: false, error: 'Access denied: You do not have permission to delete this comment' }
     }
-    if (comment.createdAt < fiveMinutesAgo) {
-      throw new Error('You can only delete comments within 5 minutes')
-    }
-  }
 
-  await prisma.comment.delete({ where: { id: commentId } })
+    await prisma.comment.delete({ where: { id: commentId } })
 
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'DELETE_COMMENT',
-      details: { commentId, taskId },
-    }
-  })
-
-  revalidatePath('/dashboard')
-}
-
-export async function addChecklistItem(taskId: string, content: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  // Find or create checklist
-  let checklist = await prisma.checklist.findFirst({
-    where: { taskId }
-  })
-
-  if (!checklist) {
-    checklist = await prisma.checklist.create({
+    await prisma.auditLog.create({
       data: {
-        taskId,
-        title: 'Task Checklist'
+        userId: session.id,
+        action: 'DELETE_COMMENT',
+        details: { 
+          commentId, 
+          taskId: comment.taskId,
+          boardId: comment.task.column.boardId
+        },
       }
     })
+
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: comment.task.column.boardId, taskId: comment.taskId })
+
+    return { success: true }
+  } catch (error) {
+    console.error('[DELETE_COMMENT_ERROR]', error)
+    return { success: false, error: 'Failed to delete comment' }
   }
-
-  const item = await prisma.checklistItem.create({
-    data: {
-      content,
-      checklistId: checklist.id
-    }
-  })
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'ADD_CHECKLIST_ITEM',
-      details: { taskId, itemId: item.id },
-    }
-  })
-
-  revalidatePath('/dashboard')
-  return item
 }
 
-export async function toggleChecklistItem(itemId: string, isCompleted: boolean) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+// --- CHECKLISTS ---
 
-  const item = await prisma.checklistItem.update({
-    where: { id: itemId },
-    data: { isCompleted }
-  })
+export async function addChecklistItem(input: { taskId: string, content: string }): Promise<ActionResult> {
+  const { taskId, content } = input
+  const validation = addChecklistItemSchema.safeParse({ taskId, content })
+  if (!validation.success) return { success: false, error: 'Validation failed' }
 
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'TOGGLE_CHECKLIST_ITEM',
-      details: { itemId, isCompleted },
+  const perm = await checkTaskPermission({ taskId })
+  if (!perm.success) return perm
+
+  try {
+    let checklist = await prisma.checklist.findFirst({ where: { taskId } })
+    if (!checklist) {
+      checklist = await prisma.checklist.create({ data: { taskId, title: 'Checklist' } })
     }
-  })
 
-  revalidatePath('/dashboard')
-  return item
-}
+    const item = await prisma.checklistItem.create({
+      data: { content, checklistId: checklist.id }
+    })
 
-export async function deleteChecklistItem(itemId: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  await prisma.checklistItem.delete({
-    where: { id: itemId }
-  })
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'DELETE_CHECKLIST_ITEM',
-      details: { itemId },
-    }
-  })
-
-  revalidatePath('/dashboard')
-}
-
-export async function updateChecklistItem(itemId: string, content: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  await prisma.checklistItem.update({
-    where: { id: itemId },
-    data: { content }
-  })
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'UPDATE_CHECKLIST_ITEM',
-      details: { itemId, content },
-    }
-  })
-
-  revalidatePath('/dashboard')
-}
-
-export async function getAllUsers() {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-  if (session.role !== 'ADMIN') throw new Error('Only admins can view all users')
-
-  return await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true,
-      role: true
-    },
-    orderBy: { name: 'asc' }
-  })
-}
-
-export async function addAttachment(taskId: string, data: { name: string, url: string, type: string, size: number }) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  const attachment = await prisma.attachment.create({
-    data: {
-      ...data,
-      taskId
-    }
-  })
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'ADD_ATTACHMENT',
-      details: { taskId, attachmentId: attachment.id, name: data.name },
-    }
-  })
-
-  revalidatePath('/dashboard')
-  return attachment
-}
-
-export async function deleteAttachment(attachmentId: string, taskId: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  await prisma.attachment.delete({
-    where: { id: attachmentId }
-  })
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'DELETE_ATTACHMENT',
-      details: { taskId, attachmentId },
-    }
-  })
-
-  revalidatePath('/dashboard')
-}
-
-export async function getTaskActivityLog(taskId: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  const logs = await prisma.auditLog.findMany({
-    where: {
-      OR: [
-        { details: { path: ['taskId'], equals: taskId } },
-        { details: { path: ['details', 'taskId'], equals: taskId } }
-      ]
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-    include: {
-      user: {
-        select: { id: true, name: true, image: true, email: true }
+    await prisma.auditLog.create({
+      data: {
+        userId: perm.session!.id,
+        action: 'ADD_CHECKLIST_ITEM',
+        details: { taskId, itemId: item.id, boardId: perm.task!.column.boardId },
       }
-    }
-  })
+    })
 
-  return logs
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: perm.task!.column.boardId, taskId })
+
+    return { success: true, data: item }
+  } catch (error) {
+    console.error('[ADD_CHECKLIST_ITEM_ERROR]', error)
+    return { success: false, error: 'Failed to add item' }
+  }
+}
+
+export async function updateChecklistItem(input: { id: string, content: string }): Promise<ActionResult> {
+  const { id: itemId, content } = input
+  const validation = updateChecklistItemSchema.safeParse({ id: itemId, content })
+  if (!validation.success) return { success: false, error: 'Validation failed' }
+
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const item = await prisma.checklistItem.findUnique({
+      where: { id: itemId },
+      include: { checklist: { include: { task: true } } }
+    })
+
+    if (!item) return { success: false, error: 'Item not found' }
+
+    const perm = await checkTaskPermission({ taskId: item.checklist.taskId })
+    if (!perm.success) return perm
+
+    const updatedItem = await prisma.checklistItem.update({
+      where: { id: itemId },
+      data: { content }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'UPDATE_CHECKLIST_ITEM',
+        details: { 
+          taskId: item.checklist.taskId, 
+          itemId, 
+          content,
+          boardId: perm.task!.column.boardId
+        },
+      }
+    })
+
+    emitBoardEvent('task:updated', { boardId: perm.task!.column.boardId, taskId: item.checklist.taskId })
+
+    return { success: true, data: updatedItem }
+  } catch (error) {
+    console.error('[UPDATE_CHECKLIST_ITEM_ERROR]', error)
+    return { success: false, error: 'Failed to update item' }
+  }
+}
+
+export async function deleteChecklistItem(input: { id: string }): Promise<ActionResult> {
+  const { id: itemId } = input
+  const validation = idSchema.safeParse(itemId)
+  if (!validation.success) return { success: false, error: 'Invalid ID' }
+
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const item = await prisma.checklistItem.findUnique({
+      where: { id: itemId },
+      include: { checklist: { include: { task: true } } }
+    })
+
+    if (!item) return { success: false, error: 'Item not found' }
+
+    const perm = await checkTaskPermission({ taskId: item.checklist.taskId })
+    if (!perm.success) return perm
+
+    await prisma.checklistItem.delete({ where: { id: itemId } })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'DELETE_CHECKLIST_ITEM',
+        details: { 
+          taskId: item.checklist.taskId, 
+          itemId,
+          boardId: perm.task!.column.boardId
+        },
+      }
+    })
+
+    emitBoardEvent('task:updated', { boardId: perm.task!.column.boardId, taskId: item.checklist.taskId })
+
+    return { success: true }
+  } catch (error) {
+    console.error('[DELETE_CHECKLIST_ITEM_ERROR]', error)
+    return { success: false, error: 'Failed to delete item' }
+  }
+}
+
+export async function toggleChecklistItem(input: { id: string, isCompleted: boolean }): Promise<ActionResult> {
+  const { id: itemId, isCompleted } = input
+  const validation = toggleChecklistItemSchema.safeParse({ itemId, isCompleted })
+  if (!validation.success) return { success: false, error: 'Validation failed' }
+
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const item = await prisma.checklistItem.findUnique({
+      where: { id: itemId },
+      include: { checklist: { include: { task: { include: { column: true } } } } }
+    })
+
+    if (!item) return { success: false, error: 'Item not found' }
+
+    const perm = await checkTaskPermission({ taskId: item.checklist.taskId })
+    if (!perm.success) return perm
+
+    const updatedItem = await prisma.checklistItem.update({
+      where: { id: itemId },
+      data: { isCompleted }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'TOGGLE_CHECKLIST_ITEM',
+        details: { 
+          taskId: item.checklist.taskId, 
+          itemId, 
+          isCompleted,
+          boardId: item.checklist.task.column.boardId
+        },
+      }
+    })
+
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: item.checklist.task.column.boardId, taskId: item.checklist.taskId })
+
+    return { success: true, data: updatedItem }
+  } catch (error) {
+    console.error('[TOGGLE_CHECKLIST_ITEM_ERROR]', error)
+    return { success: false, error: 'Failed to toggle item' }
+  }
+}
+
+// --- ATTACHMENTS ---
+
+export async function addAttachment(input: { 
+  taskId: string, 
+  name: string, 
+  url: string, 
+  type: string, 
+  size: number 
+}): Promise<ActionResult> {
+  const { taskId, ...rest } = input
+  const validation = addAttachmentSchema.safeParse({ ...rest, taskId })
+  if (!validation.success) return { success: false, error: 'Validation failed' }
+
+  const perm = await checkTaskPermission({ taskId })
+  if (!perm.success) return perm
+
+  try {
+    const attachment = await prisma.attachment.create({
+      data: { ...validation.data, taskId }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: perm.session!.id,
+        action: 'ADD_ATTACHMENT',
+        details: { taskId, attachmentId: attachment.id, boardId: perm.task!.column.boardId },
+      }
+    })
+
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: perm.task!.column.boardId, taskId })
+
+    return { success: true, data: attachment }
+  } catch (error) {
+    console.error('[ADD_ATTACHMENT_ERROR]', error)
+    return { success: false, error: 'Failed to add attachment' }
+  }
+}
+
+export async function deleteAttachment(input: { id: string }): Promise<ActionResult> {
+  const { id: attachmentId } = input
+  const validation = idSchema.safeParse(attachmentId)
+  if (!validation.success) return { success: false, error: 'Invalid ID' }
+
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const attachment = await prisma.attachment.findUnique({
+      where: { id: attachmentId },
+      include: { task: true }
+    })
+
+    if (!attachment) return { success: false, error: 'Attachment not found' }
+
+    const perm = await checkTaskPermission({ taskId: attachment.taskId })
+    if (!perm.success) return perm
+
+    await prisma.attachment.delete({ where: { id: attachmentId } })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'DELETE_ATTACHMENT',
+        details: { 
+          taskId: attachment.taskId, 
+          attachmentId,
+          boardId: perm.task!.column.boardId
+        },
+      }
+    })
+
+    emitBoardEvent('task:updated', { boardId: perm.task!.column.boardId, taskId: attachment.taskId })
+
+    return { success: true }
+  } catch (error) {
+    console.error('[DELETE_ATTACHMENT_ERROR]', error)
+    return { success: false, error: 'Failed to delete attachment' }
+  }
 }
 
 // --- TAGS ---
 
-export async function getBoardTags(boardId: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+export async function addTagToTask(input: { taskId: string, tagId: string }): Promise<ActionResult> {
+  const { taskId, tagId } = input
+  const validation = manageTaskTagSchema.safeParse({ taskId, tagId })
+  if (!validation.success) return { success: false, error: 'Invalid input' }
 
-  return await prisma.tag.findMany({
-    where: {
-      OR: [
-        { boardId: boardId },
-        { boardId: null } // Global tags
-      ]
-    },
-    orderBy: { name: 'asc' }
-  })
+  const perm = await checkTaskPermission({ taskId })
+  if (!perm.success) return perm
+
+  try {
+    const task = await prisma.task.update({
+      where: { id: taskId },
+      data: { tags: { connect: { id: tagId } }, version: { increment: 1 } },
+      include: { tags: true, column: true }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: perm.session!.id,
+        action: 'ADD_TAG',
+        details: { taskId, tagId, boardId: task.column.boardId },
+      }
+    })
+
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: task.column.boardId, taskId })
+
+    return { success: true, data: task }
+  } catch (error) {
+    console.error('[ADD_TAG_ERROR]', error)
+    return { success: false, error: 'Failed to add tag' }
+  }
 }
 
-export async function createTag(boardId: string | null, name: string, color: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+export async function removeTagFromTask(input: { taskId: string, tagId: string }): Promise<ActionResult> {
+  const { taskId, tagId } = input
+  const validation = manageTaskTagSchema.safeParse({ taskId, tagId })
+  if (!validation.success) return { success: false, error: 'Invalid input' }
 
-  const tag = await prisma.tag.create({
-    data: {
-      name,
-      color,
-      boardId
-    }
-  })
+  const perm = await checkTaskPermission({ taskId })
+  if (!perm.success) return perm
 
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'CREATE_TAG',
-      details: { tagId: tag.id, name, boardId },
-    }
-  })
+  try {
+    const task = await prisma.task.update({
+      where: { id: taskId },
+      data: { tags: { disconnect: { id: tagId } }, version: { increment: 1 } },
+      include: { tags: true, column: true }
+    })
 
-  return tag
-}
+    await prisma.auditLog.create({
+      data: {
+        userId: perm.session!.id,
+        action: 'REMOVE_TAG',
+        details: { taskId, tagId, boardId: task.column.boardId },
+      }
+    })
 
-export async function addTagToTask(taskId: string, tagId: string) {
-  await checkTaskPermission(taskId)
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: task.column.boardId, taskId })
 
-  const task = await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      tags: { connect: { id: tagId } },
-      version: { increment: 1 }
-    },
-    include: { tags: true }
-  })
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'ADD_TAG_TO_TASK',
-      details: { taskId, tagId },
-    }
-  })
-
-  revalidatePath('/dashboard')
-  return task
-}
-
-export async function removeTagFromTask(taskId: string, tagId: string) {
-  await checkTaskPermission(taskId)
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  const task = await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      tags: { disconnect: { id: tagId } },
-      version: { increment: 1 }
-    },
-    include: { tags: true }
-  })
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'REMOVE_TAG_FROM_TASK',
-      details: { taskId, tagId },
-    }
-  })
-
-  revalidatePath('/dashboard')
-  return task
+    return { success: true, data: task }
+  } catch (error) {
+    console.error('[REMOVE_TAG_ERROR]', error)
+    return { success: false, error: 'Failed to remove tag' }
+  }
 }
 
 // --- TIME TRACKING ---
 
-export async function logTime(taskId: string, duration: number, description: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+export async function logTime(input: { 
+  taskId: string, 
+  duration: number, 
+  description?: string, 
+  date?: string 
+}): Promise<ActionResult> {
+  const { taskId, ...rest } = input
+  const validation = logTimeSchema.safeParse({ ...rest, taskId })
+  if (!validation.success) return { success: false, error: 'Validation failed' }
 
-  const entry = await prisma.timeEntry.create({
-    data: {
-      taskId,
-      userId: session.id,
-      duration,
-      description
-    }
-  })
+  const perm = await checkTaskPermission({ taskId })
+  if (!perm.success) return perm
 
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'LOG_TIME',
-      details: { taskId, entryId: entry.id, duration },
-    }
-  })
+  const session = perm.session!
 
-  revalidatePath('/dashboard')
-  return entry
-}
+  try {
+    const entry = await prisma.timeEntry.create({
+      data: { ...validation.data, taskId, userId: session.id }
+    })
 
-export async function getTimeEntries(taskId: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'LOG_TIME',
+        details: { 
+          taskId, 
+          entryId: entry.id, 
+          duration: validation.data.duration,
+          boardId: perm.task!.column.boardId
+        },
+      }
+    })
 
-  return await prisma.timeEntry.findMany({
-    where: { taskId },
-    include: { user: true },
-    orderBy: { createdAt: 'desc' }
-  })
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: perm.task!.column.boardId, taskId })
+
+    return { success: true, data: entry }
+  } catch (error) {
+    console.error('[LOG_TIME_ERROR]', error)
+    return { success: false, error: 'Failed to log time' }
+  }
 }
 
 // --- REVIEWS ---
 
-export async function submitForReview(taskId: string, reviewerId: string) {
-  await checkTaskPermission(taskId)
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+export async function submitForReview(input: { taskId: string, reviewerId: string }): Promise<ActionResult> {
+  const { taskId, reviewerId } = input
+  const validation = submitReviewSchema.safeParse({ taskId, reviewerId })
+  if (!validation.success) return { success: false, error: 'Validation failed' }
 
-  const review = await prisma.review.create({
-    data: {
-      taskId,
-      reviewerId,
-      status: 'PENDING'
-    }
-  })
+  const perm = await checkTaskPermission({ taskId })
+  if (!perm.success) return perm
 
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { version: { increment: 1 } }
-  })
+  const session = perm.session!
 
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'SUBMIT_FOR_REVIEW',
-      details: { taskId, reviewId: review.id, reviewerId },
-    }
-  })
+  try {
+    const review = await prisma.review.create({
+      data: { taskId, reviewerId, status: 'PENDING' }
+    })
 
-  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { title: true } })
+    await prisma.task.update({ where: { id: taskId }, data: { version: { increment: 1 } } })
 
-  const notification = await prisma.notification.create({
-    data: {
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'SUBMIT_REVIEW',
+        details: { taskId, reviewId: review.id, reviewerId, boardId: perm.task!.column.boardId },
+      }
+    })
+
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: perm.task!.column.boardId, taskId })
+
+    // Notification
+    const notification = await prisma.notification.create({
+      data: {
+        userId: reviewerId,
+        type: 'REVIEW_REQUESTED',
+        message: `${session.name} requested a review for: ${perm.task!.title}`,
+        link: `/dashboard/board/${perm.task!.column.boardId}`
+      }
+    })
+    emitNotification({
       userId: reviewerId,
       type: 'REVIEW_REQUESTED',
-      message: `${session.name} requested a review for task: ${task?.title}`,
-      link: `/dashboard/board/${taskId}` // This should be the board link really, but we'll use task id as marker
-    }
-  })
+      message: `${session.name} requested a review for: ${perm.task!.title}`,
+      link: `/dashboard/board/${perm.task!.column.boardId}`,
+      notificationId: notification.id
+    })
 
-  emitNotification({
-    userId: reviewerId,
-    type: 'REVIEW_REQUESTED',
-    message: `${session.name} requested a review for task: ${task?.title}`,
-    link: `/dashboard/board/${taskId}`,
-    notificationId: notification.id
-  })
-
-  revalidatePath('/dashboard')
-  return review
+    return { success: true, data: review }
+  } catch (error) {
+    console.error('[SUBMIT_REVIEW_ERROR]', error)
+    return { success: false, error: 'Failed to submit review' }
+  }
 }
 
-export async function completeReview(reviewId: string, status: 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED', feedback: string) {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+export async function completeReview(input: { id: string, status: any, feedback: string }): Promise<ActionResult> {
+  const { id: reviewId, status, feedback } = input
+  const validation = completeReviewSchema.safeParse({ reviewId, status, feedback })
+  if (!validation.success) return { success: false, error: 'Validation failed' }
 
-  const review = await prisma.review.update({
-    where: { id: reviewId },
-    data: {
-      status,
-      feedback
-    },
-    include: { task: true }
-  })
+  try {
+    const review = await prisma.review.findUnique({
+      where: { id: reviewId },
+      include: { task: { include: { column: true } } }
+    })
 
-  await prisma.auditLog.create({
-    data: {
-      userId: session.id,
-      action: 'COMPLETE_REVIEW',
-      details: { reviewId, status, taskId: review.taskId },
+    if (!review) return { success: false, error: 'Review not found' }
+
+    const perm = await checkTaskPermission({ taskId: review.taskId })
+    if (!perm.success) return perm
+
+    const session = perm.session!
+
+    // Only designated reviewer or Admin/Manager can complete a review
+    const isReviewer = review.reviewerId === session.id
+    const isPrivileged = session.role === 'ADMIN' || session.role === 'MANAGER'
+
+    if (!isReviewer && !isPrivileged) {
+      return { success: false, error: 'Access denied: You are not the assigned reviewer' }
     }
-  })
 
-  const notification = await prisma.notification.create({
-    data: {
-      userId: review.task.creatorId,
+    const updatedReview = await prisma.review.update({
+      where: { id: reviewId },
+      data: { status: validation.data.status, feedback },
+      include: { task: { include: { column: true } } }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'COMPLETE_REVIEW',
+        details: { 
+          taskId: updatedReview.taskId, 
+          reviewId, 
+          status: validation.data.status,
+          boardId: updatedReview.task.column.boardId
+        },
+      }
+    })
+
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: updatedReview.task.column.boardId, taskId: updatedReview.taskId })
+
+    // Notification to creator
+    const notification = await prisma.notification.create({
+      data: {
+        userId: updatedReview.task.creatorId,
+        type: 'REVIEW_COMPLETED',
+        message: `Review completed for "${updatedReview.task.title}": ${status}`,
+        link: `/dashboard/board/${updatedReview.task.column.boardId}`
+      }
+    })
+    emitNotification({
+      userId: updatedReview.task.creatorId,
       type: 'REVIEW_COMPLETED',
-      message: `Review completed for task "${review.task.title}": ${status}`,
-      link: `/dashboard/board/${review.taskId}`
-    }
-  })
+      message: `Review completed for "${updatedReview.task.title}": ${status}`,
+      link: `/dashboard/board/${updatedReview.task.column.boardId}`,
+      notificationId: notification.id
+    })
 
-  emitNotification({
-    userId: review.task.creatorId,
-    type: 'REVIEW_COMPLETED',
-    message: `Review completed for task "${review.task.title}": ${status}`,
-    link: `/dashboard/board/${review.taskId}`,
-    notificationId: notification.id
-  })
-
-  revalidatePath('/dashboard')
-  return review
+    return { success: true, data: updatedReview }
+  } catch (error) {
+    console.error('[COMPLETE_REVIEW_ERROR]', error)
+    return { success: false, error: 'Failed to complete review' }
+  }
 }
+
+// --- UTILS ---
+
+export async function getAllUsers(): Promise<ActionResult> {
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true
+      },
+      orderBy: { name: 'asc' }
+    })
+    return { success: true, data: users }
+  } catch (error) {
+    console.error('[GET_ALL_USERS_ERROR]', error)
+    return { success: false, error: 'Failed to fetch users' }
+  }
+}
+
+export async function getTaskActivityLog(input: { id: string }): Promise<ActionResult> {
+  const { id: taskId } = input
+  const validation = idSchema.safeParse(taskId)
+  if (!validation.success) return { success: false, error: 'Invalid ID' }
+
+  const perm = await checkTaskPermission({ taskId, allowedRoles: ['ADMIN', 'MANAGER', 'MEMBER', 'MEMBER_ALL'] })
+  if (!perm.success) return perm
+
+  try {
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        details: {
+          path: ['taskId'],
+          equals: taskId
+        }
+      },
+      include: { user: { select: { name: true, image: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    })
+    return { success: true, data: logs }
+  } catch (error) {
+    console.error('[GET_TASK_ACTIVITY_ERROR]', error)
+    return { success: false, error: 'Failed to fetch activity log' }
+  }
+}
+
+export async function getTimeEntries(input: { id: string }): Promise<ActionResult> {
+  const { id: taskId } = input
+  const validation = idSchema.safeParse(taskId)
+  if (!validation.success) return { success: false, error: 'Invalid ID' }
+
+  const perm = await checkTaskPermission({ taskId, allowedRoles: ['ADMIN', 'MANAGER', 'MEMBER', 'MEMBER_ALL'] })
+  if (!perm.success) return perm
+
+  try {
+    const entries = await prisma.timeEntry.findMany({
+      where: { taskId },
+      include: { user: { select: { name: true, image: true } } },
+      orderBy: { createdAt: 'desc' }
+    })
+    return { success: true, data: entries }
+  } catch (error) {
+    console.error('[GET_TIME_ENTRIES_ERROR]', error)
+    return { success: false, error: 'Failed to fetch time entries' }
+  }
+}
+
+export { getTagsForBoard as getBoardTags }

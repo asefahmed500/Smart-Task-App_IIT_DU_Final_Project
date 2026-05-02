@@ -33,7 +33,10 @@ export function CreateBoardDialog({ isOpen, onClose, onSuccess }: CreateBoardDia
 
     setLoading(true)
     try {
-      await createBoard({ name, description: description || undefined })
+      const result = await createBoard({ name, description: description || undefined })
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create board')
+      }
       toast.success('Board created successfully')
       setName('')
       setDescription('')

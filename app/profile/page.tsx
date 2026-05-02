@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/auth'
+import { getSession } from '@/lib/auth-server'
 import { redirect } from 'next/navigation'
 import { getUserProfile } from '@/lib/admin-actions'
 import { ProfileForm } from '@/components/profile-form'
@@ -10,7 +10,12 @@ export default async function ProfilePage() {
     redirect('/login')
   }
 
-  const user = await getUserProfile()
+  const result = await getUserProfile()
+  const user = result.success ? (result.data as any) : null
+  
+  if (!user) {
+    redirect('/login')
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-10">

@@ -33,9 +33,13 @@ export function RenameColumnDialog({ isOpen, onClose, columnId, boardId, current
 
     setLoading(true)
     try {
-      await updateColumn(columnId, name, boardId)
-      toast.success('Column renamed')
-      onClose()
+      const result = await updateColumn({ id: columnId, name })
+      if (result.success) {
+        toast.success('Column renamed')
+        onClose()
+      } else {
+        toast.error(result.error || 'Failed to rename column')
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to rename column'
       toast.error(message)

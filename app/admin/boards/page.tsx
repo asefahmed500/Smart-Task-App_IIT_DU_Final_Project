@@ -60,11 +60,11 @@ export default function AdminBoardsPage() {
 
   const loadData = () => {
     Promise.all([
-      getAllBoards() as Promise<AdminBoard[]>,
-      getUsers() as Promise<BoardUser[]>
-    ]).then(([boardsData, usersData]) => {
-      setBoards(boardsData)
-      setUsers(usersData)
+      getAllBoards(),
+      getUsers()
+    ]).then(([boardsRes, usersRes]) => {
+      setBoards(boardsRes.success ? (boardsRes.data as AdminBoard[]) : [])
+      setUsers(usersRes.success ? (usersRes.data as BoardUser[]) : [])
       setLoading(false)
     }).catch(() => setLoading(false))
   }
@@ -81,7 +81,7 @@ export default function AdminBoardsPage() {
   const handleDeleteBoard = async (boardId: string) => {
     if (!confirm('Are you sure? This will delete all tasks, comments, and attachments in this board.')) return
     try {
-      await deleteBoard(boardId)
+      await deleteBoard({ boardId })
       toast.success('Board deleted')
       loadData()
     } catch (error: unknown) {
@@ -93,7 +93,7 @@ export default function AdminBoardsPage() {
   const handleAddMember = async (userId: string) => {
     if (!selectedBoard) return
     try {
-      await addBoardMember(selectedBoard.id, userId)
+      await addBoardMember({ boardId: selectedBoard.id, userId })
       toast.success('Member added')
       loadData()
     } catch (error: unknown) {
@@ -105,7 +105,7 @@ export default function AdminBoardsPage() {
   const handleRemoveMember = async (userId: string) => {
     if (!selectedBoard) return
     try {
-      await removeBoardMember(selectedBoard.id, userId)
+      await removeBoardMember({ boardId: selectedBoard.id, userId })
       toast.success('Member removed')
       loadData()
     } catch (error: unknown) {

@@ -24,7 +24,8 @@ interface ReportMetric {
 }
 
 export default async function ReportsPage() {
-  const { metrics, throughputData } = await getSystemReports()
+  const result = await getSystemReports()
+  const { metrics, throughputData } = result.success ? (result.data as { metrics: ReportMetric[], throughputData: any[] }) : { metrics: [], throughputData: [] }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

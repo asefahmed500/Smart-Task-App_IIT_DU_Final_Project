@@ -5,9 +5,10 @@ import { Bell, CheckCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { getNotifications, markNotificationRead, markAllNotificationsRead, getCurrentUserId } from '@/lib/notification-actions'
+import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/notification-actions'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useNotificationListener } from '@/components/kanban/socket-hooks'
 
 interface Notification {
   id: string
@@ -18,41 +19,60 @@ interface Notification {
   createdAt: Date
 }
 
-export function NotificationBell() {
+export function NotificationBell({ userId }: { userId: string | undefined }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const router = useRouter()
 
   const loadNotifications = async () => {
     try {
-      const data = await getNotifications() as { notifications: Notification[], unreadCount: number }
-      setNotifications(data.notifications)
-      setUnreadCount(data.unreadCount)
+      const result = await getNotifications()
+      if (result.success && result.data) {
+        const data = result.data as { notifications: Notification[], unreadCount: number }
+        setNotifications(data.notifications)
+        setUnreadCount(data.unreadCount)
+      }
     } catch {
       // Not logged in or error
     }
   }
 
-  // Get current user ID on mount
-  useEffect(() => {
-    void getCurrentUserId().catch(() => {})
-  }, [])
-
   // Initial load
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadNotifications()
   }, [])
 
-  // Poll every 30s
+  // Socket Listener
+  useNotificationListener(userId, (newNotif: any) => {
+    console.log('Real-time notification received:', newNotif)
+    
+    // Add to state if it's not already there
+    setNotifications(prev => {
+      if (prev.some(n => n.id === newNotif.notificationId)) return prev
+      
+      const notification: Notification = {
+        id: newNotif.notificationId || Math.random().toString(36).substr(2, 9),
+        type: newNotif.type,
+        message: newNotif.message,
+        link: newNotif.link || null,
+        isRead: false,
+        createdAt: new Date()
+      }
+      return [notification, ...prev].slice(0, 50)
+    })
+    setUnreadCount(prev => prev + 1)
+  })
+
+  // Poll as fallback every 60s instead of 30s
   useEffect(() => {
-    const interval = setInterval(() => { void loadNotifications() }, 30000)
+    const interval = setInterval(() => { void loadNotifications() }, 60000)
     return () => clearInterval(interval)
   }, [])
 
+
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.isRead) {
-      await markNotificationRead(notification.id)
+      await markNotificationRead({ notificationId: notification.id })
       setNotifications(prev =>
         prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n)
       )

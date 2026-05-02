@@ -19,7 +19,7 @@ export function AutomationRuleList({ rules: initialRules }: AutomationRuleListPr
 
   const handleToggle = async (id: string, enabled: boolean) => {
     try {
-      await toggleAutomationRule(id, enabled)
+      await toggleAutomationRule({ id, enabled })
       setRules(rules.map(r => r.id === id ? { ...r, enabled } : r))
       toast.success(`Rule ${enabled ? 'enabled' : 'disabled'}`)
     } catch {
@@ -30,7 +30,7 @@ export function AutomationRuleList({ rules: initialRules }: AutomationRuleListPr
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this rule?")) return
     try {
-      await deleteAutomationRule(id)
+      await deleteAutomationRule({ id })
       setRules(rules.filter(r => r.id !== id))
       toast.success("Rule deleted")
     } catch {

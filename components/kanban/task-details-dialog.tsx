@@ -61,9 +61,10 @@ import {
   submitForReview,
   completeReview
 } from '@/lib/task-actions'
+import { undoLastAction } from '@/lib/board-actions'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { User, Task, Comment, ChecklistItem, Checklist, Priority, Tag, TimeEntry, Attachment } from '@/types/kanban'
+import { User, Task, Comment, ChecklistItem, Checklist, Priority, Tag, TimeEntry, Attachment, ActionResult } from '@/types/kanban'
 
 interface TaskDetailsDialogProps {
   taskId: string | null
@@ -112,7 +113,11 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
 
   useEffect(() => {
     if (showActivity && taskId) {
-      getTaskActivityLog(taskId).then(setActivityLog).catch((error: unknown) => {
+      getTaskActivityLog({ id: taskId }).then((result: ActionResult) => {
+        if (result.success && result.data) {
+          setActivityLog(result.data as any)
+        }
+      }).catch((error: unknown) => {
         console.error('Failed to load activity log', error)
       })
     }
@@ -127,7 +132,11 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
 
   useEffect(() => {
     if (isOpen && isAdmin) {
-      getAllUsers().then(setAllUsers).catch((error: unknown) => {
+      getAllUsers().then((result: ActionResult) => {
+        if (result.success && result.data) {
+          setAllUsers(result.data as User[])
+        }
+      }).catch((error: unknown) => {
         console.error(error)
       })
     }
@@ -137,10 +146,18 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
 
   useEffect(() => {
     if (isOpen && task?.column?.boardId) {
-      getBoardTags(task.column.boardId).then(setBoardTags).catch(console.error)
+      getBoardTags({ boardId: task.column.boardId }).then((result: ActionResult) => {
+        if (result.success && result.data) {
+          setBoardTags(result.data as Tag[])
+        }
+      }).catch(console.error)
     }
     if (isOpen && taskId) {
-      getTimeEntries(taskId).then(setTimeEntries).catch(console.error)
+      getTimeEntries({ id: taskId }).then((result: ActionResult) => {
+        if (result.success && result.data) {
+          setTimeEntries(result.data as TimeEntry[])
+        }
+      }).catch(console.error)
     }
   }, [isOpen, taskId, task?.column?.boardId])
 
@@ -151,10 +168,15 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const fetchTaskDetails = async () => {
     setLoading(true)
     try {
-      const data = await getTaskDetails(taskId!)
-      setTask(data)
+      const result = await getTaskDetails({ id: taskId! })
+      if (result.success && result.data) {
+        setTask(result.data as Task)
+      } else {
+        toast.error(result.error || 'Failed to load task details')
+        onClose()
+      }
     } catch {
-      toast.error('Failed to load task details')
+      toast.error('An unexpected error occurred')
       onClose()
     } finally {
       setLoading(false)
@@ -164,13 +186,17 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const handleUpdate = async (field: string, value: string | Priority | null) => {
     setUpdating(true)
     try {
-      await updateTask(taskId!, { [field]: value })
-      if (task) {
-        setTask({ ...task, [field]: value })
+      const result = await updateTask({ id: taskId!, input: { [field]: value } })
+      if (result.success) {
+        if (task) {
+          setTask({ ...task, [field]: value })
+        }
+        toast.success('Task updated')
+      } else {
+        toast.error(result.error || 'Failed to update task')
       }
-      toast.success('Task updated')
     } catch {
-      toast.error('Failed to update task')
+      toast.error('An unexpected error occurred')
     } finally {
       setUpdating(false)
     }
@@ -179,38 +205,63 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this task?')) return
     try {
-      await deleteTask(taskId!)
-      toast.success('Task deleted')
-      onClose()
+      const result = await deleteTask({ id: taskId! })
+      if (result.success) {
+        toast.success('Task deleted', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Task restored')
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            },
+          },
+        })
+        onClose()
+      } else {
+        toast.error(result.error || 'Failed to delete task')
+      }
     } catch {
-      toast.error('Failed to delete task')
+      toast.error('An unexpected error occurred')
     }
   }
 
   const handleAddComment = async () => {
     if (!newComment.trim()) return
     try {
-      const comment = await addComment(taskId!, newComment)
-      if (task) {
-        setTask({ ...task, comments: [comment, ...(task.comments || [])] })
+      const result = await addComment({ taskId: taskId!, content: newComment })
+      if (result.success && result.data) {
+        const comment = result.data as Comment
+        if (task) {
+          setTask({ ...task, comments: [comment, ...(task.comments || [])] })
+        }
+        setNewComment('')
+        toast.success('Comment added')
+      } else {
+        toast.error(result.error || 'Failed to add comment')
       }
-      setNewComment('')
-      toast.success('Comment added')
     } catch {
-      toast.error('Failed to add comment')
+      toast.error('An unexpected error occurred')
     }
   }
 
   const handleDeleteComment = async (commentId: string) => {
     if (!confirm('Delete this comment?')) return
     try {
-      await deleteComment(commentId, taskId!)
-      if (task) {
-        setTask({ ...task, comments: (task.comments || []).filter(c => c.id !== commentId) })
+      const result = await deleteComment({ id: commentId })
+      if (result.success) {
+        if (task) {
+          setTask({ ...task, comments: (task.comments || []).filter(c => c.id !== commentId) })
+        }
+        toast.success('Comment deleted')
+      } else {
+        toast.error(result.error || 'Failed to delete comment')
       }
-      toast.success('Comment deleted')
     } catch (_error: unknown) {
-       const message = _error instanceof Error ? _error.message : 'Failed to delete comment'
+      const message = _error instanceof Error ? _error.message : 'An unexpected error occurred'
       toast.error(message)
     }
   }
@@ -218,63 +269,76 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const handleAddChecklistItem = async () => {
     if (!newChecklistItem.trim() || !task) return
     try {
-      const item = await addChecklistItem(taskId!, newChecklistItem)
+      const result = await addChecklistItem({ taskId: taskId!, content: newChecklistItem })
       
-      const updatedChecklists = [...(task.checklists || [])]
-      if (updatedChecklists.length === 0) {
-        // Create a mock checklist if it's the first item
-        updatedChecklists.push({ 
-          id: item.checklistId, 
-          title: 'Task Checklist', 
-          taskId: taskId!, 
-          items: [item] 
-        })
+      if (result.success && result.data) {
+        const item = result.data as ChecklistItem
+        const updatedChecklists = [...(task.checklists || [])]
+        if (updatedChecklists.length === 0) {
+          // Create a mock checklist if it's the first item
+          updatedChecklists.push({ 
+            id: item.checklistId, 
+            title: 'Task Checklist', 
+            taskId: taskId!, 
+            items: [item] 
+          })
+        } else {
+          // Add to the first existing checklist
+          const firstChecklist = { ...updatedChecklists[0] }
+          firstChecklist.items = [...firstChecklist.items, item]
+          updatedChecklists[0] = firstChecklist
+        }
+        
+        setTask({ ...task, checklists: updatedChecklists })
+        setNewChecklistItem('')
+        toast.success('Item added')
       } else {
-        // Add to the first existing checklist
-        const firstChecklist = { ...updatedChecklists[0] }
-        firstChecklist.items = [...firstChecklist.items, item]
-        updatedChecklists[0] = firstChecklist
+        toast.error(result.error || 'Failed to add checklist item')
       }
-      
-      setTask({ ...task, checklists: updatedChecklists })
-      setNewChecklistItem('')
-      toast.success('Item added')
     } catch {
-      toast.error('Failed to add checklist item')
+      toast.error('An unexpected error occurred')
     }
   }
 
   const handleToggleChecklistItem = async (itemId: string, isCompleted: boolean) => {
     try {
-      await toggleChecklistItem(itemId, isCompleted)
-      if (task) {
-         const updatedChecklists = (task.checklists || []).map((cl: Checklist) => ({
-          ...cl,
-          items: cl.items.map((item: ChecklistItem) => 
-            item.id === itemId ? { ...item, isCompleted } : item
-          )
-        }))
-        setTask({ ...task, checklists: updatedChecklists })
+      const result = await toggleChecklistItem({ id: itemId, isCompleted })
+      if (result.success) {
+        if (task) {
+           const updatedChecklists = (task.checklists || []).map((cl: Checklist) => ({
+            ...cl,
+            items: cl.items.map((item: ChecklistItem) => 
+              item.id === itemId ? { ...item, isCompleted } : item
+            )
+          }))
+          setTask({ ...task, checklists: updatedChecklists })
+        }
+      } else {
+        toast.error(result.error || 'Failed to update item')
       }
     } catch (_error: unknown) {
-       const message = _error instanceof Error ? _error.message : 'Failed to update item'
+       const message = _error instanceof Error ? _error.message : 'An unexpected error occurred'
       toast.error(message)
     }
   }
 
   const handleDeleteChecklistItem = async (itemId: string) => {
     try {
-      await deleteChecklistItem(itemId)
-      if (task) {
-        const updatedChecklists = (task.checklists || []).map((cl) => ({
-          ...cl,
-          items: cl.items.filter((item: ChecklistItem) => item.id !== itemId)
-        }))
-        setTask({ ...task, checklists: updatedChecklists })
+      const result = await deleteChecklistItem({ id: itemId })
+      if (result.success) {
+        if (task) {
+          const updatedChecklists = (task.checklists || []).map((cl) => ({
+            ...cl,
+            items: cl.items.filter((item: ChecklistItem) => item.id !== itemId)
+          }))
+          setTask({ ...task, checklists: updatedChecklists })
+        }
+        toast.success('Item removed')
+      } else {
+        toast.error(result.error || 'Failed to delete item')
       }
-      toast.success('Item removed')
     } catch {
-      toast.error('Failed to delete item')
+      toast.error('An unexpected error occurred')
     }
   }
 
@@ -286,21 +350,25 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const handleSaveEdit = async (itemId: string) => {
     if (!editingContent.trim()) return
     try {
-      await updateChecklistItem(itemId, editingContent)
-      if (task) {
-        const updatedChecklists = (task.checklists || []).map(cl => ({
-          ...cl,
-          items: cl.items.map(item => 
-            item.id === itemId ? { ...item, content: editingContent } : item
-          )
-        }))
-        setTask({ ...task, checklists: updatedChecklists })
+      const result = await updateChecklistItem({ id: itemId, content: editingContent })
+      if (result.success) {
+        if (task) {
+          const updatedChecklists = (task.checklists || []).map(cl => ({
+            ...cl,
+            items: cl.items.map(item => 
+              item.id === itemId ? { ...item, content: editingContent } : item
+            )
+          }))
+          setTask({ ...task, checklists: updatedChecklists })
+        }
+        setEditingItemId(null)
+        setEditingContent('')
+        toast.success('Item updated')
+      } else {
+        toast.error(result.error || 'Failed to update item')
       }
-      setEditingItemId(null)
-      setEditingContent('')
-      toast.success('Item updated')
     } catch {
-      toast.error('Failed to update item')
+      toast.error('An unexpected error occurred')
     }
   }
 
@@ -311,21 +379,29 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
 
   const handleAddTag = async (tagId: string) => {
     try {
-      const updatedTask = await addTagToTask(taskId!, tagId)
-      setTask(updatedTask as Task)
-      toast.success('Tag added')
+      const result = await addTagToTask({ taskId: taskId!, tagId })
+      if (result.success && result.data) {
+        setTask(result.data as Task)
+        toast.success('Tag added')
+      } else {
+        toast.error(result.error || 'Failed to add tag')
+      }
     } catch {
-      toast.error('Failed to add tag')
+      toast.error('An unexpected error occurred')
     }
   }
 
   const handleRemoveTag = async (tagId: string) => {
     try {
-      const updatedTask = await removeTagFromTask(taskId!, tagId)
-      setTask(updatedTask as Task)
-      toast.success('Tag removed')
+      const result = await removeTagFromTask({ taskId: taskId!, tagId })
+      if (result.success && result.data) {
+        setTask(result.data as Task)
+        toast.success('Tag removed')
+      } else {
+        toast.error(result.error || 'Failed to remove tag')
+      }
     } catch {
-      toast.error('Failed to remove tag')
+      toast.error('An unexpected error occurred')
     }
   }
 
@@ -336,14 +412,19 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       return
     }
     try {
-      const entry = await logTime(taskId!, duration, timeDescription)
-      setTimeEntries([entry as TimeEntry, ...timeEntries])
-      setIsLoggingTime(false)
-      setTimeDuration('')
-      setTimeDescription('')
-      toast.success('Time logged')
+      const result = await logTime({ taskId: taskId!, duration, description: timeDescription })
+      if (result.success && result.data) {
+        const entry = result.data as TimeEntry
+        setTimeEntries([entry, ...timeEntries])
+        setIsLoggingTime(false)
+        setTimeDuration('')
+        setTimeDescription('')
+        toast.success('Time logged')
+      } else {
+        toast.error(result.error || 'Failed to log time')
+      }
     } catch {
-      toast.error('Failed to log time')
+      toast.error('An unexpected error occurred')
     }
   }
 
@@ -353,12 +434,16 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       return
     }
     try {
-      await submitForReview(taskId!, selectedReviewer)
-      setIsSubmittingReview(false)
-      fetchTaskDetails()
-      toast.success('Submitted for review')
+      const result = await submitForReview({ taskId: taskId!, reviewerId: selectedReviewer })
+      if (result.success) {
+        setIsSubmittingReview(false)
+        fetchTaskDetails()
+        toast.success('Submitted for review')
+      } else {
+        toast.error(result.error || 'Failed to submit review')
+      }
     } catch {
-      toast.error('Failed to submit review')
+      toast.error('An unexpected error occurred')
     }
   }
 
@@ -370,12 +455,16 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     try {
       const activeReview = task?.reviews?.find(r => r.status === 'PENDING')
       if (!activeReview) return
-      await completeReview(activeReview.id, status, reviewFeedback)
-      setReviewFeedback('')
-      fetchTaskDetails()
-      toast.success(`Review completed: ${status}`)
+      const result = await completeReview({ id: activeReview.id, status, feedback: reviewFeedback })
+      if (result.success) {
+        setReviewFeedback('')
+        fetchTaskDetails()
+        toast.success(`Review completed: ${status}`)
+      } else {
+        toast.error(result.error || 'Failed to complete review')
+      }
     } catch {
-      toast.error('Failed to complete review')
+      toast.error('An unexpected error occurred')
     }
   }
 
@@ -389,24 +478,30 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       // For this demo, we'll simulate it with a data URL or just the file metadata
       const reader = new FileReader()
       reader.onloadend = async () => {
-        const attachment = await addAttachment(taskId!, {
+        const result = await addAttachment({
+          taskId: taskId!,
           name: file.name,
           type: file.type,
           size: file.size,
           url: reader.result as string // Using base64 for demo purposes
         })
         
-        if (task) {
-          setTask({
-            ...task,
-            attachments: [...(task.attachments || []), attachment as Attachment]
-          })
+        if (result.success && result.data) {
+          const attachment = result.data as Attachment
+          if (task) {
+            setTask({
+              ...task,
+              attachments: [...(task.attachments || []), attachment]
+            })
+          }
+          toast.success('File attached successfully')
+        } else {
+          toast.error(result.error || 'Failed to upload file')
         }
-        toast.success('File attached successfully')
       }
       reader.readAsDataURL(file)
     } catch {
-      toast.error('Failed to upload file')
+      toast.error('An unexpected error occurred')
     } finally {
       setIsUploading(false)
     }
@@ -415,16 +510,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!confirm('Are you sure you want to delete this attachment?')) return
     try {
-      await deleteAttachment(attachmentId, taskId!)
-      if (task) {
-        setTask({
-          ...task,
-          attachments: (task.attachments || []).filter(a => a.id !== attachmentId)
-        })
+      const result = await deleteAttachment({ id: attachmentId })
+      if (result.success) {
+        if (task) {
+          setTask({
+            ...task,
+            attachments: (task.attachments || []).filter(a => a.id !== attachmentId)
+          })
+        }
+        toast.success('Attachment deleted')
+      } else {
+        toast.error(result.error || 'Failed to delete attachment')
       }
-      toast.success('Attachment deleted')
     } catch {
-      toast.error('Failed to delete attachment')
+      toast.error('An unexpected error occurred')
     }
   }
 
@@ -448,7 +547,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[1100px] w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden bg-background/95 backdrop-blur-2xl border-primary/10 shadow-2xl shadow-primary/5 rounded-3xl">
+      <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden bg-background/95 backdrop-blur-2xl border-primary/10 shadow-2xl shadow-primary/5 rounded-3xl">
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="size-8 animate-spin text-primary" />

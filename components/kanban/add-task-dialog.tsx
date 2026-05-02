@@ -46,12 +46,17 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTas
 
     setLoading(true)
     try {
-      await createTask({
+      const result = await createTask({
         title,
         description,
         priority: priority as Priority,
         columnId,
       })
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create task')
+      }
+
       toast.success('Task created successfully')
       setTitle('')
       setDescription('')

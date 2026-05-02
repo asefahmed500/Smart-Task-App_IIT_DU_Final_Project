@@ -31,7 +31,8 @@ export function AddColumnDialog({ isOpen, onClose, boardId }: AddColumnDialogPro
 
     setLoading(true)
     try {
-      await createColumn(boardId, name)
+      const result = await createColumn({ boardId, name })
+      if (!result.success) throw new Error(result.error)
       toast.success('Column added successfully')
       setName('')
       onClose()

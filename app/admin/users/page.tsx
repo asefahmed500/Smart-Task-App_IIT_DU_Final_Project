@@ -3,7 +3,8 @@ import { UserTable } from "@/components/admin/user-table"
 import { AddUserDialog } from "@/components/admin/add-user-dialog"
 
 export default async function AdminUsersPage() {
-  const users = await getUsers()
+  const usersResult = await getUsers()
+  const users = usersResult.success ? (usersResult.data as any[]) : []
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

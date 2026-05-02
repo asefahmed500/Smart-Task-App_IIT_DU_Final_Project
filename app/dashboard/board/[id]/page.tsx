@@ -1,5 +1,5 @@
 import { getBoardData } from "@/lib/board-actions"
-import { getSession } from "@/lib/auth"
+import { getSession } from "@/lib/auth-server"
 import { redirect, notFound } from "next/navigation"
 import { KanbanBoard } from "@/components/kanban/kanban-board"
 import { BoardHeader } from "@/components/kanban/board-header"
@@ -9,8 +9,13 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
   const session = await getSession()
   if (!session) redirect('/login')
 
-  const board = await getBoardData(id)
-  if (!board) notFound()
+  const result = await getBoardData({ boardId: id })
+  if (!result.success || !result.data) {
+    console.error('Board not found or error:', result.error)
+    notFound()
+  }
+  
+  const board = result.data as any // Cast to any for now to bypass strict Prisma/Board type differences if any, but properly unpacked from ActionResult
 
   return (
     <div className="h-[calc(100vh-12rem)] flex flex-col gap-6 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">

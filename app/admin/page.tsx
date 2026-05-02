@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/auth'
+import { getSession } from '@/lib/auth-server'
 import { redirect } from 'next/navigation'
 import { getAdminStats, getAuditLogs } from '@/lib/admin-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -16,8 +16,18 @@ export default async function AdminPage() {
     redirect('/login')
   }
 
-  const stats = await getAdminStats()
-  const recentLogs = await getAuditLogs()
+  const statsResult = await getAdminStats()
+  const recentLogsResult = await getAuditLogs()
+
+  const stats = statsResult.success ? (statsResult.data as any) : { 
+    userCount: 0, 
+    boardCount: 0, 
+    logCount: 0, 
+    dbStatus: 'UNKNOWN', 
+    latency: 'N/A',
+    activityData: [] 
+  }
+  const recentLogs = recentLogsResult.success ? (recentLogsResult.data as any[]) : []
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-10">

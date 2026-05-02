@@ -1,21 +1,15 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { emitNotification } from '@/lib/socket-emitter'
+import { emitNotification, emitBoardEvent } from '@/lib/socket-emitter'
 import { Priority } from '@/lib/prisma'
+import { getSession } from '@/lib/auth-server'
+import { revalidatePath } from 'next/cache'
+import { createAutomationRuleSchema, updateAutomationRuleSchema, idSchema } from './schemas'
+import { ActionResult } from '@/types/kanban'
 
-type Trigger = 'TASK_CREATED' | 'TASK_MOVED' | 'TASK_UPDATED' | 'TASK_ASSIGNED'
-type Action = 'SEND_NOTIFICATION' | 'MOVE_TASK' | 'SET_PRIORITY' | 'ADD_TAG'
-
-interface AutomationRule {
-  id: string
-  name: string
-  trigger: string
-  condition: string | null
-  action: string
-  enabled: boolean
-  boardId: string | null
-}
+export type Trigger = 'TASK_CREATED' | 'TASK_MOVED' | 'TASK_UPDATED' | 'TASK_ASSIGNED'
+export type Action = 'SEND_NOTIFICATION' | 'MOVE_TASK' | 'SET_PRIORITY' | 'ADD_TAG'
 
 interface TaskContext {
   taskId: string
@@ -28,6 +22,7 @@ interface TaskContext {
   previousColumnId?: string
 }
 
+// Internal evaluation logic (keep as is but exported for task-actions)
 export async function evaluateAutomationRules(
   trigger: Trigger,
   context: TaskContext
@@ -60,6 +55,7 @@ export async function evaluateAutomationRules(
               trigger,
               taskId: context.taskId,
               action: rule.action,
+              boardId: context.boardId
             }
           }
         })
@@ -91,7 +87,7 @@ function evaluateCondition(condition: string, context: TaskContext): boolean {
   }
 }
 
-async function executeAction(action: string, context: TaskContext, rule: AutomationRule): Promise<void> {
+async function executeAction(action: string, context: TaskContext, rule: any): Promise<void> {
   const actionParts = action.split(':')
   const actionType = actionParts[0] as Action
   const actionParams = actionParts.slice(1).join(':')
@@ -112,6 +108,7 @@ async function executeAction(action: string, context: TaskContext, rule: Automat
   }
 }
 
+// Helper handlers (keep as is)
 async function handleSendNotification(params: string, context: TaskContext, ruleName: string): Promise<void> {
   const targetEmail = params.replace('email:', '') || 'manager'
   
@@ -165,12 +162,22 @@ async function handleMoveTask(params: string, context: TaskContext): Promise<voi
   })
 
   if (targetColumn && targetColumn.id !== context.columnId) {
-    await prisma.task.update({
+    const updatedTask = await prisma.task.update({
       where: { id: context.taskId },
       data: {
         columnId: targetColumn.id,
         version: { increment: 1 }
-      }
+      },
+      include: { column: true }
+    })
+
+    // Real-time update for automation move
+    emitBoardEvent('task:moved', {
+      boardId: context.boardId,
+      taskId: context.taskId,
+      columnId: targetColumn.id,
+      previousColumnId: context.columnId,
+      task: updatedTask
     })
   }
 }
@@ -178,18 +185,25 @@ async function handleMoveTask(params: string, context: TaskContext): Promise<voi
 async function handleSetPriority(params: string, context: TaskContext): Promise<void> {
   const priority = params.replace('priority:', '').toUpperCase()
   
-    if (['LOW', 'MEDIUM', 'HIGH', 'URGENT'].includes(priority)) {
-      await prisma.task.update({
-        where: { id: context.taskId },
-        data: {
-          priority: priority as Priority,
-          version: { increment: 1 }
-        }
-      })
-    }
-  }
+  if (['LOW', 'MEDIUM', 'HIGH', 'URGENT'].includes(priority)) {
+    const updatedTask = await prisma.task.update({
+      where: { id: context.taskId },
+      data: {
+        priority: priority as Priority,
+        version: { increment: 1 }
+      },
+      include: { column: true }
+    })
 
-  async function handleAddTag(params: string, context: TaskContext): Promise<void> {
+    // Real-time update for automation priority change
+    emitBoardEvent('task:updated', {
+      boardId: context.boardId,
+      task: updatedTask
+    })
+  }
+}
+
+async function handleAddTag(params: string, context: TaskContext): Promise<void> {
   const tagName = params.replace('tag:', '')
   
   let tag = await prisma.tag.findFirst({
@@ -202,10 +216,208 @@ async function handleSetPriority(params: string, context: TaskContext): Promise<
     })
   }
 
-  await prisma.task.update({
+  const updatedTask = await prisma.task.update({
     where: { id: context.taskId },
     data: {
-      tags: { connect: { id: tag.id } }
-    }
+      tags: { connect: { id: tag.id } },
+      version: { increment: 1 }
+    },
+    include: { column: true }
+  })
+
+  // Real-time update for automation tag add
+  emitBoardEvent('task:updated', {
+    boardId: context.boardId,
+    task: updatedTask
   })
 }
+
+// --- NEW PUBLIC ACTIONS ---
+
+async function checkAutomationPermission(boardId: string | null) {
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  if (session.role === 'ADMIN') return { success: true, session }
+
+  if (!boardId) {
+    return { success: false, error: 'Only administrators can manage system-wide rules' }
+  }
+
+  const board = await prisma.board.findUnique({
+    where: { id: boardId },
+    include: {
+      members: {
+        where: { id: session.id },
+        select: { id: true, role: true }
+      }
+    }
+  })
+
+  if (!board) return { success: false, error: 'Board not found' }
+
+  const isOwner = board.ownerId === session.id
+  const userRole = session.role as string
+  const isMember = board.members.length > 0
+
+  if (!isOwner && !isMember) {
+    return { success: false, error: 'Forbidden: You are not a member of this board' }
+  }
+
+  const effectiveRole = isOwner ? 'MANAGER' : (board.members[0]?.role || 'MEMBER')
+
+  if (effectiveRole !== 'MANAGER' && effectiveRole !== 'ADMIN' && userRole !== 'MANAGER' && userRole !== 'ADMIN') {
+    return { success: false, error: 'Insufficient permissions' }
+  }
+
+  return { success: true, session }
+
+}
+
+export async function getAutomationRules(input?: { boardId?: string }): Promise<ActionResult> {
+  const boardId = input?.boardId
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const rules = await prisma.automationRule.findMany({
+      where: boardId ? { boardId } : { boardId: null },
+      orderBy: { createdAt: 'desc' }
+    })
+    return { success: true, data: rules }
+  } catch (error) {
+    return { success: false, error: 'Failed to fetch automation rules' }
+  }
+}
+
+export async function createAutomationRule(data: any): Promise<ActionResult> {
+  const validation = createAutomationRuleSchema.safeParse(data)
+  if (!validation.success) {
+    return { success: false, error: 'Validation failed', fieldErrors: validation.error.flatten().fieldErrors }
+  }
+
+  const perm = await checkAutomationPermission(validation.data.boardId || null)
+  if (!perm.success) return perm
+
+  try {
+    const rule = await prisma.automationRule.create({
+      data: validation.data
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: perm.session!.id,
+        action: 'CREATE_AUTOMATION_RULE',
+        details: { ruleId: rule.id, name: rule.name, boardId: rule.boardId }
+      }
+    })
+
+    if (rule.boardId) revalidatePath(`/dashboard/board/${rule.boardId}`)
+    return { success: true, data: rule }
+  } catch (error) {
+    return { success: false, error: 'Failed to create automation rule' }
+  }
+}
+
+export async function updateAutomationRule(data: any): Promise<ActionResult> {
+  const validation = updateAutomationRuleSchema.safeParse(data)
+  if (!validation.success) {
+    return { success: false, error: 'Validation failed', fieldErrors: validation.error.flatten().fieldErrors }
+  }
+
+  try {
+    const existingRule = await prisma.automationRule.findUnique({
+      where: { id: validation.data.id }
+    })
+    if (!existingRule) return { success: false, error: 'Rule not found' }
+
+    const perm = await checkAutomationPermission(existingRule.boardId)
+    if (!perm.success) return perm
+
+    const rule = await prisma.automationRule.update({
+      where: { id: validation.data.id },
+      data: validation.data
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: perm.session!.id,
+        action: 'UPDATE_AUTOMATION_RULE',
+        details: { ruleId: rule.id, changes: validation.data }
+      }
+    })
+
+    if (rule.boardId) revalidatePath(`/dashboard/board/${rule.boardId}`)
+    return { success: true, data: rule }
+  } catch (error) {
+    return { success: false, error: 'Failed to update automation rule' }
+  }
+}
+
+export async function deleteAutomationRule(input: { id: string }): Promise<ActionResult> {
+  const { id } = input
+  const validation = idSchema.safeParse(id)
+  if (!validation.success) return { success: false, error: 'Invalid ID' }
+
+  try {
+    const existingRule = await prisma.automationRule.findUnique({
+      where: { id }
+    })
+    if (!existingRule) return { success: false, error: 'Rule not found' }
+
+    const perm = await checkAutomationPermission(existingRule.boardId)
+    if (!perm.success) return perm
+
+    await prisma.automationRule.delete({
+      where: { id }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: perm.session!.id,
+        action: 'DELETE_AUTOMATION_RULE',
+        details: { ruleId: id, name: existingRule.name, boardId: existingRule.boardId }
+      }
+    })
+
+    if (existingRule.boardId) revalidatePath(`/dashboard/board/${existingRule.boardId}`)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: 'Failed to delete automation rule' }
+  }
+}
+
+export async function toggleAutomationRule(input: { id: string, enabled: boolean }): Promise<ActionResult> {
+  const { id, enabled } = input
+  const validation = idSchema.safeParse(id)
+  if (!validation.success) return { success: false, error: 'Invalid ID' }
+
+  try {
+    const existingRule = await prisma.automationRule.findUnique({
+      where: { id }
+    })
+    if (!existingRule) return { success: false, error: 'Rule not found' }
+
+    const perm = await checkAutomationPermission(existingRule.boardId)
+    if (!perm.success) return perm
+
+    const rule = await prisma.automationRule.update({
+      where: { id },
+      data: { enabled }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: perm.session!.id,
+        action: 'TOGGLE_AUTOMATION_RULE',
+        details: { ruleId: rule.id, enabled }
+      }
+    })
+
+    if (rule.boardId) revalidatePath(`/dashboard/board/${rule.boardId}`)
+    return { success: true, data: rule }
+  } catch (error) {
+    return { success: false, error: 'Failed to toggle automation rule' }
+  }
+}
+

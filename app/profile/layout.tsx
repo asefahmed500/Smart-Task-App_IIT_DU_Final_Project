@@ -1,7 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/app-sidebar"
-import { getSession } from "@/lib/auth"
+import { getSession } from "@/lib/auth-server"
 import { redirect } from "next/navigation"
 
 export default async function ProfileLayout({

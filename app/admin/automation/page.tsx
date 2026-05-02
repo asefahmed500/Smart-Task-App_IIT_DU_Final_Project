@@ -1,6 +1,6 @@
-import { getSession } from '@/lib/auth'
+import { getSession } from '@/lib/auth-server'
 import { redirect } from 'next/navigation'
-import { getAutomationRules, getAutomationStats } from '@/lib/admin-actions'
+import { getAutomationRules, getAdminStats } from '@/lib/admin-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Cpu, Zap, AlertCircle, Power } from "lucide-react"
 import { AddRuleDialog } from "@/components/admin/add-rule-dialog"
@@ -13,10 +13,11 @@ export default async function AutomationPage() {
     redirect('/login')
   }
 
-  const [rules, stats] = await Promise.all([
-    getAutomationRules(),
-    getAutomationStats()
-  ])
+  const rulesResult = await getAutomationRules()
+  const statsResult = await getAdminStats()
+
+  const rules = rulesResult.success ? (rulesResult.data as any[]) : []
+  const stats = statsResult.success ? (statsResult.data as any) : { automationExecCount: 0, totalRules: 0, activeRules: 0, errorRate: 0 }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
