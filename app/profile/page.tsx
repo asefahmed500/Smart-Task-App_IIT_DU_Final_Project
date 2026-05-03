@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth-server'
 import { redirect } from 'next/navigation'
-import { getUserProfile } from '@/lib/admin-actions'
+import { getUserProfile } from '@/lib/auth-actions'
 import { ProfileForm } from '@/components/profile-form'
 
 export default async function ProfilePage() {

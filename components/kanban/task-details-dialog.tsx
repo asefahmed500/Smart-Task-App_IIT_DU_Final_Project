@@ -63,8 +63,10 @@ import {
 } from '@/lib/task-actions'
 import { undoLastAction } from '@/lib/board-actions'
 import { toast } from 'sonner'
+import { useOfflineStore } from '@/lib/store/use-offline-store'
 import { cn } from '@/lib/utils'
 import { User, Task, Comment, ChecklistItem, Checklist, Priority, Tag, TimeEntry, Attachment, ActionResult } from '@/types/kanban'
+import { ConflictDialog } from './conflict-dialog'
 
 interface TaskDetailsDialogProps {
   taskId: string | null
@@ -97,6 +99,9 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const [selectedReviewer, setSelectedReviewer] = useState('')
   const [reviewFeedback, setReviewFeedback] = useState('')
   const [isUploading, setIsUploading] = useState(false)
+  const [conflictModalOpen, setConflictModalOpen] = useState(false)
+  const [conflictData, setConflictData] = useState<{ field: string, value: any } | null>(null)
+  const { isOnline, addAction } = useOfflineStore()
 
   const isMember = currentUser.role === 'MEMBER'
   const isAdmin = currentUser.role === 'ADMIN'
@@ -184,21 +189,70 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   }
 
   const handleUpdate = async (field: string, value: string | Priority | null) => {
+    if (!task) return
     setUpdating(true)
     try {
-      const result = await updateTask({ id: taskId!, input: { [field]: value } })
+      if (!isOnline) {
+        await addAction({
+          type: 'EDIT_TASK',
+          payload: { id: taskId!, [field]: value, version: task.version }
+        })
+        setTask({ ...task, [field]: value } as Task)
+        toast.success('Update queued (offline)')
+        return
+      }
+
+      const result = await updateTask({ id: taskId!, [field]: value, version: task.version })
       if (result.success) {
-        if (task) {
-          setTask({ ...task, [field]: value })
-        }
-        toast.success('Task updated')
+        setTask({ ...task, [field]: value } as Task)
+        toast.success('Task updated', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails() // Refresh local state
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
-        toast.error(result.error || 'Failed to update task')
+        const message = result.error || 'Failed to update task'
+        if (message.includes('Conflict')) {
+          setConflictData({ field, value })
+          setConflictModalOpen(true)
+        } else {
+          toast.error(message)
+        }
       }
     } catch {
       toast.error('An unexpected error occurred')
     } finally {
       setUpdating(false)
+    }
+  }
+
+  const handleResolveConflict = async () => {
+    if (!conflictData || !task) return
+    try {
+      const result = await updateTask({ 
+        id: taskId!, 
+        [conflictData.field]: conflictData.value,
+        version: undefined // Force bypass
+      })
+      if (result.success) {
+        setTask({ ...task, [conflictData.field]: conflictData.value } as Task)
+        toast.success('Conflict resolved (overwritten)')
+        setConflictModalOpen(false)
+        setConflictData(null)
+      } else {
+        toast.error(result.error || 'Failed to resolve conflict')
+      }
+    } catch {
+      toast.error('An unexpected error occurred')
     }
   }
 
@@ -232,6 +286,28 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   const handleAddComment = async () => {
     if (!newComment.trim()) return
     try {
+      if (!isOnline) {
+        await addAction({
+          type: 'ADD_COMMENT',
+          payload: { taskId: taskId!, content: newComment }
+        })
+        if (task) {
+          const tempComment: Comment = {
+            id: crypto.randomUUID(),
+            content: newComment,
+            taskId: taskId!,
+            userId: currentUser.id,
+            user: currentUser,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+          setTask({ ...task, comments: [tempComment, ...(task.comments || [])] })
+        }
+        setNewComment('')
+        toast.success('Comment queued (offline)')
+        return
+      }
+
       const result = await addComment({ taskId: taskId!, content: newComment })
       if (result.success && result.data) {
         const comment = result.data as Comment
@@ -239,7 +315,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
           setTask({ ...task, comments: [comment, ...(task.comments || [])] })
         }
         setNewComment('')
-        toast.success('Comment added')
+        toast.success('Comment added', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to add comment')
       }
@@ -256,7 +345,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
         if (task) {
           setTask({ ...task, comments: (task.comments || []).filter(c => c.id !== commentId) })
         }
-        toast.success('Comment deleted')
+        toast.success('Comment deleted', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to delete comment')
       }
@@ -291,7 +393,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
         
         setTask({ ...task, checklists: updatedChecklists })
         setNewChecklistItem('')
-        toast.success('Item added')
+        toast.success('Item added', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to add checklist item')
       }
@@ -313,6 +428,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
           }))
           setTask({ ...task, checklists: updatedChecklists })
         }
+        toast.success('Item updated', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to update item')
       }
@@ -333,7 +462,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
           }))
           setTask({ ...task, checklists: updatedChecklists })
         }
-        toast.success('Item removed')
+        toast.success('Item removed', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to delete item')
       }
@@ -363,7 +505,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
         }
         setEditingItemId(null)
         setEditingContent('')
-        toast.success('Item updated')
+        toast.success('Item updated', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to update item')
       }
@@ -382,7 +537,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       const result = await addTagToTask({ taskId: taskId!, tagId })
       if (result.success && result.data) {
         setTask(result.data as Task)
-        toast.success('Tag added')
+        toast.success('Tag added', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to add tag')
       }
@@ -396,7 +564,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       const result = await removeTagFromTask({ taskId: taskId!, tagId })
       if (result.success && result.data) {
         setTask(result.data as Task)
-        toast.success('Tag removed')
+        toast.success('Tag removed', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to remove tag')
       }
@@ -419,7 +600,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
         setIsLoggingTime(false)
         setTimeDuration('')
         setTimeDescription('')
-        toast.success('Time logged')
+        toast.success('Time logged', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to log time')
       }
@@ -438,7 +632,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       if (result.success) {
         setIsSubmittingReview(false)
         fetchTaskDetails()
-        toast.success('Submitted for review')
+        toast.success('Submitted for review', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to submit review')
       }
@@ -459,7 +666,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       if (result.success) {
         setReviewFeedback('')
         fetchTaskDetails()
-        toast.success(`Review completed: ${status}`)
+        toast.success(`Review completed: ${status}`, {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to complete review')
       }
@@ -494,7 +714,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
               attachments: [...(task.attachments || []), attachment]
             })
           }
-          toast.success('File attached successfully')
+          toast.success('File attached successfully', {
+            action: {
+              label: 'Undo',
+              onClick: async () => {
+                const undoResult = await undoLastAction()
+                if (undoResult.success) {
+                  toast.success('Action undone')
+                  fetchTaskDetails()
+                } else {
+                  toast.error(undoResult.error || 'Failed to undo')
+                }
+              }
+            }
+          })
         } else {
           toast.error(result.error || 'Failed to upload file')
         }
@@ -518,7 +751,20 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
             attachments: (task.attachments || []).filter(a => a.id !== attachmentId)
           })
         }
-        toast.success('Attachment deleted')
+        toast.success('Attachment deleted', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+                fetchTaskDetails()
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to delete attachment')
       }
@@ -1194,6 +1440,16 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
           </div>
         )}
       </DialogContent>
+
+      <ConflictDialog 
+        isOpen={conflictModalOpen}
+        onClose={() => setConflictModalOpen(false)}
+        onRefresh={() => {
+          setConflictModalOpen(false)
+          fetchTaskDetails()
+        }}
+        onResolve={handleResolveConflict}
+      />
     </Dialog>
   )
 }

@@ -191,6 +191,9 @@ export async function updateBoard(rawInput: any): Promise<ActionResult> {
     const permission = await checkBoardPermission({ boardId: id, allowedRoles: ['ADMIN', 'MANAGER'] })
     if (!permission.success) return permission as any
 
+    const previousBoard = permission.board
+    if (!previousBoard) return { success: false, error: 'Board context missing' }
+
     const updatedBoard = await prisma.board.update({
       where: { id },
       data
@@ -200,7 +203,12 @@ export async function updateBoard(rawInput: any): Promise<ActionResult> {
       data: {
         userId: (permission as any).session.id,
         action: 'UPDATE_BOARD',
-        details: { boardId: id, ...data },
+        details: { 
+          boardId: id, 
+          ...data,
+          previousName: previousBoard.name,
+          previousDescription: previousBoard.description
+        },
       }
     })
 
@@ -387,6 +395,10 @@ export async function updateColumn(rawInput: any): Promise<ActionResult> {
     const permission = await checkBoardPermission({ boardId: column.boardId, allowedRoles: ['ADMIN', 'MANAGER'] })
     if (!permission.success) return permission as any
 
+    const existingColumn = await prisma.column.findUnique({
+      where: { id }
+    })
+
     const updatedColumn = await prisma.column.update({
       where: { id },
       data
@@ -396,7 +408,12 @@ export async function updateColumn(rawInput: any): Promise<ActionResult> {
       data: {
         userId: (permission as any).session.id,
         action: 'UPDATE_COLUMN',
-        details: { boardId: column.boardId, columnId: id, ...data },
+        details: { 
+          boardId: column.boardId, 
+          columnId: id, 
+          previousState: existingColumn,
+          updatedFields: Object.keys(data)
+        },
       }
     })
 
@@ -428,6 +445,11 @@ export async function updateColumnWipLimit(input: { columnId: string, wipLimit: 
     const permission = await checkBoardPermission({ boardId: column.boardId, allowedRoles: ['ADMIN', 'MANAGER'] })
     if (!permission.success) return permission as any
 
+    const existingColumn = await prisma.column.findUnique({
+      where: { id: vColumnId },
+      select: { wipLimit: true }
+    })
+
     const updatedColumn = await prisma.column.update({
       where: { id: vColumnId },
       data: { wipLimit }
@@ -437,7 +459,12 @@ export async function updateColumnWipLimit(input: { columnId: string, wipLimit: 
       data: {
         userId: (permission as any).session.id,
         action: 'UPDATE_COLUMN_WIP_LIMIT',
-        details: { boardId: column.boardId, columnId, wipLimit },
+        details: { 
+          boardId: column.boardId, 
+          columnId, 
+          previousWipLimit: existingColumn?.wipLimit,
+          newWipLimit: wipLimit 
+        },
       }
     })
 
@@ -458,6 +485,14 @@ export async function reorderColumns(rawInput: any): Promise<ActionResult> {
     const permission = await checkBoardPermission({ boardId, allowedRoles: ['ADMIN', 'MANAGER'] })
     if (!permission.success) return permission as any
 
+    // Fetch current order for undo
+    const existingColumns = await prisma.column.findMany({
+      where: { boardId },
+      orderBy: { order: 'asc' },
+      select: { id: true }
+    })
+    const previousColumnIds = existingColumns.map(c => c.id)
+
     // Bulk update orders in a transaction
     await prisma.$transaction(
       columnIds.map((id, index) =>
@@ -472,7 +507,7 @@ export async function reorderColumns(rawInput: any): Promise<ActionResult> {
       data: {
         userId: (permission as any).session.id,
         action: 'REORDER_COLUMNS',
-        details: { boardId, columnIds },
+        details: { boardId, columnIds, previousColumnIds },
       }
     })
 
@@ -629,7 +664,7 @@ export async function createTag(rawInput: any): Promise<ActionResult> {
       data: {
         userId: session.id,
         action: 'CREATE_TAG',
-        details: { tagId: tag.id, name, boardId },
+        details: { tagId: tag.id, name, color, boardId },
       }
     })
 
@@ -677,7 +712,12 @@ export async function deleteTag(input: { tagId: string }): Promise<ActionResult>
       data: {
         userId: session.id,
         action: 'DELETE_TAG',
-        details: { tagId: vTagId, boardId: tag.boardId },
+        details: { 
+          tagId: vTagId, 
+          boardId: tag.boardId,
+          name: tag.name,
+          color: tag.color
+        },
       }
     })
 
@@ -737,14 +777,45 @@ export async function undoLastAction(): Promise<ActionResult> {
   if (!session) return { success: false, error: 'Unauthorized' }
 
   try {
-    // Find the most recent undoable action for this user within the last 30 seconds (standard undo window)
+    // Cleanup: Delete audit logs older than 5 minutes for this user
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+    await prisma.auditLog.deleteMany({
+      where: {
+        userId: session.id,
+        createdAt: { lt: fiveMinutesAgo }
+      }
+    })
+
+    // Find the most recent undoable action for this user within the last 30 seconds
     const thirtySecondsAgo = new Date(Date.now() - 30 * 1000)
     const lastAction = await prisma.auditLog.findFirst({
       where: {
         userId: session.id,
         createdAt: { gte: thirtySecondsAgo },
         action: {
-          in: ['CREATE_TASK', 'DELETE_TASK', 'UPDATE_TASK_STATUS', 'UPDATE_TASK_STATUS_OVERRIDE', 'CREATE_COLUMN', 'DELETE_COLUMN']
+          in: [
+            'CREATE_TASK', 
+            'DELETE_TASK', 
+            'UPDATE_TASK',
+            'UPDATE_TASK_STATUS', 
+            'UPDATE_TASK_STATUS_OVERRIDE', 
+            'CREATE_COLUMN', 
+            'DELETE_COLUMN',
+            'UPDATE_COLUMN',
+            'UPDATE_COLUMN_WIP_LIMIT',
+            'REORDER_COLUMNS',
+            'DELETE_COMMENT',
+            'DELETE_CHECKLIST_ITEM',
+            'DELETE_ATTACHMENT',
+            'COMPLETE_REVIEW',
+            'ADD_TAG',
+            'REMOVE_TAG',
+            'TOGGLE_CHECKLIST_ITEM',
+            'ADD_COMMENT',
+            'ADD_CHECKLIST_ITEM',
+            'UPDATE_CHECKLIST_ITEM',
+            'ADD_ATTACHMENT'
+          ]
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -776,7 +847,6 @@ export async function undoLastAction(): Promise<ActionResult> {
             assigneeId: t.assigneeId,
             creatorId: t.creatorId,
             version: t.version,
-            // Re-connect tags
             tags: {
               connect: t.tags?.map((tag: any) => ({ id: tag.id })) || []
             }
@@ -817,7 +887,66 @@ export async function undoLastAction(): Promise<ActionResult> {
           })
         }
 
+        // Re-create comments
+        if (t.comments && t.comments.length > 0) {
+          await prisma.comment.createMany({
+            data: t.comments.map((c: any) => ({
+              id: c.id,
+              content: c.content,
+              taskId: newTask.id,
+              userId: c.userId,
+              createdAt: c.createdAt
+            }))
+          })
+        }
+
+        // Re-create time entries
+        if (t.timeEntries && t.timeEntries.length > 0) {
+          await prisma.timeEntry.createMany({
+            data: t.timeEntries.map((te: any) => ({
+              id: te.id,
+              duration: te.duration,
+              description: te.description,
+              taskId: newTask.id,
+              userId: te.userId,
+              createdAt: te.createdAt
+            }))
+          })
+        }
+
+        // Re-create reviews
+        if (t.reviews && t.reviews.length > 0) {
+          await prisma.review.createMany({
+            data: t.reviews.map((r: any) => ({
+              id: r.id,
+              status: r.status,
+              feedback: r.feedback,
+              taskId: newTask.id,
+              reviewerId: r.reviewerId,
+              createdAt: r.createdAt
+            }))
+          })
+        }
+
         emitBoardEvent('task:created', { boardId: details.boardId, task: newTask })
+        break
+      }
+
+      case 'UPDATE_TASK': {
+        const s = details.previousState
+        const updatedTask = await prisma.task.update({
+          where: { id: details.taskId },
+          data: {
+            title: s.title,
+            description: s.description,
+            priority: s.priority,
+            dueDate: s.dueDate,
+            assigneeId: s.assigneeId,
+            version: { increment: 1 }
+          },
+          include: { column: true }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, task: updatedTask })
         break
       }
 
@@ -867,9 +996,223 @@ export async function undoLastAction(): Promise<ActionResult> {
         emitBoardEvent('column:created', { boardId: details.boardId, column: newColumn })
         break
       }
+
+      case 'UPDATE_COLUMN': {
+        const s = details.previousState
+        await prisma.column.update({
+          where: { id: details.columnId },
+          data: {
+            name: s.name,
+            wipLimit: s.wipLimit
+          }
+        })
+        emitBoardEvent('column:updated', { boardId: details.boardId, columnId: details.columnId })
+        break
+      }
+
+      case 'UPDATE_COLUMN_WIP_LIMIT': {
+        await prisma.column.update({
+          where: { id: details.columnId },
+          data: { wipLimit: details.previousWipLimit }
+        })
+        emitBoardEvent('column:updated', { boardId: details.boardId, columnId: details.columnId })
+        break
+      }
+
+      case 'REORDER_COLUMNS': {
+        const pIds = details.previousColumnIds
+        await prisma.$transaction(
+          pIds.map((id: string, index: number) =>
+            prisma.column.update({
+              where: { id, boardId: details.boardId },
+              data: { order: index }
+            })
+          )
+        )
+        emitBoardEvent('columns:reordered', { boardId: details.boardId, columnIds: pIds })
+        break
+      }
+
+      case 'DELETE_COMMENT': {
+        await prisma.comment.create({
+          data: {
+            id: details.commentId,
+            content: details.content,
+            taskId: details.taskId,
+            userId: details.commentUserId,
+            createdAt: details.createdAt
+          }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'DELETE_CHECKLIST_ITEM': {
+        await prisma.checklistItem.create({
+          data: {
+            id: details.itemId,
+            content: details.content,
+            checklistId: details.checklistId,
+            isCompleted: false
+          }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'DELETE_ATTACHMENT': {
+        await prisma.attachment.create({
+          data: {
+            id: details.attachmentId,
+            name: details.name,
+            url: details.url,
+            type: details.type,
+            size: details.size,
+            taskId: details.taskId
+          }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'COMPLETE_REVIEW': {
+        await prisma.review.update({
+          where: { id: details.reviewId },
+          data: { status: details.previousStatus }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'ADD_TAG': {
+        await prisma.task.update({
+          where: { id: details.taskId },
+          data: { tags: { disconnect: { id: details.tagId } }, version: { increment: 1 } }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'REMOVE_TAG': {
+        await prisma.task.update({
+          where: { id: details.taskId },
+          data: { tags: { connect: { id: details.tagId } }, version: { increment: 1 } }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'TOGGLE_CHECKLIST_ITEM': {
+        await prisma.checklistItem.update({
+          where: { id: details.itemId },
+          data: { isCompleted: !details.isCompleted }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'ADD_COMMENT': {
+        await prisma.comment.delete({ where: { id: details.commentId } })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'ADD_CHECKLIST_ITEM': {
+        await prisma.checklistItem.delete({ where: { id: details.itemId } })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'UPDATE_CHECKLIST_ITEM': {
+        await prisma.checklistItem.update({
+          where: { id: details.itemId },
+          data: { content: details.previousContent }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'ADD_ATTACHMENT': {
+        await prisma.attachment.delete({ where: { id: details.attachmentId } })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'UPDATE_BOARD': {
+        await prisma.board.update({
+          where: { id: details.boardId },
+          data: {
+            name: details.previousName,
+            description: details.previousDescription
+          }
+        })
+        emitBoardEvent('board:updated', { boardId: details.boardId, name: details.previousName })
+        break
+      }
+
+      case 'ADD_BOARD_MEMBER': {
+        await prisma.board.update({
+          where: { id: details.boardId },
+          data: {
+            members: {
+              disconnect: { id: details.addedUserId }
+            }
+          }
+        })
+        emitBoardEvent('board:member_removed', { boardId: details.boardId, userId: details.addedUserId })
+        break
+      }
+
+      case 'REMOVE_BOARD_MEMBER': {
+        await prisma.board.update({
+          where: { id: details.boardId },
+          data: {
+            members: {
+              connect: { id: details.removedUserId }
+            }
+          }
+        })
+        emitBoardEvent('board:member_added', { boardId: details.boardId, userId: details.removedUserId })
+        break
+      }
+
+      case 'CREATE_TAG': {
+        await prisma.tag.delete({ where: { id: details.tagId } })
+        if (details.boardId) {
+          emitBoardEvent('tag:deleted', { boardId: details.boardId, tagId: details.tagId })
+        }
+        break
+      }
+
+      case 'DELETE_TAG': {
+        await prisma.tag.create({
+          data: {
+            id: details.tagId,
+            name: details.name,
+            color: details.color,
+            boardId: details.boardId
+          }
+        })
+        if (details.boardId) {
+          emitBoardEvent('tag:created', { boardId: details.boardId, tagId: details.tagId })
+        }
+        break
+      }
+
+      case 'LOG_TIME': {
+        await prisma.timeEntry.delete({ where: { id: details.entryId } })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'SUBMIT_REVIEW': {
+        await prisma.review.delete({ where: { id: details.reviewId } })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
     }
 
-    // Delete the audit log entry so it can't be undone again (or just mark as undone)
+    // Delete the audit log entry so it can't be undone again
     await prisma.auditLog.delete({ where: { id: lastAction.id } })
 
     revalidatePath(`/dashboard/board/${details.boardId}`)

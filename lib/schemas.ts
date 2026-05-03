@@ -156,3 +156,28 @@ export const createCommentSchema = z.object({
   taskId: idSchema,
   content: z.string().min(1, 'Comment cannot be empty').max(1000),
 });
+// Auth Schemas
+export const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+export const signupSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  name: z.string().min(1, 'Name is required').max(50),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string(),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  password: z.string().min(8).optional(),
+});

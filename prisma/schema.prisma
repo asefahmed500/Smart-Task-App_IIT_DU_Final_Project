@@ -195,7 +195,7 @@ enum Priority {
 
 model PasswordResetToken {
   id        String   @id @default(cuid())
-  email     String
+  email     String   @unique
   token     String   @unique
   expires   DateTime
   createdAt DateTime @default(now())

@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { updateColumnWipLimit } from '@/lib/board-actions'
+import { updateColumnWipLimit, undoLastAction } from '@/lib/board-actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 
@@ -36,7 +36,19 @@ export function SetWipLimitDialog({ isOpen, onClose, columnId, boardId, currentL
     try {
       const result = await updateColumnWipLimit({ columnId, wipLimit: numLimit })
       if (result.success) {
-        toast.success('WIP limit updated')
+        toast.success('WIP limit updated', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
         onClose()
       } else {
         toast.error(result.error || 'Failed to update WIP limit')

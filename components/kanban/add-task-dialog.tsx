@@ -21,7 +21,9 @@ import {
 } from "@/components/ui/select"
 import { createTask } from '@/lib/task-actions'
 import { toast } from 'sonner'
+import { undoLastAction } from '@/lib/board-actions'
 import { Loader2 } from 'lucide-react'
+import { useOfflineStore } from '@/lib/store/use-offline-store'
 import { User } from '@/types/kanban'
 import { Priority } from '@/generated/prisma/enums'
 
@@ -37,6 +39,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTas
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('MEDIUM')
+  const { isOnline, addAction } = useOfflineStore()
 
   const isMember = currentUser.role === 'MEMBER'
 
@@ -46,6 +49,23 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTas
 
     setLoading(true)
     try {
+      if (!isOnline) {
+        await addAction({
+          type: 'CREATE_TASK',
+          payload: {
+            title,
+            description,
+            priority: priority as Priority,
+            columnId,
+          }
+        })
+        toast.success('Task creation queued (offline)')
+        setTitle('')
+        setDescription('')
+        onClose()
+        return
+      }
+
       const result = await createTask({
         title,
         description,
@@ -57,7 +77,19 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTas
         throw new Error(result.error || 'Failed to create task')
       }
 
-      toast.success('Task created successfully')
+      toast.success('Task created successfully', {
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            const undoResult = await undoLastAction()
+            if (undoResult.success) {
+              toast.success('Task deleted')
+            } else {
+              toast.error(undoResult.error || 'Failed to undo')
+            }
+          }
+        }
+      })
       setTitle('')
       setDescription('')
       onClose()

@@ -32,6 +32,9 @@ import { TaskDetailsDialog } from './task-details-dialog'
 import { useSocket, useBoardEvents, emitTaskMoved } from './socket-hooks'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { PresenceAvatars } from './presence-avatars'
+import { ConflictDialog } from './conflict-dialog'
+import { useOfflineStore } from '@/lib/store/use-offline-store'
 
 import { Board, Task, Column, User } from '@/types/kanban'
 
@@ -45,10 +48,17 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
   const [activeColumn, setActiveColumn] = useState<Column | null>(null)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false)
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
+  const [conflictTaskData, setConflictTaskData] = useState<any>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  
+  const { isOnline, addAction } = useOfflineStore()
 
-  useSocket(initialBoard.id)
+  const { presence } = useSocket(initialBoard.id, {
+    id: currentUser.id,
+    name: currentUser.name || currentUser.email,
+    image: currentUser.image
+  })
 
   const handleBoardEvent = useCallback((event: string, data: Record<string, unknown>) => {
     if (event === 'task:moved') {
@@ -196,7 +206,12 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
       try {
         const result = await reorderColumns({ boardId: board.id, columnIds: newColumns.map((c: Column) => c.id) })
         if (result.success) {
-          toast.success('Columns reordered')
+          toast.success('Columns reordered', {
+            action: {
+              label: 'Undo',
+              onClick: handleUndo
+            }
+          })
         } else {
           toast.error(result.error || 'Failed to save column order')
           setBoard(initialBoard)
@@ -219,6 +234,29 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
           const oldColumnId = activeTask.columnId
           
           try {
+            if (!isOnline) {
+              await addAction({
+                type: 'MOVE_TASK',
+                payload: {
+                  taskId: activeTask.id,
+                  columnId: overColumn.id,
+                  statusName: overColumn.name,
+                  version: activeTask.version
+                }
+              })
+              
+              emitTaskMoved(board.id, {
+                taskId: activeId as string,
+                newColumnId: overColumnId as string,
+                oldColumnId,
+                userId: currentUser.id,
+                userName: currentUser.name || currentUser.email
+              })
+              
+              toast.success(`Task moved locally (offline)`)
+              return
+            }
+
             const result = await updateTaskStatus({
               taskId: activeTask.id,
               columnId: overColumn.id,
@@ -244,6 +282,11 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
             } else {
               const message = result.error || "Failed to move task"
               if (message.includes('Conflict')) {
+                setConflictTaskData({
+                  taskId: activeId as string,
+                  columnId: overColumnId as string,
+                  statusName: overColumn.name
+                })
                 setConflictModalOpen(true)
               } else {
                 toast.error(message)
@@ -253,6 +296,11 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Failed to move task"
         if (message.includes('Conflict')) {
+          setConflictTaskData({
+            taskId: activeId as string,
+            columnId: overColumnId as string,
+            statusName: overColumn.name
+          })
           setConflictModalOpen(true)
         } else {
           toast.error(message)
@@ -266,6 +314,27 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
 
   const handleRefresh = () => {
     window.location.reload()
+  }
+
+  const handleResolveConflict = async () => {
+    if (!conflictTaskData) return
+    
+    try {
+      const result = await updateTaskStatus({
+        ...conflictTaskData,
+        version: undefined // This will bypass conflict check on server
+      })
+      
+      if (result.success) {
+        toast.success("Task updated (overwritten)")
+        setConflictModalOpen(false)
+        setConflictTaskData(null)
+      } else {
+        toast.error(result.error || "Failed to resolve conflict")
+      }
+    } catch (error) {
+      toast.error("Failed to resolve conflict")
+    }
   }
 
   const dropAnimation: DropAnimation = {
@@ -307,6 +376,17 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
                   Flow is within limits
                 </div>
               )}
+            </div>
+
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Active Now</span>
+                <PresenceAvatars users={presence} />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Stats or other tools could go here */}
+              </div>
             </div>
 
             <div className="flex gap-6 h-full min-w-full">
@@ -372,24 +452,12 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
         </DndContext>
       </div>
 
-      {conflictModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background p-6 rounded-lg shadow-lg max-w-md">
-            <h3 className="text-lg font-semibold mb-2">Conflict Detected</h3>
-            <p className="text-muted-foreground mb-4">
-              This task was modified by another user. Would you like to refresh or force update?
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleRefresh}>
-                Refresh
-              </Button>
-              <Button onClick={() => setConflictModalOpen(false)}>
-                Dismiss
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          <ConflictDialog 
+            isOpen={conflictModalOpen}
+            onClose={() => setConflictModalOpen(false)}
+            onRefresh={handleRefresh}
+            onResolve={handleResolveConflict}
+          />
     </>
   )
 }

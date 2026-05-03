@@ -16,8 +16,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { updateUserProfile } from '@/lib/admin-actions'
-import { changePassword } from '@/lib/auth-actions'
+import { updateProfile, changePassword } from '@/lib/auth-actions'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, Camera, Mail, Shield, Calendar, Lock, Eye, EyeOff } from 'lucide-react'
@@ -74,7 +73,7 @@ export function ProfileForm({ user }: { user: UserProfile | null }) {
   async function onProfileSubmit(values: z.infer<typeof profileSchema>) {
     setIsProfileLoading(true)
     try {
-      const result = await updateUserProfile(values)
+      const result = await updateProfile(values)
       if (result.success) {
         toast.success('Profile updated successfully')
       } else {

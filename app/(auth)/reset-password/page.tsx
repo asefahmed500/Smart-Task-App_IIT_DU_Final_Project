@@ -1,166 +1,187 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { Button } from '@/components/ui/button'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { toast } from 'sonner'
-import { resetPassword } from '@/lib/auth-actions'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
-import { Loader2, ShieldCheck, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-
-const resetPasswordSchema = z.object({
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string()
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-})
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 
 function ResetPasswordForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
-  const [isLoading, setIsLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  const email = searchParams.get('email')
 
-  const form = useForm<z.infer<typeof resetPasswordSchema>>({
-    resolver: zodResolver(resetPasswordSchema),
-    defaultValues: {
-      password: '',
-      confirmPassword: '',
-    },
-  })
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [message, setMessage] = useState('')
 
   useEffect(() => {
-    if (!token) {
-      toast.error('Missing reset token')
-      router.push('/login')
+    if (!token || !email) {
+      setStatus('error')
+      setMessage('Invalid or missing reset link. Please request a new one.')
     }
-  }, [token, router])
+  }, [token, email])
 
-  async function onSubmit(values: z.infer<typeof resetPasswordSchema>) {
-    if (!token) return
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (password !== confirmPassword) {
+      setStatus('error')
+      setMessage('Passwords do not match')
+      return
+    }
 
-    setIsLoading(true)
+    if (password.length < 8) {
+      setStatus('error')
+      setMessage('Password must be at least 8 characters long')
+      return
+    }
+
+    setStatus('loading')
+    
     try {
-      const result = await resetPassword(token, values.password)
+      const { resetPassword } = await import('@/lib/auth-actions')
+      const result = await resetPassword(token as string, password)
+      
       if (result.success) {
-        toast.success(result.message || 'Password reset successful')
-        router.push('/login')
+        setStatus('success')
+        setMessage(result.message || 'Password has been successfully reset')
+        setTimeout(() => {
+          router.push('/login')
+        }, 3000)
       } else {
-        toast.error(result.error || 'Failed to reset password')
+        setStatus('error')
+        setMessage(result.error || 'Something went wrong')
       }
-    } catch {
-      toast.error('An unexpected error occurred')
-    } finally {
-      setIsLoading(false)
+    } catch (error) {
+      setStatus('error')
+      setMessage('Failed to reset password')
     }
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">New Password</FormLabel>
-              <FormControl>
-                <div className="relative">
-                  <Input 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="••••••••" 
-                    {...field} 
-                    className="bg-background/50 border-primary/10 focus:border-primary/30 h-11 pr-10" 
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="confirmPassword"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Confirm Password</FormLabel>
-              <FormControl>
-                <Input 
-                  type="password" 
-                  placeholder="••••••••" 
-                  {...field} 
-                  className="bg-background/50 border-primary/10 focus:border-primary/30 h-11" 
+    <Card className="shadow-2xl border-border/50 bg-background/80 backdrop-blur-xl">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl font-bold tracking-tight text-center">New Password</CardTitle>
+        <CardDescription className="text-center">
+          Please enter your new password below.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {status === 'success' ? (
+          <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex flex-col items-center text-center gap-3">
+            <CheckCircle2 className="size-10" />
+            <div>
+              <p className="text-sm font-bold">Password Reset Successful!</p>
+              <p className="text-xs mt-1">Redirecting you to login in a few seconds...</p>
+            </div>
+            <Button variant="outline" className="mt-2 w-full border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-500" asChild>
+              <Link href="/login">Go to Login</Link>
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-muted/30 h-11 pr-10"
+                  disabled={status === 'loading' || !token}
                 />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" disabled={isLoading} className="w-full h-11 font-oswald uppercase tracking-wider text-base mt-4 shadow-lg shadow-primary/20 transition-all hover:translate-y-[-2px] active:translate-y-[0px]">
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Resetting...
-            </>
-          ) : (
-            'Reset Password'
-          )}
-        </Button>
-      </form>
-    </Form>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="bg-muted/30 h-11"
+                disabled={status === 'loading' || !token}
+              />
+            </div>
+
+            {status === 'error' && (
+              <div className="p-3 text-sm text-destructive-foreground bg-destructive/10 border border-destructive/20 rounded-md flex items-center gap-2">
+                <AlertCircle className="size-4 shrink-0" />
+                {message}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full h-11 font-bold shadow-lg shadow-primary/20" disabled={status === 'loading' || !token}>
+              {status === 'loading' ? "Resetting..." : "Reset Password"}
+            </Button>
+          </form>
+        )}
+      </CardContent>
+      <CardFooter>
+        <p className="text-center text-sm text-muted-foreground w-full">
+          Changed your mind?{" "}
+          <Link href="/login" className="font-bold text-primary hover:underline transition-colors">
+            Back to login
+          </Link>
+        </p>
+      </CardFooter>
+    </Card>
   )
 }
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-[80vh] items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-card/40 backdrop-blur-xl border-primary/10 shadow-2xl relative overflow-hidden">
-        <div className="absolute inset-0 bg-noise opacity-[0.03] pointer-events-none" />
-        <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
-            <ShieldCheck className="size-6 text-primary" />
-          </div>
-          <CardTitle className="text-3xl font-oswald uppercase tracking-tight">
-            Reset <span className="text-primary">Password</span>
-          </CardTitle>
-          <CardDescription>
-            Choose a strong password to secure your account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Suspense fallback={<div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>}>
-            <ResetPasswordForm />
-          </Suspense>
-        </CardContent>
-        <CardFooter className="flex justify-center border-t border-primary/5 pt-6 mt-4">
-          <Link href="/login" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 group">
-            Back to Login
-            <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12 relative overflow-hidden">
+      {/* Background Orbs */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full"></div>
+        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-accent/20 blur-[120px] rounded-full"></div>
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        <div className="flex justify-center mb-8">
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="size-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-black text-2xl shadow-xl shadow-primary/20 transition-transform group-hover:scale-110">
+              S
+            </div>
+            <span className="font-bold text-2xl tracking-tight">SmartTask</span>
           </Link>
-        </CardFooter>
-      </Card>
+        </div>
+
+        <Suspense fallback={
+          <Card className="shadow-2xl border-border/50 bg-background/80 backdrop-blur-xl">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-2xl font-bold tracking-tight text-center">Loading...</CardTitle>
+            </CardHeader>
+            <CardContent className="h-32 flex items-center justify-center">
+              <div className="size-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+            </CardContent>
+          </Card>
+        }>
+          <ResetPasswordForm />
+        </Suspense>
+      </div>
     </div>
   )
 }

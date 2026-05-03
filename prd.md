@@ -104,6 +104,47 @@ Role behaviour:
 - Member: can create tasks (but only assign to themselves); can edit/delete only tasks assigned to themselves.  
 - Every task has a “version” number that increments on each edit (used for conflict detection).
 
+
+
+Task Card Drag‑and‑Drop (Moving Tasks Between Columns)
+What the user experiences:
+Each task card can be picked up and dragged horizontally into any other column. While dragging, a clone of the card follows the cursor, and each column highlights when the card is over it. When dropped into a new column, the card instantly moves there on the user’s screen. If the target column has reached its Work‑In‑Progress (WIP) limit and the user is not a Manager or Admin, the drop is rejected with an error message, and the card snaps back to its original column.
+
+How it works (features & flow):
+
+Drag start: The card becomes opaque, a drag preview appears. The system records the original column ID and the card’s current position.
+
+Drag movement: As the cursor moves over columns, a visual indicator (e.g., a coloured border) shows where the card will land. The card does not actually move on the board until drop – only the preview follows the cursor.
+
+Drop: On release, the client immediately updates its local board state (optimistic update) – the card disappears from the old column and appears in the new column. Then it calls a Server Action with taskId, newColumnId, and the current task version.
+
+Server side (WIP enforcement):
+
+The action looks up the target column’s WIP limit.
+
+If the limit is >0 and the column already has that many tasks, the server checks the user’s role.
+
+Members are blocked: the server returns an error (e.g., “Column full. Ask a manager to override.”).
+
+Managers/Admins can override – the move proceeds, and the override is logged.
+
+If WIP limit is not exceeded (or override allowed):
+
+The task’s columnId and version are updated.
+
+An audit log entry is created.
+
+A Socket.io event task:moved (containing taskId, newColumnId, oldColumnId, userId) is broadcast to all other clients in the board room.
+
+Real‑time sync: Other users receive the event and move the task card instantly, without any page reload. They also see who moved the task (avatar or name).
+
+Revalidation: The board path is revalidated to guarantee that if any client missed the socket event, they will get the correct state on next navigation or refresh.
+
+Conflict resolution during drag‑and‑drop:
+If a task is moved by two people at nearly the same time, the task’s version number prevents lost updates. The second move will receive a conflict error, and the client will show a modal asking the user to refresh or overwrite. Because drag‑and‑drop is an explicit action, this case is rare.
+
+
+
 ---
 
 #### 3.5. Task Assignment

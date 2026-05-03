@@ -1,4 +1,4 @@
-import { Server } from 'socket.io'
+import { Server, Socket } from 'socket.io'
 import { createServer } from 'http'
 
 const httpServer = createServer()
@@ -9,25 +9,57 @@ const io = new Server(httpServer, {
   }
 })
 
-const boardRooms = new Map<string, Set<string>>()
+interface PresenceUser {
+  id: string
+  name: string
+  image: string | null
+}
+
 const userSockets = new Map<string, Set<string>>() // userId -> Set of socket ids
 
-io.on('connection', (socket) => {
+function getUsersInBoard(boardId: string) {
+  const roomName = `board:${boardId}`
+  const sockets = io.sockets.adapter.rooms.get(roomName)
+  const users = new Map<string, PresenceUser>()
+  
+  if (sockets) {
+    for (const socketId of sockets) {
+      const s = io.sockets.sockets.get(socketId)
+      if (s?.data.user) {
+        users.set(s.data.user.id, s.data.user)
+      }
+    }
+  }
+  return Array.from(users.values())
+}
+
+io.on('connection', (socket: Socket) => {
   console.log('Client connected:', socket.id)
 
-  socket.on('join-board', (boardId: string) => {
+  socket.on('join-board', (data: { boardId: string, user: PresenceUser }) => {
+    const { boardId, user } = data
     socket.join(`board:${boardId}`)
-    if (!boardRooms.has(boardId)) {
-      boardRooms.set(boardId, new Set())
-    }
-    boardRooms.get(boardId)!.add(socket.id)
-    console.log(`Socket ${socket.id} joined board ${boardId}`)
+    socket.data.user = user
+    socket.data.boardId = boardId
+    
+    console.log(`User ${user.name} joined board ${boardId}`)
+    
+    // Notify others and send current list to the new user
+    const currentUsers = getUsersInBoard(boardId)
+    io.to(`board:${boardId}`).emit('presence:update', currentUsers)
   })
 
   socket.on('leave-board', (boardId: string) => {
     socket.leave(`board:${boardId}`)
-    boardRooms.get(boardId)?.delete(socket.id)
-    console.log(`Socket ${socket.id} left board ${boardId}`)
+    const user = socket.data.user
+    socket.data.boardId = null
+    
+    if (user) {
+      console.log(`User ${user.name} left board ${boardId}`)
+    }
+    
+    const currentUsers = getUsersInBoard(boardId)
+    io.to(`board:${boardId}`).emit('presence:update', currentUsers)
   })
 
   socket.on('task:moved', (data: {
@@ -87,14 +119,16 @@ io.on('connection', (socket) => {
     link?: string
     notificationId?: string
   }) => {
-    // Emit to user's personal room
     console.log(`Emitting notification to user:${data.userId}`, data.type)
     io.to(`user:${data.userId}`).emit('notification', data)
   })
 
   socket.on('disconnect', () => {
+    const boardId = socket.data.boardId
+    const user = socket.data.user
+    
     console.log('Client disconnected:', socket.id)
-    boardRooms.forEach((sockets) => sockets.delete(socket.id))
+    
     // Clean up user socket mapping
     userSockets.forEach((sockets, userId) => {
       sockets.delete(socket.id)
@@ -102,9 +136,13 @@ io.on('connection', (socket) => {
         userSockets.delete(userId)
       }
     })
+
+    if (boardId) {
+      const currentUsers = getUsersInBoard(boardId)
+      io.to(`board:${boardId}`).emit('presence:update', currentUsers)
+    }
   })
 })
-
 
 const PORT = process.env.SOCKET_PORT || 3001
 

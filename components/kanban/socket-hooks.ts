@@ -5,8 +5,15 @@ import { io, Socket } from 'socket.io-client'
 
 let socket: Socket | null = null
 
-export function useSocket(boardId?: string) {
+interface PresenceUser {
+  id: string
+  name: string
+  image: string | null
+}
+
+export function useSocket(boardId?: string, user?: PresenceUser) {
   const [isConnected, setIsConnected] = useState(false)
+  const [presence, setPresence] = useState<PresenceUser[]>([])
 
   useEffect(() => {
     if (!socket) {
@@ -15,25 +22,40 @@ export function useSocket(boardId?: string) {
       })
     }
 
-    socket.on('connect', () => {
+    const handleConnect = () => {
       setIsConnected(true)
-      if (boardId) {
-        socket?.emit('join-board', boardId)
+      if (boardId && user) {
+        socket?.emit('join-board', { boardId, user })
       }
-    })
+    }
 
-    socket.on('disconnect', () => {
+    const handleDisconnect = () => {
       setIsConnected(false)
-    })
+    }
+
+    const handlePresence = (users: PresenceUser[]) => {
+      setPresence(users)
+    }
+
+    socket.on('connect', handleConnect)
+    socket.on('disconnect', handleDisconnect)
+    socket.on('presence:update', handlePresence)
+
+    if (socket.connected) {
+      handleConnect()
+    }
 
     return () => {
+      socket?.off('connect', handleConnect)
+      socket?.off('disconnect', handleDisconnect)
+      socket?.off('presence:update', handlePresence)
       if (boardId) {
         socket?.emit('leave-board', boardId)
       }
     }
-  }, [boardId])
+  }, [boardId, user])
 
-  return { socket, isConnected }
+  return { socket, isConnected, presence }
 }
 
 export function useBoardEvents(boardId: string, onEvent: (event: string, data: Record<string, unknown>) => void) {

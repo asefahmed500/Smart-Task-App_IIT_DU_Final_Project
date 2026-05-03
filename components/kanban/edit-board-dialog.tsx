@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { updateBoard } from '@/lib/board-actions'
+import { updateBoard, undoLastAction } from '@/lib/board-actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 
@@ -39,7 +39,19 @@ export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps
     try {
       const result = await updateBoard({ id: board.id, name, description })
       if (result.success) {
-        toast.success('Board updated successfully')
+        toast.success('Board updated successfully', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
         onClose()
       } else {
         toast.error(result.error || 'Failed to update board')

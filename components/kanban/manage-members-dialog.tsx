@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
-import { searchUsers, addBoardMember, removeBoardMember } from '@/lib/board-actions'
+import { searchUsers, addBoardMember, removeBoardMember, undoLastAction } from '@/lib/board-actions'
 
 interface ManageMembersDialogProps {
   isOpen: boolean
@@ -80,7 +80,19 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
     try {
       const result = await addBoardMember({ boardId, userId })
       if (result.success) {
-        toast.success('Member added successfully')
+        toast.success('Member added successfully', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
         setSearch('')
         setSearchResults([])
       } else {
@@ -98,7 +110,19 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
     try {
       const result = await removeBoardMember({ boardId, userId })
       if (result.success) {
-        toast.success('Member removed successfully')
+        toast.success('Member removed successfully', {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const undoResult = await undoLastAction()
+              if (undoResult.success) {
+                toast.success('Action undone')
+              } else {
+                toast.error(undoResult.error || 'Failed to undo')
+              }
+            }
+          }
+        })
       } else {
         toast.error(result.error || 'Failed to remove member')
       }

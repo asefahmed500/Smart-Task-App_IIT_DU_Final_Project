@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Layout, Calendar, Users, Edit2, ArrowLeft } from 'lucide-react'
+import { Layout, Calendar, Users, Edit2, ArrowLeft, BarChart3 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ManageMembersDialog } from './manage-members-dialog'
 import { EditBoardDialog } from './edit-board-dialog'
+import { BoardAnalyticsDialog } from './board-analytics-dialog'
 import Image from 'next/image'
 import { Board, User } from '@/types/kanban'
 
@@ -18,6 +19,7 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
   const router = useRouter()
   const [isManageMembersOpen, setIsManageMembersOpen] = useState(false)
   const [isEditBoardOpen, setIsEditBoardOpen] = useState(false)
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false)
 
   const canManageMembers = currentUser.role !== 'MEMBER'
   const canEditBoard = currentUser.role === 'ADMIN' || board.ownerId === currentUser.id
@@ -82,15 +84,26 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
                 </Button>
 
                 {canEditBoard && (
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="size-9 rounded-full hover:bg-primary/10 transition-colors"
-                    onClick={() => setIsEditBoardOpen(true)}
-                    title="Edit Board"
-                  >
-                    <Edit2 className="size-4 text-primary" />
-                  </Button>
+                  <>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="size-9 rounded-full hover:bg-primary/10 transition-colors"
+                      onClick={() => setIsEditBoardOpen(true)}
+                      title="Edit Board"
+                    >
+                      <Edit2 className="size-4 text-primary" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="size-9 rounded-full hover:bg-primary/10 transition-colors"
+                      onClick={() => setIsAnalyticsOpen(true)}
+                      title="Board Analytics"
+                    >
+                      <BarChart3 className="size-4 text-primary" />
+                    </Button>
+                  </>
                 )}
               </div>
             )}
@@ -116,6 +129,13 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
         isOpen={isEditBoardOpen}
         onClose={() => setIsEditBoardOpen(false)}
         board={board}
+      />
+
+      <BoardAnalyticsDialog
+        isOpen={isAnalyticsOpen}
+        onClose={() => setIsAnalyticsOpen(false)}
+        boardId={board.id}
+        boardName={board.name}
       />
     </>
   )

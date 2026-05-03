@@ -285,53 +285,6 @@ export async function getAdminStats(): Promise<ActionResult> {
   }
 }
 
-export async function getUserProfile(): Promise<ActionResult> {
-  const session = await getSession()
-  if (!session) return { success: false, error: 'Unauthorized' }
-
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: session.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        image: true,
-        createdAt: true,
-      }
-    })
-    return { success: true, data: user }
-  } catch (error) {
-    return { success: false, error: 'Failed to fetch profile' }
-  }
-}
-
-export async function updateUserProfile(data: { name?: string, image?: string }): Promise<ActionResult> {
-  const session = await getSession()
-  if (!session) return { success: false, error: 'Unauthorized' }
-
-  try {
-    const user = await prisma.user.update({
-      where: { id: session.id },
-      data,
-    })
-
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'UPDATE_PROFILE',
-        details: { ...data },
-      }
-    })
-
-    revalidatePath('/profile')
-    return { success: true, data: user }
-  } catch (error) {
-    return { success: false, error: 'Failed to update profile' }
-  }
-}
-
 export async function getAllBoards(): Promise<ActionResult> {
   const auth = await checkAdmin()
   if (!auth.success) return auth
@@ -369,6 +322,61 @@ export async function getSystemReports(): Promise<ActionResult> {
 
     const completionRate = taskCount > 0 ? Math.round((completedTaskCount / taskCount) * 100) : 0
     
+    // Fetch tasks that are in a "Done" column to calculate Lead/Cycle times
+    const doneTasks = await prisma.task.findMany({
+      where: {
+        column: {
+          name: { contains: 'Done', mode: 'insensitive' }
+        }
+      },
+      include: {
+        column: true
+      }
+    })
+
+    // Calculate Lead Time (Created -> Done)
+    const leadTimes = doneTasks.map(task => {
+      const duration = task.updatedAt.getTime() - task.createdAt.getTime()
+      return duration / (1000 * 60 * 60 * 24) // Days
+    })
+    const avgLeadTime = leadTimes.length > 0 
+      ? (leadTimes.reduce((a, b) => a + b, 0) / leadTimes.length).toFixed(1) 
+      : "0"
+
+    // Calculate Cycle Time (First move -> Done) - Approximated from first audit log of move
+    const taskIds = doneTasks.map(t => t.id)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    const firstMoves = await prisma.auditLog.findMany({
+      where: {
+        action: 'UPDATE_TASK_STATUS',
+        createdAt: { gte: thirtyDaysAgo }
+      },
+      orderBy: { createdAt: 'asc' }
+    })
+    
+    const relevantFirstMoves = firstMoves.filter(log => {
+      const details = log.details as any
+      return taskIds.includes(details.taskId)
+    })
+    
+    // Simpler approximation for now: Cycle time is often 70% of lead time in typical flows, 
+    // or we can fetch audit logs for these tasks.
+    // Let's do a proper fetch for a few.
+    const cycleTimeLogs = relevantFirstMoves
+
+    const cycleTimes = doneTasks.map(task => {
+      const firstMove = cycleTimeLogs.find(l => (l.details as any).taskId === task.id)
+      if (!firstMove) return null
+      const duration = task.updatedAt.getTime() - firstMove.createdAt.getTime()
+      return duration / (1000 * 60 * 60 * 24)
+    }).filter(t => t !== null) as number[]
+
+    const avgCycleTime = cycleTimes.length > 0
+      ? (cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length).toFixed(1)
+      : "0"
+
     const logs = await prisma.auditLog.findMany({
       where: {
         action: 'UPDATE_TASK_STATUS',
@@ -395,13 +403,43 @@ export async function getSystemReports(): Promise<ActionResult> {
         metrics: [
           { title: "Total Tasks", value: taskCount.toString(), change: "Live", icon: "Layers", color: "text-blue-500" },
           { title: "Completion Rate", value: `${completionRate}%`, change: "Real-time", icon: "TrendingUp", color: "text-green-500" },
-          { title: "Resolved Tasks", value: `${completedTaskCount}`, change: "System-wide", icon: "BarChart3", color: "text-purple-500" },
-          { title: "Total Users", value: userCount.toString(), change: "Active", icon: "Users", color: "text-orange-500" },
+          { title: "Avg Lead Time", value: `${avgLeadTime} days`, change: "Created to Done", icon: "Clock", color: "text-orange-500" },
+          { title: "Avg Cycle Time", value: `${avgCycleTime} days`, change: "Active to Done", icon: "Zap", color: "text-purple-500" },
         ],
         throughputData
       }
     }
   } catch (error) {
     return { success: false, error: 'Failed to fetch system reports' }
+  }
+}
+
+export async function exportAuditLogsToCSV(): Promise<ActionResult> {
+  const auth = await checkAdmin()
+  if (!auth.success) return auth
+
+  try {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { user: { select: { name: true, email: true } } }
+    })
+
+    const headers = ['Date', 'User', 'Email', 'Action', 'Details']
+    const rows = logs.map(log => [
+      log.createdAt.toISOString(),
+      log.user.name || 'Unknown',
+      log.user.email,
+      log.action,
+      JSON.stringify(log.details).replace(/"/g, '""')
+    ])
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n')
+
+    return { success: true, data: csvContent }
+  } catch (error) {
+    return { success: false, error: 'Failed to export CSV' }
   }
 }

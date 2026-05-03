@@ -203,7 +203,7 @@ export async function updateTask(input: { id: string } & any): Promise<ActionRes
         details: { 
           taskId, 
           updatedFields: Object.keys(data), 
-          previousVersion: version,
+          previousState: existingTask,
           boardId: task.column.boardId
         },
       }
@@ -385,7 +385,16 @@ export async function deleteTask(input: { id: string }): Promise<ActionResult> {
         checklists: {
           include: { items: true }
         },
-        attachments: true
+        attachments: true,
+        comments: {
+          include: { user: true }
+        },
+        timeEntries: {
+          include: { user: true }
+        },
+        reviews: {
+          include: { reviewer: true }
+        }
       }
     })
 
@@ -517,6 +526,14 @@ export async function addComment(input: { taskId: string, content: string }): Pr
       }
     }
 
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'ADD_COMMENT',
+        details: { taskId, commentId: comment.id, boardId: taskData.column.boardId },
+      }
+    })
+
     return { success: true, data: comment }
   } catch (error) {
     console.error('[ADD_COMMENT_ERROR]', error)
@@ -562,7 +579,10 @@ export async function deleteComment(input: { id: string }): Promise<ActionResult
         details: { 
           commentId, 
           taskId: comment.taskId,
-          boardId: comment.task.column.boardId
+          boardId: comment.task.column.boardId,
+          content: comment.content,
+          commentUserId: comment.userId,
+          createdAt: comment.createdAt
         },
       }
     })
@@ -647,6 +667,7 @@ export async function updateChecklistItem(input: { id: string, content: string }
           taskId: item.checklist.taskId, 
           itemId, 
           content,
+          previousContent: item.content,
           boardId: perm.task!.column.boardId
         },
       }
@@ -689,7 +710,9 @@ export async function deleteChecklistItem(input: { id: string }): Promise<Action
         details: { 
           taskId: item.checklist.taskId, 
           itemId,
-          boardId: perm.task!.column.boardId
+          boardId: perm.task!.column.boardId,
+          content: item.content,
+          checklistId: item.checklistId
         },
       }
     })
@@ -817,7 +840,11 @@ export async function deleteAttachment(input: { id: string }): Promise<ActionRes
         details: { 
           taskId: attachment.taskId, 
           attachmentId,
-          boardId: perm.task!.column.boardId
+          boardId: perm.task!.column.boardId,
+          name: attachment.name,
+          url: attachment.url,
+          type: attachment.type,
+          size: attachment.size
         },
       }
     })
@@ -1038,6 +1065,7 @@ export async function completeReview(input: { id: string, status: any, feedback:
           taskId: updatedReview.taskId, 
           reviewId, 
           status: validation.data.status,
+          previousStatus: review.status,
           boardId: updatedReview.task.column.boardId
         },
       }

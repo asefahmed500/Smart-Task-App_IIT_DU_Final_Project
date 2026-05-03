@@ -82,6 +82,148 @@ export async function getManagerDashboardData(): Promise<ActionResult> {
   }
 }
 
+export async function getAdvancedReports(boardId: string): Promise<ActionResult> {
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const board = await prisma.board.findUnique({
+      where: { id: boardId },
+      include: {
+        columns: true,
+        members: { select: { id: true } }
+      }
+    })
+
+    if (!board) return { success: false, error: 'Board not found' }
+
+    const tasks = await prisma.task.findMany({
+      where: { column: { boardId } },
+      include: { column: true }
+    })
+
+    const auditLogs = await prisma.auditLog.findMany({
+      where: {
+        action: { in: ['UPDATE_TASK_STATUS', 'UPDATE_TASK_STATUS_OVERRIDE'] },
+      },
+      orderBy: { createdAt: 'asc' }
+    })
+
+    const filteredLogs = auditLogs.filter(log => (log.details as any).boardId === boardId)
+
+    const taskLogs = new Map<string, any[]>()
+    filteredLogs.forEach(log => {
+      const details = log.details as any
+      if (!taskLogs.has(details.taskId)) {
+        taskLogs.set(details.taskId, [])
+      }
+      taskLogs.get(details.taskId)!.push(log)
+    })
+
+    const cycleTimes: number[] = []
+    const leadTimes: number[] = []
+    const columnDurations: Record<string, number[]> = {}
+    
+    board.columns.forEach(col => {
+      columnDurations[col.name] = []
+    })
+
+    const sortedColumns = [...board.columns].sort((a, b) => a.order - b.order)
+    const firstColumnId = sortedColumns[0]?.id
+    const firstColumnName = sortedColumns[0]?.name || ''
+
+    tasks.forEach(task => {
+      const logs = taskLogs.get(task.id) || []
+      const creationTime = task.createdAt.getTime()
+      
+      let startTime: number | null = null
+      let completionTime: number | null = null
+      
+      let lastTransitionTime = creationTime
+      let currentColumnName = firstColumnName
+
+      logs.forEach(log => {
+        const details = log.details as any
+        const transitionTime = log.createdAt.getTime()
+        const duration = transitionTime - lastTransitionTime
+        
+        if (columnDurations[currentColumnName]) {
+          columnDurations[currentColumnName].push(duration)
+        }
+
+        if (!startTime && details.previousColumnId === firstColumnId) {
+          startTime = transitionTime
+        }
+
+        if (['done', 'completed'].includes(details.newStatus.toLowerCase())) {
+          if (!completionTime) completionTime = transitionTime
+        } else {
+          completionTime = null
+        }
+
+        currentColumnName = details.newStatus
+        lastTransitionTime = transitionTime
+      })
+
+      const now = Date.now()
+      if (columnDurations[currentColumnName]) {
+        columnDurations[currentColumnName].push(now - lastTransitionTime)
+      }
+
+      if (completionTime) {
+        leadTimes.push((completionTime - creationTime) / (1000 * 60 * 60 * 24))
+        if (startTime) {
+          cycleTimes.push((completionTime - startTime) / (1000 * 60 * 60 * 24))
+        }
+      }
+    })
+
+    const averageLeadTime = leadTimes.length > 0 ? leadTimes.reduce((a, b) => a + b, 0) / leadTimes.length : 0
+    const averageCycleTime = cycleTimes.length > 0 ? cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length : 0
+
+    const bottleneckData = Object.entries(columnDurations).map(([name, durations]) => ({
+      name,
+      averageDuration: durations.length > 0 ? (durations.reduce((a, b) => a + b, 0) / durations.length) / (1000 * 60 * 60) : 0
+    }))
+
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    
+    const throughputData: Record<string, number> = {}
+    for (let i = 0; i < 30; i++) {
+      const d = new Date()
+      d.setDate(thirtyDaysAgo.getDate() + i)
+      throughputData[d.toISOString().split('T')[0]] = 0
+    }
+
+    tasks.forEach(task => {
+      const logs = taskLogs.get(task.id) || []
+      const doneLog = logs.find(log => ['done', 'completed'].includes((log.details as any).newStatus.toLowerCase()))
+      if (doneLog && doneLog.createdAt >= thirtyDaysAgo) {
+        const dateStr = doneLog.createdAt.toISOString().split('T')[0]
+        if (throughputData[dateStr] !== undefined) {
+          throughputData[dateStr]++
+        }
+      }
+    })
+
+    return {
+      success: true,
+      data: {
+        averageLeadTime,
+        averageCycleTime,
+        bottleneckData,
+        throughputData: Object.entries(throughputData).map(([date, count]) => ({ date, count })),
+        totalTasks: tasks.length,
+        completedTasks: leadTimes.length
+      }
+    }
+  } catch (error) {
+    console.error('[GET_ADVANCED_REPORTS_ERROR]', error)
+    return { success: false, error: 'Failed to generate advanced reports' }
+  }
+}
+
 export async function getMemberDashboardData(): Promise<ActionResult> {
   const session = await getSession()
   if (!session) return { success: false, error: 'Unauthorized' }

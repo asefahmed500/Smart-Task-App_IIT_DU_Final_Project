@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createColumn } from '@/lib/board-actions'
+import { createColumn, undoLastAction } from '@/lib/board-actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 
@@ -33,7 +33,19 @@ export function AddColumnDialog({ isOpen, onClose, boardId }: AddColumnDialogPro
     try {
       const result = await createColumn({ boardId, name })
       if (!result.success) throw new Error(result.error)
-      toast.success('Column added successfully')
+      toast.success('Column added successfully', {
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            const undoResult = await undoLastAction()
+            if (undoResult.success) {
+              toast.success('Column deleted')
+            } else {
+              toast.error(undoResult.error || 'Failed to undo')
+            }
+          }
+        }
+      })
       setName('')
       onClose()
     } catch (error: unknown) {
