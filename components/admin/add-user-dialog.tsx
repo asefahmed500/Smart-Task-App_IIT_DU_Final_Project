@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { UserPlus, Loader2 } from "lucide-react"
-import { createUser } from "@/lib/admin-actions"
+import { createUser } from '@/actions/admin-actions'
 import { toast } from "sonner"
 import { Role } from "@/generated/prisma/client"
 

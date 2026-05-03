@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Calendar, MoreVertical, Paperclip, MessageSquare, CheckSquare } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/utils'
 import { Task, ChecklistItem, Checklist } from '@/types/kanban'
 
 interface TaskCardProps {

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getAllBoards, getUsers } from "@/lib/admin-actions"
-import { addBoardMember, removeBoardMember } from "@/lib/board-actions"
-import { deleteBoard } from "@/lib/board-actions"
+import { getAllBoards, getUsers } from '@/actions/admin-actions'
+import { addBoardMember, removeBoardMember } from '@/actions/board-actions'
+import { deleteBoard } from '@/actions/board-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Layout, Users, Layers, Calendar, ExternalLink, MoreHorizontal, Trash2, UserPlus, UserMinus } from "lucide-react"

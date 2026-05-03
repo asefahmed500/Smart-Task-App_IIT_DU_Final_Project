@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getMemberBoards } from "@/lib/member-actions"
+import { getMemberBoards } from '@/actions/member-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Layout, Users, Layers, ExternalLink, Calendar, Star, MoreHorizontal } from "lucide-react"

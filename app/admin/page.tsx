@@ -1,13 +1,13 @@
 import { getSession } from '@/lib/auth-server'
 import { redirect } from 'next/navigation'
-import { getAdminStats, getAuditLogs } from '@/lib/admin-actions'
+import { getAdminStats, getAuditLogs } from '@/actions/admin-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Users, Layout, ShieldCheck, Activity, TrendingUp, Clock } from 'lucide-react'
 import Link from 'next/link'
 import { SystemActivityChart } from '@/components/admin/activity-chart'
 import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/utils'
 
 export default async function AdminPage() {
   const session = await getSession()

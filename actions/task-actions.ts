@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
 import { evaluateAutomationRules } from './automation-actions'
-import { emitNotification, emitBoardEvent } from '@/lib/socket-emitter'
+import { emitNotification, emitBoardEvent } from '@/utils/socket-emitter'
 import { 
   createTaskSchema, 
   updateTaskSchema, 
@@ -20,7 +20,7 @@ import {
   createTagSchema,
   manageTaskTagSchema,
   updateChecklistItemSchema
-} from './schemas'
+} from '@/lib/schemas'
 import { Priority, Role } from '@/lib/prisma'
 import { ActionResult } from '@/types/kanban'
 import { checkBoardPermission, getTagsForBoard } from './board-actions'
@@ -31,6 +31,7 @@ import { checkBoardPermission, getTagsForBoard } from './board-actions'
  * Helper to check task-level permissions
  */
 async function checkTaskPermission(input: { taskId: string, allowedRoles?: string[] }) {
+
   const { taskId, allowedRoles = ['ADMIN', 'MANAGER', 'MEMBER'] } = input;
   const session = await getSession()
   if (!session) return { success: false, error: 'Unauthorized: Please log in' }
@@ -453,6 +454,7 @@ export async function getTaskDetails(input: { id: string }): Promise<ActionResul
 
     if (!task) return { success: false, error: 'Task not found' }
 
+
     return { success: true, data: task }
   } catch (error) {
     console.error('[GET_TASK_DETAILS_ERROR]', error)
@@ -500,7 +502,7 @@ export async function addComment(input: { taskId: string, content: string }): Pr
     const mentionRegex = /@(\w+)/g
     const mentions = validation.data.content.match(mentionRegex)
     if (mentions) {
-      const mentionedNames = mentions.map(m => m.slice(1))
+      const mentionedNames = mentions.map((m: string) => m.slice(1))
       const mentionedUsers = await prisma.user.findMany({
         where: { name: { in: mentionedNames } }
       })
@@ -599,8 +601,80 @@ export async function deleteComment(input: { id: string }): Promise<ActionResult
 
 // --- CHECKLISTS ---
 
-export async function addChecklistItem(input: { taskId: string, content: string }): Promise<ActionResult> {
-  const { taskId, content } = input
+export async function addChecklist(input: { taskId: string, title: string }): Promise<ActionResult> {
+  const { taskId, title } = input
+  const validation = idSchema.safeParse(taskId)
+  if (!validation.success) return { success: false, error: 'Invalid Task ID' }
+
+  const perm = await checkTaskPermission({ taskId })
+  if (!perm.success) return perm
+
+  try {
+    const checklist = await prisma.checklist.create({
+      data: { taskId, title },
+      include: { items: true }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: perm.session!.id,
+        action: 'ADD_CHECKLIST',
+        details: { taskId, checklistId: checklist.id, title, boardId: perm.task!.column.boardId },
+      }
+    })
+
+    emitBoardEvent('task:updated', { boardId: perm.task!.column.boardId, taskId })
+    return { success: true, data: checklist }
+  } catch (error) {
+    console.error('[ADD_CHECKLIST_ERROR]', error)
+    return { success: false, error: 'Failed to add checklist' }
+  }
+}
+
+export async function deleteChecklist(input: { id: string }): Promise<ActionResult> {
+  const { id: checklistId } = input
+  const validation = idSchema.safeParse(checklistId)
+  if (!validation.success) return { success: false, error: 'Invalid ID' }
+
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const checklist = await prisma.checklist.findUnique({
+      where: { id: checklistId },
+      include: { task: { include: { column: true } } }
+    })
+
+    if (!checklist) return { success: false, error: 'Checklist not found' }
+
+    const perm = await checkTaskPermission({ taskId: checklist.taskId })
+    if (!perm.success) return perm
+
+    await prisma.checklist.delete({ where: { id: checklistId } })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: 'DELETE_CHECKLIST',
+        details: { 
+          taskId: checklist.taskId, 
+          checklistId, 
+          title: checklist.title,
+          boardId: checklist.task.column.boardId 
+        },
+      }
+    })
+
+    emitBoardEvent('task:updated', { boardId: checklist.task.column.boardId, taskId: checklist.taskId })
+    return { success: true }
+  } catch (error) {
+    console.error('[DELETE_CHECKLIST_ERROR]', error)
+    return { success: false, error: 'Failed to delete checklist' }
+  }
+}
+
+export async function addChecklistItem(input: { taskId: string, content: string, checklistId?: string }): Promise<ActionResult> {
+  const { taskId, content, checklistId } = input
   const validation = addChecklistItemSchema.safeParse({ taskId, content })
   if (!validation.success) return { success: false, error: 'Validation failed' }
 
@@ -608,13 +682,20 @@ export async function addChecklistItem(input: { taskId: string, content: string 
   if (!perm.success) return perm
 
   try {
-    let checklist = await prisma.checklist.findFirst({ where: { taskId } })
-    if (!checklist) {
-      checklist = await prisma.checklist.create({ data: { taskId, title: 'Checklist' } })
+    let targetChecklistId = checklistId
+
+    if (!targetChecklistId) {
+      const checklist = await prisma.checklist.findFirst({ where: { taskId } })
+      if (!checklist) {
+        const newCl = await prisma.checklist.create({ data: { taskId, title: 'Checklist' } })
+        targetChecklistId = newCl.id
+      } else {
+        targetChecklistId = checklist.id
+      }
     }
 
     const item = await prisma.checklistItem.create({
-      data: { content, checklistId: checklist.id }
+      data: { content, checklistId: targetChecklistId! }
     })
 
     await prisma.auditLog.create({

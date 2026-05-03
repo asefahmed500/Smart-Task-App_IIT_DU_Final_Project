@@ -1,4 +1,4 @@
-import { getSystemReports } from "@/lib/admin-actions"
+import { getSystemReports } from '@/actions/admin-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, TrendingUp, Clock, AlertTriangle, Layers, Layout, Users } from "lucide-react"
 import { SystemActivityChart } from "@/components/admin/activity-chart"

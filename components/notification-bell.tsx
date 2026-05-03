@@ -5,9 +5,9 @@ import { Bell, CheckCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/notification-actions'
+import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/actions/notification-actions'
 import { useRouter } from 'next/navigation'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/utils'
 import { useNotificationListener } from '@/components/kanban/socket-hooks'
 
 interface Notification {

@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MoreHorizontal, Shield, User as UserIcon, Trash2, ShieldAlert, Edit2 } from "lucide-react"
-import { updateUserRole, deleteUser, updateUserDetails } from "@/lib/admin-actions"
+import { updateUserRole, deleteUser, updateUserDetails } from '@/actions/admin-actions'
 import { Role } from "@/generated/prisma/client"
 import { toast } from "sonner"
 import {

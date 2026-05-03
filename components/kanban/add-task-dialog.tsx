@@ -19,9 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createTask } from '@/lib/task-actions'
+import { createTask } from '@/actions/task-actions'
 import { toast } from 'sonner'
-import { undoLastAction } from '@/lib/board-actions'
+import { undoLastAction } from '@/actions/board-actions'
 import { Loader2 } from 'lucide-react'
 import { useOfflineStore } from '@/lib/store/use-offline-store'
 import { User } from '@/types/kanban'

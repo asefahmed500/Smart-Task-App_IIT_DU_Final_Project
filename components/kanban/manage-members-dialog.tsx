@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
-import { searchUsers, addBoardMember, removeBoardMember, undoLastAction } from '@/lib/board-actions'
+import { searchUsers, addBoardMember, removeBoardMember, undoLastAction } from '@/actions/board-actions'
 
 interface ManageMembersDialogProps {
   isOpen: boolean

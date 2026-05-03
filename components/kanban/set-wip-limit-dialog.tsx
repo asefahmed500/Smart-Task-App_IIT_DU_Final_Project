@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { updateColumnWipLimit, undoLastAction } from '@/lib/board-actions'
+import { updateColumnWipLimit, undoLastAction } from '@/actions/board-actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 

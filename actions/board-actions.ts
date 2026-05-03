@@ -14,9 +14,9 @@ import {
   manageTaskTagSchema,
   searchUserSchema,
   idSchema
-} from './schemas'
+} from '@/lib/schemas'
 import { ActionResult } from '@/types/kanban'
-import { emitBoardEvent } from './socket-emitter'
+import { emitBoardEvent } from '@/utils/socket-emitter'
 
 /**
  * Helper to check board permissions
@@ -495,7 +495,7 @@ export async function reorderColumns(rawInput: any): Promise<ActionResult> {
 
     // Bulk update orders in a transaction
     await prisma.$transaction(
-      columnIds.map((id, index) =>
+      columnIds.map((id: string, index: number) =>
         prisma.column.update({
           where: { id, boardId },
           data: { order: index }

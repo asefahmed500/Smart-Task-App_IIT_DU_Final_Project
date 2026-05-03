@@ -5,9 +5,9 @@ import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
 import { Role } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { notifyAdminsNewUser } from '@/lib/notification-utils'
+import { notifyAdminsNewUser } from '@/utils/notification-utils'
 import { ActionResult } from '@/types/kanban'
-import { idSchema, roleSchema } from './schemas'
+import { idSchema, roleSchema } from '@/lib/schemas'
 import { z } from 'zod'
 import { 
   getAutomationRules, 

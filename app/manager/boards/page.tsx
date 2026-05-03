@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getManagerBoards } from "@/lib/manager-actions"
-import { deleteBoard, addBoardMember, removeBoardMember, searchUsers } from "@/lib/board-actions"
+import { getManagerBoards } from '@/actions/manager-actions'
+import { deleteBoard, addBoardMember, removeBoardMember, searchUsers } from '@/actions/board-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Layout, Users, Layers, Calendar, ExternalLink, MoreHorizontal, Trash2, UserPlus, UserMinus, Search } from "lucide-react"

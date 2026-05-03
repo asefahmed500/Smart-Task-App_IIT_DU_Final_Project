@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import prisma from '@/lib/prisma'
 import { login } from '@/lib/auth-server'
-import { notifyAdminsNewUser } from '@/lib/notification-utils'
+import { notifyAdminsNewUser } from '@/utils/notification-utils'
 
 export async function POST(request: Request) {
   try {

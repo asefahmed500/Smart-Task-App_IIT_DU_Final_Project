@@ -6,14 +6,14 @@ import { CSS } from '@dnd-kit/utilities'
 import { TaskCard } from './task-card'
 import { Button } from '@/components/ui/button'
 import { Plus, MoreHorizontal, Trash2, Edit2, AlertCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { deleteColumn, undoLastAction } from '@/lib/board-actions'
+import { deleteColumn, undoLastAction } from '@/actions/board-actions'
 import { toast } from 'sonner'
 import { AddTaskDialog } from './add-task-dialog'
 import { SetWipLimitDialog } from './set-wip-limit-dialog'

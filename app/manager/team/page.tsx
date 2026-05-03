@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getManagerTeam } from "@/lib/manager-actions"
+import { getManagerTeam } from '@/actions/manager-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Users, Mail, Shield, Calendar, Search, Filter, MoreHorizontal, UserCheck, MessageSquare } from "lucide-react"

@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth-server'
 import { redirect } from 'next/navigation'
-import { getAuditLogs } from '@/lib/admin-actions'
+import { getAuditLogs } from '@/actions/admin-actions'
 import { AuditLogManager } from '@/components/admin/audit-log-manager'
 
 export default async function AuditLogsPage() {

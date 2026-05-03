@@ -1,4 +1,4 @@
-import { getUsers } from "@/lib/admin-actions"
+import { getUsers } from '@/actions/admin-actions'
 import { UserTable } from "@/components/admin/user-table"
 import { AddUserDialog } from "@/components/admin/add-user-dialog"
 

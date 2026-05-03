@@ -46,7 +46,7 @@ function ResetPasswordForm() {
     setStatus('loading')
     
     try {
-      const { resetPassword } = await import('@/lib/auth-actions')
+      const { resetPassword } = await import('@/actions/auth-actions')
       const result = await resetPassword(token as string, password)
       
       if (result.success) {

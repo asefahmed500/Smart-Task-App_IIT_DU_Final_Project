@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, Filter, Download } from "lucide-react"
-import { exportAuditLogsToCSV } from '@/lib/admin-actions'
+import { exportAuditLogsToCSV } from '@/actions/admin-actions'
 import { toast } from 'sonner'
 
 interface AuditLogControlsProps {

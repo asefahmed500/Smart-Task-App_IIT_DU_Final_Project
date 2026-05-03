@@ -18,7 +18,7 @@ export default function ForgotPasswordPage() {
     setStatus('loading')
     
     try {
-      const { requestPasswordReset } = await import('@/lib/auth-actions')
+      const { requestPasswordReset } = await import('@/actions/auth-actions')
       const result = await requestPasswordReset(email)
       
       if (result.success) {

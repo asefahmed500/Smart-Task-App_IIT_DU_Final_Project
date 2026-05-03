@@ -3,9 +3,9 @@
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
-import { checkDueDateReminders, checkOverdueTasks } from '@/lib/notification-utils'
+import { checkDueDateReminders, checkOverdueTasks } from '@/utils/notification-utils'
 import { ActionResult } from '@/types/kanban'
-import { idSchema } from './schemas'
+import { idSchema } from '@/lib/schemas'
 
 /**
  * Get notifications and also trigger due date/overdue checks for the current user

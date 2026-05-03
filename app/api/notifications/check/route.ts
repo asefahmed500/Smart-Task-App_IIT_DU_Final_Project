@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { runNotificationChecks } from '@/lib/notification-utils'
+import { runNotificationChecks } from '@/utils/notification-utils'
 import { getSession } from '@/lib/auth-server'
 
 /**

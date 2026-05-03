@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth-server'
 import { redirect } from 'next/navigation'
-import { getAutomationRules, getAdminStats } from '@/lib/admin-actions'
+import { getAutomationRules, getAdminStats } from '@/actions/admin-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Cpu, Zap, AlertCircle, Power } from "lucide-react"
 import { AddRuleDialog } from "@/components/admin/add-rule-dialog"

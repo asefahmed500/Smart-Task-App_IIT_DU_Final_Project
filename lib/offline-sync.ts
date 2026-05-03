@@ -3,7 +3,7 @@ import {
   createTask, 
   addComment, 
   updateTask 
-} from '@/lib/task-actions'
+} from '@/actions/task-actions'
 import { OfflineAction } from '@/lib/offline-db'
 
 export async function syncOfflineAction(action: OfflineAction) {

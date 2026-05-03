@@ -122,5 +122,5 @@ export type ActionResult<T = any> = {
   data?: T;
   error?: string;
   message?: string;
-  fieldErrors?: Record<string, string[]>;
+  fieldErrors?: Record<string, string[] | undefined>;
 };

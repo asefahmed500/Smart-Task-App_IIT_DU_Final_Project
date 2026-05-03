@@ -21,10 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createAutomationRule } from "@/lib/admin-actions"
+import { createAutomationRule } from '@/actions/admin-actions'
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import { getAvailableTriggers, getAvailableConditions, getAvailableActions } from "@/lib/automation-utils"
+import { getAvailableTriggers, getAvailableConditions, getAvailableActions } from '@/utils/automation-utils'
 
 export function AddRuleDialog() {
   const [open, setOpen] = useState(false)
@@ -124,7 +124,7 @@ export function AddRuleDialog() {
                   <SelectValue placeholder="No condition (always run)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {conditions.map((c) => (
+                  {conditions.filter(c => c.value).map((c) => (
                     <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                   ))}
                 </SelectContent>

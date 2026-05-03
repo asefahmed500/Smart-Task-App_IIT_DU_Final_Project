@@ -1,11 +1,11 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { emitNotification, emitBoardEvent } from '@/lib/socket-emitter'
+import { emitNotification, emitBoardEvent } from '@/utils/socket-emitter'
 import { Priority } from '@/lib/prisma'
 import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
-import { createAutomationRuleSchema, updateAutomationRuleSchema, idSchema } from './schemas'
+import { createAutomationRuleSchema, updateAutomationRuleSchema, idSchema } from '@/lib/schemas'
 import { ActionResult } from '@/types/kanban'
 
 export type Trigger = 'TASK_CREATED' | 'TASK_MOVED' | 'TASK_UPDATED' | 'TASK_ASSIGNED'

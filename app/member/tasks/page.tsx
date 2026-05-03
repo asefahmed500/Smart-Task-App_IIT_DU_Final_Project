@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getMemberTasks } from "@/lib/member-actions"
+import { getMemberTasks } from '@/actions/member-actions'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Clock, Calendar, MessageSquare, Paperclip, CheckSquare, ExternalLink, Filter, Search } from "lucide-react"

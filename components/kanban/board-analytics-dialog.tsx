@@ -18,7 +18,7 @@ import {
   PieChart,
   Pie
 } from 'recharts'
-import { getAdvancedReports } from '@/lib/dashboard-actions'
+import { getAdvancedReports } from '@/actions/dashboard-actions'
 import { Clock, TrendingUp, AlertCircle, Calendar, BarChart3, Loader2 } from 'lucide-react'
 
 

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getManagerAnalytics, getManagerBoards } from "@/lib/manager-actions"
-import { getAdvancedReports } from "@/lib/dashboard-actions"
+import { getManagerAnalytics, getManagerBoards } from '@/actions/manager-actions'
+import { getAdvancedReports } from '@/actions/dashboard-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertCircle, PieChart, Calendar, ArrowUpRight, ArrowDownRight, ChevronDown, Filter } from "lucide-react"

@@ -7,8 +7,8 @@ import {
   forgotPasswordSchema, 
   resetPasswordSchema, 
   updateProfileSchema 
-} from './schemas'
-import { sendPasswordResetEmail } from './mail'
+} from '@/lib/schemas'
+import { sendPasswordResetEmail } from '@/utils/mail'
 import crypto from 'crypto'
 import { ActionResult } from '@/types/kanban'
 import { z } from 'zod'

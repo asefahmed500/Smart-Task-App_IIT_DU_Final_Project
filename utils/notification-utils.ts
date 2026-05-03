@@ -1,7 +1,7 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { emitNotification } from '@/lib/socket-emitter'
+import { emitNotification } from '@/utils/socket-emitter'
 
 /**
  * Check for tasks that are due within the next 24 hours and create DUE_DATE_REMINDER notifications

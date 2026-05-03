@@ -9,7 +9,7 @@ export function getAvailableTriggers(): { value: string; label: string }[] {
 
 export function getAvailableConditions(): { value: string; label: string }[] {
   return [
-    { value: '', label: 'No condition (always run)' },
+    { value: 'none', label: 'No condition (always run)' },
     { value: 'priority=HIGH', label: 'Priority is High' },
     { value: 'priority=URGENT', label: 'Priority is Urgent' },
     { value: 'priority=MEDIUM', label: 'Priority is Medium' },

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import { Trash2, Zap, Clock } from "lucide-react"
-import { toggleAutomationRule, deleteAutomationRule } from "@/lib/admin-actions"
+import { toggleAutomationRule, deleteAutomationRule } from '@/actions/admin-actions'
 import { toast } from "sonner"
 import { useState } from "react"
 

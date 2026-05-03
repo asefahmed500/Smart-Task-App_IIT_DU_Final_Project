@@ -1,5 +1,5 @@
 import { getSession } from '@/lib/auth-server'
-import { getManagerDashboardData } from '@/lib/dashboard-actions'
+import { getManagerDashboardData } from '@/actions/dashboard-actions'
 import { redirect } from 'next/navigation'
 import { ManagerDashboardClient } from '@/components/dashboard/manager-dashboard-client'
 

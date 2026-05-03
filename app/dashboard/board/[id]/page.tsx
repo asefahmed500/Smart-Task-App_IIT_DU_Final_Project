@@ -1,4 +1,4 @@
-import { getBoardData } from "@/lib/board-actions"
+import { getBoardData } from '@/actions/board-actions'
 import { getSession } from "@/lib/auth-server"
 import { redirect, notFound } from "next/navigation"
 import { KanbanBoard } from "@/components/kanban/kanban-board"
