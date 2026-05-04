@@ -73,6 +73,8 @@ Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (defaults t
 
 **AuditLog `details` is a JSON object, not a string.** Never render it directly as `{log.details}` — it will throw "Objects are not valid as React child". Format it with a helper function based on the `action` type.
 
+**Props-to-state sync:** When a client component receives props from a server component (e.g., `useKanbanBoard({ initialBoard })`), use `useEffect` to sync internal state when props change. `useState(initialBoard)` only uses initialBoard on first render.
+
 ## RBAC in Server Actions
 
 - `checkAdmin()` — ADMIN only
