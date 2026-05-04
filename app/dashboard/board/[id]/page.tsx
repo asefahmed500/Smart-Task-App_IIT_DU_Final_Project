@@ -15,15 +15,12 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
     notFound()
   }
   
-  const board = result.data as any // Cast to any for now to bypass strict Prisma/Board type differences if any, but properly unpacked from ActionResult
+  const board = result.data as any
 
   return (
     <div className="h-[calc(100vh-12rem)] flex flex-col gap-6 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Board Header */}
       <BoardHeader board={board} currentUser={session} />
 
-
-      {/* Kanban Board Container */}
       <div className="flex-1 min-h-0 bg-muted/20 rounded-2xl border border-primary/5 p-4 overflow-hidden relative">
         <div className="absolute inset-0 bg-noise opacity-[0.02] pointer-events-none" />
         <KanbanBoard board={board} currentUser={session} />

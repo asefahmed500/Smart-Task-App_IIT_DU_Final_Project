@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { 
   getTaskDetails, 
@@ -27,6 +28,7 @@ export function useTaskDetails({ taskId, isOpen, onClose, currentUser, isAdmin }
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
   const [conflictData, setConflictData] = useState<{ field: string, value: any } | null>(null)
+  const router = useRouter()
   
   const { isOnline, addAction } = useOfflineStore()
   const onCloseRef = useRef(onClose)
@@ -89,6 +91,7 @@ export function useTaskDetails({ taskId, isOpen, onClose, currentUser, isAdmin }
       const result = await updateTask({ id: taskId, [field]: value, version: task.version })
       if (result.success) {
         setTask({ ...task, [field]: value } as Task)
+        router.refresh()
         toast.success('Task updated', {
           action: {
             label: 'Undo',
@@ -153,12 +156,14 @@ export function useTaskDetails({ taskId, isOpen, onClose, currentUser, isAdmin }
               const undoResult = await undoLastAction()
               if (undoResult.success) {
                 toast.success('Task restored')
+                router.refresh()
               } else {
                 toast.error(undoResult.error || 'Failed to undo')
               }
             },
           },
         })
+        router.refresh()
         onClose()
       } else {
         toast.error(result.error || 'Failed to delete task')

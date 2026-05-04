@@ -102,7 +102,7 @@ export default function MemberReportsPage() {
             <CardDescription>Daily task completion history.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] pt-4">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={310}>
               <AreaChart data={productivityData}>
                 <defs>
                   <linearGradient id="colorTasks" x1="0" y1="0" x2="0" y2="1">

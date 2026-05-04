@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   DragStartEvent,
   DragOverEvent,
@@ -29,6 +29,11 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   
   const { isOnline, addAction } = useOfflineStore()
+
+  // Sync board state when initialBoard prop changes (e.g., after router.refresh())
+  useEffect(() => {
+    setBoard(initialBoard)
+  }, [initialBoard.id, initialBoard.updatedAt])
 
   const { isConnected, presence, editingTasks } = useSocket(initialBoard.id, {
     id: currentUser.id,

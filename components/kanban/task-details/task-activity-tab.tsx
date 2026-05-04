@@ -38,6 +38,37 @@ export function TaskActivityTab({
     return action.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ')
   }
 
+  const formatDetails = (action: string, details: Record<string, unknown>): string => {
+    if (!details || typeof details !== 'object') return ''
+    const d = details as Record<string, unknown>
+
+    if (action.includes('MOVED') && d.newStatus && d.previousColumnId) {
+      return `Moved to ${d.newStatus}`
+    }
+    if (action.includes('CREATED')) {
+      return d.title ? `Created task: ${d.title}` : 'Task created'
+    }
+    if (action.includes('UPDATED') && d.field) {
+      return `Updated ${d.field}${d.newValue !== undefined ? ` to ${d.newValue}` : ''}`
+    }
+    if (action.includes('DELETED')) {
+      return d.title ? `Deleted task: ${d.title}` : 'Task deleted'
+    }
+    if (action.includes('COMMENT')) {
+      return typeof d.content === 'string' ? d.content : 'Comment added'
+    }
+    if (action.includes('ATTACHMENT')) {
+      return d.name ? `Attached: ${d.name}` : 'Attachment added'
+    }
+    if (action.includes('UNDO')) {
+      return 'Action undone'
+    }
+    const parts = Object.entries(d)
+      .filter(([k]) => !['taskId', 'boardId', 'columnId', 'override'].includes(k))
+      .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
+    return parts.join(' • ')
+  }
+
   return (
     <div className="space-y-6 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
@@ -91,7 +122,9 @@ export function TaskActivityTab({
                   </div>
                   {log.details && (
                     <p className="text-xs text-muted-foreground bg-background/40 p-2 rounded border border-primary/5 mt-2">
-                      {log.details}
+                      {typeof log.details === 'string'
+                        ? log.details
+                        : formatDetails(log.action, log.details)}
                     </p>
                   )}
                 </div>

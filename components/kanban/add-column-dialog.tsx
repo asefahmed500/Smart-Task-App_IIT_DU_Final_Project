@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -61,6 +62,7 @@ export function AddColumnDialog({ isOpen, onClose, boardId }: AddColumnDialogPro
       <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-primary/10">
         <DialogHeader>
           <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Add New Column</DialogTitle>
+          <DialogDescription className="sr-only">Add a new column to this board</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="space-y-2">

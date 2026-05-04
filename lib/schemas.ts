@@ -14,7 +14,7 @@ export const createTaskSchema = z.object({
   priority: prioritySchema.default('MEDIUM'),
   columnId: idSchema,
   assigneeId: idSchema.optional().nullable(),
-  dueDate: z.string().datetime().optional().nullable(),
+  dueDate: z.string().optional().nullable(),
 });
 
 export const updateTaskSchema = z.object({
@@ -23,7 +23,7 @@ export const updateTaskSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   priority: prioritySchema.optional(),
   assigneeId: idSchema.optional().nullable(),
-  dueDate: z.string().datetime().optional().nullable(),
+  dueDate: z.string().optional().nullable(),
   version: z.number().int().min(1),
 });
 

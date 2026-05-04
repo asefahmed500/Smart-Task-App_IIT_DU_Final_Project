@@ -1,11 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MessageSquare, Send, Trash2, AtSign, Pencil, X, Check, ChevronDown } from "lucide-react"
+import { MessageSquare, Send, Trash2, Pencil, X, Check, ChevronDown } from "lucide-react"
 import { Comment as TaskComment, User } from "@/types/kanban"
 import { formatDistanceToNow } from "date-fns"
 import { MentionTextarea } from "./mention-textarea"
@@ -15,6 +13,42 @@ import { Reaction } from "@/types/kanban"
 const REACTION_EMOJIS = ["👍", "🚀", "❤️"]
 const FIVE_MINUTES_MS = 5 * 60 * 1000
 const COMMENTS_PER_PAGE = 5
+
+const MENTION_REGEX = /@([\w\s]+?)(?=\s|$|[,.!?:;])/g
+
+function renderCommentWithMentions(content: string, members: User[]) {
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let key = 0
+
+  const memberNames = new Set((members || []).map(m => m?.name).filter(Boolean))
+
+  const regex = new RegExp(MENTION_REGEX.source, MENTION_REGEX.flags)
+  let match
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(content.slice(lastIndex, match.index))
+    }
+    const mentionName = match[1].trim()
+    const isKnownMember = memberNames.has(mentionName)
+    if (isKnownMember) {
+      parts.push(
+        <span key={key++} className="inline-flex items-center px-1.5 py-0 mx-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">
+          @{mentionName}
+        </span>
+      )
+    } else {
+      parts.push(match[0])
+    }
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : content
+}
 
 interface TaskCommentsSectionProps {
   comments: TaskComment[]
@@ -220,9 +254,7 @@ export function TaskCommentsSection({
                   </div>
                 ) : (
                   <div className="text-sm bg-muted/10 p-3 rounded-xl border border-primary/5 leading-relaxed text-muted-foreground hover:bg-muted/20 transition-colors whitespace-pre-wrap">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {comment.content}
-                    </ReactMarkdown>
+                    {renderCommentWithMentions(comment.content, boardMembers)}
                   </div>
                 )}
 

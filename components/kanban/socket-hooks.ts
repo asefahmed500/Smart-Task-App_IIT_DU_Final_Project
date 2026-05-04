@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 
 let socket: Socket | null = null
@@ -15,6 +15,12 @@ export function useSocket(boardId?: string, user?: PresenceUser) {
   const [isConnected, setIsConnected] = useState(false)
   const [presence, setPresence] = useState<PresenceUser[]>([])
   const [editingTasks, setEditingTasks] = useState<Record<string, PresenceUser[]>>({})
+  const currentBoardRef = useRef<string | undefined>(undefined)
+
+  const stableUser = useMemo(() => {
+    if (!user) return undefined
+    return { id: user.id, name: user.name, image: user.image }
+  }, [user?.id, user?.name, user?.image])
 
   useEffect(() => {
     if (!socket) {
@@ -25,9 +31,6 @@ export function useSocket(boardId?: string, user?: PresenceUser) {
 
     const handleConnect = () => {
       setIsConnected(true)
-      if (boardId && user) {
-        socket?.emit('join-board', { boardId, user })
-      }
     }
 
     const handleDisconnect = () => {
@@ -50,20 +53,26 @@ export function useSocket(boardId?: string, user?: PresenceUser) {
     socket.on('presence:update', handlePresence)
     socket.on('editing:update', handleEditingUpdate)
 
-    if (socket.connected) {
-      handleConnect()
-    }
-
     return () => {
       socket?.off('connect', handleConnect)
       socket?.off('disconnect', handleDisconnect)
       socket?.off('presence:update', handlePresence)
       socket?.off('editing:update', handleEditingUpdate)
-      if (boardId) {
-        socket?.emit('leave-board', boardId)
+      if (currentBoardRef.current) {
+        socket?.emit('leave-board', currentBoardRef.current)
+        currentBoardRef.current = undefined
       }
     }
-  }, [boardId, user])
+  }, [])
+
+  useEffect(() => {
+    if (!boardId || !stableUser || !isConnected) return
+    if (currentBoardRef.current && currentBoardRef.current !== boardId) {
+      socket?.emit('leave-board', currentBoardRef.current)
+    }
+    socket?.emit('join-board', { boardId, user: stableUser })
+    currentBoardRef.current = boardId
+  }, [boardId, stableUser, isConnected])
 
   return { socket, isConnected, presence, editingTasks }
 }

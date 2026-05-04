@@ -228,7 +228,7 @@ export default function ManagerAnalyticsPage() {
             </div>
           </CardHeader>
           <CardContent className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={300}>
               <LineChart data={data.throughput}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
                 <XAxis 
@@ -338,7 +338,7 @@ export default function ManagerAnalyticsPage() {
             <CardDescription>Tasks across all status categories.</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px] flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={260}>
               <RePieChart>
                 <Pie
                   data={data.distribution}

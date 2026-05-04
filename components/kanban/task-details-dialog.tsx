@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -217,6 +218,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
           <div className="flex-1 flex flex-col items-center justify-center">
             <DialogHeader className="sr-only">
               <DialogTitle>Loading Task Details</DialogTitle>
+            <DialogDescription className="sr-only">View and edit task details</DialogDescription>
             </DialogHeader>
             <Loader2 className="size-8 animate-spin text-primary" />
             <p className="mt-4 text-sm text-muted-foreground animate-pulse">Fetching task information...</p>

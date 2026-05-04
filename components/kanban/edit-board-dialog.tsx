@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -27,6 +29,7 @@ interface EditBoardDialogProps {
 }
 
 export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps) {
+  const router = useRouter()
   const [name, setName] = useState(board.name)
   const [description, setDescription] = useState(board.description || '')
   const [loading, setLoading] = useState(false)
@@ -52,6 +55,7 @@ export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps
             }
           }
         })
+        router.refresh()
         onClose()
       } else {
         toast.error(result.error || 'Failed to update board')
@@ -69,6 +73,7 @@ export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps
       <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-primary/10">
         <DialogHeader>
           <DialogTitle className="font-oswald uppercase tracking-tight text-2xl">Edit Board Details</DialogTitle>
+          <DialogDescription className="sr-only">Edit board settings</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
           <div className="space-y-2">

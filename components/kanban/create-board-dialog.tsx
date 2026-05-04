@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -23,6 +25,7 @@ interface CreateBoardDialogProps {
 }
 
 export function CreateBoardDialog({ isOpen, onClose, onSuccess }: CreateBoardDialogProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -38,6 +41,7 @@ export function CreateBoardDialog({ isOpen, onClose, onSuccess }: CreateBoardDia
         throw new Error(result.error || 'Failed to create board')
       }
       toast.success('Board created successfully')
+      router.refresh()
       setName('')
       setDescription('')
       onSuccess?.()
@@ -55,6 +59,7 @@ export function CreateBoardDialog({ isOpen, onClose, onSuccess }: CreateBoardDia
       <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-primary/10">
         <DialogHeader>
           <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Create New Board</DialogTitle>
+          <DialogDescription className="sr-only">Create a new board</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="space-y-2">

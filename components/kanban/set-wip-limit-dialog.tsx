@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -25,6 +27,7 @@ interface SetWipLimitDialogProps {
 }
 
 export function SetWipLimitDialog({ isOpen, onClose, columnId, boardId, currentLimit }: SetWipLimitDialogProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [limit, setLimit] = useState(currentLimit.toString())
   const { isOnline } = useOfflineStore()
@@ -55,6 +58,7 @@ export function SetWipLimitDialog({ isOpen, onClose, columnId, boardId, currentL
             }
           }
         })
+        router.refresh()
         onClose()
       } else {
         toast.error(result.error || 'Failed to update WIP limit')
@@ -72,6 +76,7 @@ export function SetWipLimitDialog({ isOpen, onClose, columnId, boardId, currentL
       <DialogContent className="sm:max-w-[325px] bg-background/95 backdrop-blur-xl border-primary/10">
         <DialogHeader>
           <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Set WIP Limit</DialogTitle>
+          <DialogDescription className="sr-only">Set work-in-progress limit for this column</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           {!isOnline && (

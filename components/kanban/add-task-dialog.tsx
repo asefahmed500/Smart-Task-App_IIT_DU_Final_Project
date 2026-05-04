@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -43,6 +45,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
   const [dueDate, setDueDate] = useState('')
   const [assigneeId, setAssigneeId] = useState('')
   const { isOnline, addAction } = useOfflineStore()
+  const router = useRouter()
 
   const isMember = currentUser.role === 'MEMBER'
   const canAssign = currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER'
@@ -100,6 +103,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
             const undoResult = await undoLastAction()
             if (undoResult.success) {
               toast.success('Task deleted')
+              router.refresh()
             } else {
               toast.error(undoResult.error || 'Failed to undo')
             }
@@ -110,6 +114,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
       setDescription('')
       setDueDate('')
       setAssigneeId('')
+      router.refresh()
       onClose()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to create task'
@@ -124,6 +129,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
       <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-primary/10">
         <DialogHeader>
           <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Add New Task</DialogTitle>
+          <DialogDescription className="sr-only">Create a new task in this column</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="space-y-2">
@@ -183,12 +189,12 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
                   <UserCircle className="size-3.5 text-muted-foreground" />
                   Assignee
                 </Label>
-                <Select value={assigneeId} onValueChange={setAssigneeId}>
+                <Select value={assigneeId || "__none__"} onValueChange={(v) => setAssigneeId(v === "__none__" ? "" : v)}>
                   <SelectTrigger className="bg-background/50 border-primary/10">
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="__none__">Unassigned</SelectItem>
                     {boardMembers.map((member) => (
                       <SelectItem key={member.id} value={member.id}>
                         {member.name || member.email}

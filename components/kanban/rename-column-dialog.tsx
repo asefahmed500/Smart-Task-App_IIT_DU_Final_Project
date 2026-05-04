@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -24,6 +26,7 @@ interface RenameColumnDialogProps {
 }
 
 export function RenameColumnDialog({ isOpen, onClose, columnId, boardId, currentName }: RenameColumnDialogProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState(currentName)
 
@@ -48,6 +51,7 @@ export function RenameColumnDialog({ isOpen, onClose, columnId, boardId, current
             }
           }
         })
+        router.refresh()
         onClose()
       } else {
         toast.error(result.error || 'Failed to rename column')
@@ -65,6 +69,7 @@ export function RenameColumnDialog({ isOpen, onClose, columnId, boardId, current
       <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-primary/10">
         <DialogHeader>
           <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Rename Column</DialogTitle>
+          <DialogDescription className="sr-only">Rename this column</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="space-y-2">

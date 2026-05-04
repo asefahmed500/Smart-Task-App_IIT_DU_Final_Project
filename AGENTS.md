@@ -8,7 +8,7 @@ SmartTask — real-time Kanban board with RBAC, WIP limits, offline support, und
 
 **Primary check:** `npm run typecheck` (not lint — ESLint is less reliable)
 **Before build:** always `typecheck` first — `next build` will fail on type errors
-**No test suite** — the project has zero tests; verify via `typecheck && build`
+**No test suite** — verify via `typecheck && build`
 
 ## Key Commands
 
@@ -17,112 +17,98 @@ SmartTask — real-time Kanban board with RBAC, WIP limits, offline support, und
 | `npm run dev` | Runs `db:check`, then starts Socket.io (3001) + Next.js (3002) concurrently |
 | `npm run socket:dev` | Starts only the standalone Socket.io server |
 | `npm run db:setup` | `prisma db push && prisma generate && npm run seed` |
-| `npm run db:check` | Verifies `DATABASE_URL` connectivity before dev |
 | `npm run typecheck` | `tsc --noEmit` — **primary verification** |
 | `npm run build` | `next build` |
 | `npm run seed` | Seeds DB (needs `.env.local`); test users share password `AdminPassword123!` |
 | `npm run format` | Prettier — no semicolons, double quotes, trailing commas `es5`, printWidth 80 |
-| `npm run lint` | ESLint — less reliable than typecheck |
-| `npm run check-users` | Diagnostic: list all users in DB |
-| `npm run check-boards` | Diagnostic: list all boards and members |
 
 ## Environment
 
-`.env.local` required:
-- `DATABASE_URL` — Neon PostgreSQL pooled connection
-- `DIRECT_URL` — Prisma CLI (non-pooled)
-- `JWT_SECRET`
-- `PORT=3002`
+`.env.local` required: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PORT=3002`
 
-Optional:
-- `EMAIL_HOST/PORT/USER/PASS/FROM` — SMTP for password reset
-- `NEXT_PUBLIC_SOCKET_URL` — defaults to `http://localhost:3001`
-- `NEXT_PUBLIC_APP_URL`
+Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (defaults to `http://localhost:3001`), `NEXT_PUBLIC_APP_URL`
 
 ## Architecture Gotchas
 
-**Port 3002, not 3000.** Next.js dev server runs on 3002. Socket.io standalone server runs on 3001.
+**Port 3002, not 3000.** Next.js dev server on 3002. Socket.io standalone on 3001.
 
-**ESM project** (`"type": "module"`). All config files use `.mjs` (`next.config.mjs`, `eslint.config.mjs`, `postcss.config.mjs`). Never create `.cjs` configs.
+**ESM project** (`"type": "module"`). All config files use `.mjs`. Never create `.cjs` configs.
 
-**Concurrently** is used in `npm run dev` and `npm run start` to run Socket.io + Next.js together. `npm run postinstall` auto-runs `prisma generate` after installs.
+**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` reads `DATABASE_URL` from `.env.local` via dotenv.
 
-**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — **NOT** `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` reads `DATABASE_URL` from `.env.local` via dotenv.
+**Socket.io is standalone** (`src/socket/server.ts` on 3001), not Next.js built-in. `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit events through it to the standalone server.
 
-**Socket.io is a standalone server** (`src/socket/server.ts` on port 3001), not Next.js built-in. `utils/socket-emitter.ts` is a Socket.io **client** (not server) — server actions emit events through it to the standalone server.
+**Middleware is `proxy.ts`** at project root — not `middleware.ts`. Handles auth guards + RBAC redirects.
 
-**Middleware is `proxy.ts` at project root** — not `middleware.ts`. It handles auth guards + RBAC redirects.
-
-**Auth:** Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login uses API route (`POST /api/auth/login`), not server action. Signup auto-assigns `MEMBER` role and auto-logs in.
+**Auth:** Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API route (`POST /api/auth/login`), not server action.
 
 **Roles:** `ADMIN`, `MANAGER`, `MEMBER` (UPPERCASE in DB).
 
-**Undo system:** `undoLastAction()` in `board-actions.ts` reverses actions within 30 seconds by reading the most recent `AuditLog`. Every mutation writes an `AuditLog` entry with full `details` (including `previousState`, `fullTask`, etc.). Undo logs a new `UNDO` audit entry — it does NOT delete the original log anymore.
+## Critical Code Conventions
 
-**WIP limits:** Enforced on MEMBER role when moving tasks. MANAGER/ADMIN can override (logged as `UPDATE_TASK_STATUS_OVERRIDE`). `wipLimit = 0` means unlimited.
+- `@/` path alias maps to project root (`./*` in tsconfig)
+- All server actions return `ActionResult<T>`: `{ success: boolean, data?: T, error?: string, fieldErrors?: Record<string, string[]> }`
+- Server actions live in `actions/*-actions.ts` (not `lib/`)
+- `createAuditLog()` in `lib/create-audit-log.ts` auto-injects IP address — use it for all mutations
+- Prisma enum returns need casting (`as string`, `as Priority`) when crossing server/client boundary
+- Import enums from `@/generated/prisma` or use `Role`/`Priority` from `@/lib/prisma`
 
-**Task version field:** Increments on every edit/move. Used for optimistic concurrency. Conflict resolution sends `version: undefined` to bypass the server-side check.
+## Critical Bugs / Patterns to Avoid
 
-**RBAC in server actions:**
+**Radix Select values must be non-empty strings.** `<SelectItem value="">` crashes. Use a sentinel like `value="__none__"` and convert in `onValueChange`. Never use empty string as a Select value.
+
+**Never pass object references as useEffect dependencies.** The `useSocket` hook must use `useMemo` to stabilize the `user` prop. Raw objects cause infinite join/leave loops because every render creates a new reference.
+
+**Zod `z.string().datetime()` rejects HTML date input.** `<input type="date">` returns `YYYY-MM-DD`, not ISO 8601 datetime. Use `z.string()` for date fields from HTML forms.
+
+**All Dialog components must include `<DialogDescription>`** (even with `className="sr-only"`). Radix throws a console warning and accessibility error without it.
+
+**Recharts `ResponsiveContainer` needs explicit pixel dimensions.** Using `height="100%"` causes negative dimension errors when the parent hasn't rendered. Use `height={300}` or similar fixed values.
+
+**After mutations, call `router.refresh()`** to ensure Next.js server components re-render with fresh data. Server actions use `revalidatePath` but the client needs `router.refresh()` to pick up changes.
+
+**Comment `@mention` matching must be case-insensitive and partial.** Use `{ contains: name, mode: 'insensitive' }` not `{ in: exactNames }` for user lookup after regex extraction.
+
+**`dnd-kit` generates SSR hydration mismatches** (`DndDescribedBy-0` vs `DndDescribedBy-1`). This is a known dnd-kit issue. Do not use `next/dynamic` with `ssr: false` in a Server Component — it causes a runtime error. Either accept the warning or wrap DndContext in a Client Component boundary.
+
+**AuditLog `details` is a JSON object, not a string.** Never render it directly as `{log.details}` — it will throw "Objects are not valid as React child". Format it with a helper function based on the `action` type.
+
+## RBAC in Server Actions
+
 - `checkAdmin()` — ADMIN only
 - `checkManager()` — ADMIN or MANAGER
 - `checkBoardPermission()` — board membership + role; ADMIN always has access
-- `checkTaskPermission()` — ADMIN full access; owner/manager on board full access; MEMBER can only edit tasks they are **assigned to** (not created by), unless `MEMBER_ALL` is in `allowedRoles`
+- `checkTaskPermission()` — ADMIN full access; owner/manager on board full access; MEMBER can only edit tasks they are **assigned to**, unless `MEMBER_ALL` is in `allowedRoles`
 
-**@mention regex:** `/@([\w\s]+?)(?=\s|$|[,.!?:;])/g` — supports multi-word names like `@John Doe`
+## Socket Architecture
 
-## Style Conventions
+`useSocket` hook (`components/kanban/socket-hooks.ts`):
+- Keeps a module-level singleton socket
+- Joins/leaves board rooms when `boardId` changes
+- Uses `useMemo` for the user object to prevent infinite re-render loops
+- Unmount cleanup emits `leave-board` via ref (not dependency array)
 
-- Prettier: no semicolons, double quotes, trailing commas `es5`, printWidth 80
-- `@/` path alias maps to project root (`./*` in tsconfig)
-- Prisma enum returns need casting (`as string`, `as Priority`) when crossing server/client boundary
-- Import enums from `@/generated/prisma` or use `Role`/`Priority` from `@/lib/prisma`
-- All server actions return `ActionResult<T>`: `{ success: boolean, data?: T, error?: string, fieldErrors?: Record<string, string[]> }`
-- Server actions live in `actions/*-actions.ts` (not `lib/`)
-- `createAuditLog()` wrapper in `lib/create-audit-log.ts` auto-injects IP address — use it for all mutations
+Server actions emit via `emitBoardEvent()` and `emitNotification()` (both in `utils/socket-emitter.ts`), which connects as a Socket.io client to port 3001.
 
 ## Feature Specs
 
-The canonical feature requirements are in:
-- `systemtodo.md` — feature checklist with dependencies
-- `roledependent.md` — role-based feature checklist
-
-Refer to these when implementing or verifying features.
-
-## Known Issues / Recent Fixes
-
-- Real-time `task:updated`, `task:created`, `task:deleted` events are now handled in `useKanbanBoard` (previously only `task:moved` worked)
-- `AddTaskDialog` now includes due date picker and assignee dropdown (for Admin/Manager)
-- Attachments now show image previews and have download links
-- 10MB file upload limit enforced on client and server
-- Members can no longer create tags (was incorrectly allowed)
-- Manager "Create Board" button now links to `/manager/boards` (was dead link to `/admin/boards`)
-- `/profile/notifications` page exists but previously had no navigation link (now linked from profile sidebar)
-- `NotificationBell` was missing from profile layout (now added)
-- `@mention` regex now supports multi-word names
-- Time entries can now be edited/deleted by owner/Admin/Manager
-- `/manager/logs` and `/member/logs` pages created for role-scoped audit logs
-- CSV/PDF export buttons added to admin reports and manager analytics
-- Offline guards added for file upload, board delete, and WIP limit changes
-- `LOGIN` audit event now recorded on successful login
+Canonical feature requirements in `systemtodo.md` and `roledependent.md`.
 
 ## File Quick Reference
 
 | Purpose | Path |
 |---------|------|
 | DB client | `lib/prisma.ts` |
-| Auth (JWT encrypt/decrypt) | `lib/auth.ts` |
-| Auth (server actions) | `lib/auth-server.ts` |
+| Auth (JWT) | `lib/auth.ts`, `lib/auth-server.ts` |
 | Middleware | `proxy.ts` (project root) |
 | Prisma schema | `prisma/schema.prisma` |
 | Zod schemas | `lib/schemas.ts` |
 | Server actions | `actions/*-actions.ts` |
 | Socket server | `src/socket/server.ts` |
-| Socket client emitter | `utils/socket-emitter.ts` |
-| Offline store | `lib/store/use-offline-store.ts` |
+| Socket client | `utils/socket-emitter.ts` |
 | Kanban board hook | `hooks/use-kanban-board.ts` |
+| Kanban socket hooks | `components/kanban/socket-hooks.ts` |
 | Shared types | `types/kanban.ts` |
-| CSS theme | `app/globals.css` |
 
 ## Seed Accounts
 

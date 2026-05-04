@@ -131,7 +131,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                     <CardDescription>Daily task completions over the last month.</CardDescription>
                   </CardHeader>
                   <CardContent className="h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={220}>
                       <BarChart data={data.throughputData}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
                         <XAxis 
@@ -161,7 +161,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                     <CardDescription>Average hours spent in each column.</CardDescription>
                   </CardHeader>
                   <CardContent className="h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={220}>
                       <BarChart data={data.bottleneckData} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--muted))" />
                         <XAxis type="number" fontSize={10} stroke="hsl(var(--muted-foreground))" />

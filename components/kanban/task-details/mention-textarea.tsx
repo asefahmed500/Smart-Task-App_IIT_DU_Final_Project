@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Textarea } from "@/components/ui/textarea"
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -26,113 +26,111 @@ export function MentionTextarea({
   onKeyDown
 }: MentionTextareaProps) {
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [cursorPos, setCursorPos] = useState(0)
+  const [mentionStart, setMentionStart] = useState(-1)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
 
-  const filteredMembers = members.filter(member => 
-    member.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredMembers = members.filter(member =>
+    member.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    member.email?.toLowerCase().includes(searchQuery.toLowerCase())
   ).slice(0, 5)
 
-  useEffect(() => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    const handleInput = () => {
-      const position = textarea.selectionStart
-      setCursorPos(position)
-      
-      const textBeforeCursor = textarea.value.slice(0, position)
-      const lastAtSymbol = textBeforeCursor.lastIndexOf('@')
-      
-      if (lastAtSymbol !== -1) {
-        const textAfterAt = textBeforeCursor.slice(lastAtSymbol + 1)
-        // Check if there are spaces between @ and cursor
-        if (!textAfterAt.includes(' ')) {
-          setSearchQuery(textAfterAt)
-          setShowSuggestions(true)
-          setSelectedIndex(0)
-          return
-        }
-      }
-      
+  const detectMention = useCallback((text: string, cursorPos: number) => {
+    const textBeforeCursor = text.slice(0, cursorPos)
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+    if (lastAtIndex === -1) {
       setShowSuggestions(false)
+      return
     }
-
-    textarea.addEventListener('input', handleInput)
-    textarea.addEventListener('click', handleInput)
-    textarea.addEventListener('keyup', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') handleInput()
-    })
-
-    return () => {
-      textarea.removeEventListener('input', handleInput)
-      textarea.removeEventListener('click', handleInput)
+    const textBetweenAtAndCursor = textBeforeCursor.slice(lastAtIndex + 1)
+    if (textBetweenAtAndCursor.includes('\n')) {
+      setShowSuggestions(false)
+      return
     }
+    const charBeforeAt = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : ' '
+    if (charBeforeAt !== ' ' && charBeforeAt !== '\n' && lastAtIndex !== 0) {
+      setShowSuggestions(false)
+      return
+    }
+    setShowSuggestions(true)
+    setMentionStart(lastAtIndex)
+    setSearchQuery(textBetweenAtAndCursor)
+    setSelectedIndex(0)
   }, [])
 
-  const handleSelectMember = (member: User) => {
-    if (!textareaRef.current) return
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value
+    const cursorPos = e.target.selectionStart
+    onChange(newValue)
+    detectMention(newValue, cursorPos)
+  }, [onChange, detectMention])
 
-    const textBeforeAt = value.slice(0, value.lastIndexOf('@', cursorPos - 1))
-    const textAfterCursor = value.slice(cursorPos)
-    
-    // Insert name with a space after
-    const newValue = `${textBeforeAt}@${member.name} ${textAfterCursor}`
+  const handleSelectMember = useCallback((member: User) => {
+    if (mentionStart === -1) return
+    const beforeMention = value.slice(0, mentionStart)
+    const afterQuery = value.slice(mentionStart + 1 + searchQuery.length)
+    const newValue = `${beforeMention}@${member.name || member.email} ${afterQuery}`
     onChange(newValue)
     setShowSuggestions(false)
-    
-    // Focus back and set cursor
-    setTimeout(() => {
-      textareaRef.current?.focus()
-      const newPos = textBeforeAt.length + (member.name?.length || 0) + 2
-      textareaRef.current?.setSelectionRange(newPos, newPos)
-    }, 0)
-  }
+    setMentionStart(-1)
+    setSearchQuery('')
 
-  const handleCustomKeyDown = (e: React.KeyboardEvent) => {
+    const nameLength = (member.name || member.email).length
+    const newCursorPos = mentionStart + nameLength + 2
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+      textareaRef.current?.setSelectionRange(newCursorPos, newCursorPos)
+    })
+  }, [value, mentionStart, searchQuery, onChange])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (showSuggestions && filteredMembers.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         setSelectedIndex(prev => (prev + 1) % filteredMembers.length)
-      } else if (e.key === 'ArrowUp') {
+        return
+      }
+      if (e.key === 'ArrowUp') {
         e.preventDefault()
         setSelectedIndex(prev => (prev - 1 + filteredMembers.length) % filteredMembers.length)
-      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault()
         handleSelectMember(filteredMembers[selectedIndex])
-      } else if (e.key === 'Escape') {
-        setShowSuggestions(false)
+        return
       }
-    } else if (e.key === 'Enter' && e.ctrlKey) {
-      // Ctrl+Enter to submit
-      e.preventDefault()
-      const form = textareaRef.current?.form
-      if (form) {
-        form.requestSubmit()
+      if (e.key === 'Escape') {
+        setShowSuggestions(false)
+        return
       }
     }
-    
     if (onKeyDown) onKeyDown(e)
-  }
+  }, [showSuggestions, filteredMembers, selectedIndex, handleSelectMember, onKeyDown])
+
+  const handleClick = useCallback(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    detectMention(value, textarea.selectionStart)
+  }, [value, detectMention])
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div className="relative w-full">
       <Popover open={showSuggestions && filteredMembers.length > 0} onOpenChange={setShowSuggestions}>
         <PopoverAnchor asChild>
           <Textarea
             ref={textareaRef}
             value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={handleCustomKeyDown}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onClick={handleClick}
             placeholder={placeholder}
             className={className}
           />
         </PopoverAnchor>
-        <PopoverContent 
-          className="p-1 w-64 bg-background/95 backdrop-blur-xl border-primary/10 shadow-xl rounded-xl" 
+        <PopoverContent
+          className="p-1 w-64 bg-background/95 backdrop-blur-xl border-primary/10 shadow-xl rounded-xl"
           align="start"
           side="top"
           onOpenAutoFocus={(e) => e.preventDefault()}
@@ -151,7 +149,7 @@ export function MentionTextarea({
                 >
                   <Avatar className="size-6 border border-primary/5">
                     <AvatarImage src={member.image || undefined} />
-                    <AvatarFallback className="text-[8px]">{member.name?.slice(0,2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback className="text-[8px]">{member.name?.slice(0, 2).toUpperCase() || '??'}</AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col flex-1 truncate">
                     <span className="font-medium truncate">{member.name}</span>

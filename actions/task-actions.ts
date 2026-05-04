@@ -500,11 +500,18 @@ export async function addComment(input: { taskId: string, content: string }): Pr
 
     // Mentions
     const mentionRegex = /@([\w\s]+?)(?=\s|$|[,.!?:;])/g
-    const mentions = validation.data.content.match(mentionRegex)
-    if (mentions) {
-      const mentionedNames = mentions.map((m: string) => m.slice(1).trim())
+    let mentionMatch
+    const mentionedNames: string[] = []
+    while ((mentionMatch = mentionRegex.exec(validation.data.content)) !== null) {
+      mentionedNames.push(mentionMatch[1].trim())
+    }
+    if (mentionedNames.length > 0) {
       const mentionedUsers = await prisma.user.findMany({
-        where: { name: { in: mentionedNames } }
+        where: {
+          OR: mentionedNames.map(name => ({
+            name: { contains: name, mode: 'insensitive' as const }
+          }))
+        }
       })
 
       for (const user of mentionedUsers) {

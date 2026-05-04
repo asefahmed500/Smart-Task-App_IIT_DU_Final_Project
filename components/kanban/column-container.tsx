@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { TaskCard } from './task-card'
@@ -33,6 +34,7 @@ interface ColumnContainerProps {
 
 export function ColumnContainer({ column, tasks, currentUser, boardId, boardMembers, onTaskClick }: ColumnContainerProps) {
   const tasksIds = useMemo(() => tasks.map((task) => task.id), [tasks])
+  const router = useRouter()
 
   const {
     setNodeRef,
@@ -70,11 +72,16 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, boardMemb
           label: 'Undo',
           onClick: async () => {
             const result = await undoLastAction()
-            if (result.success) toast.success('Column restored')
-            else toast.error(result.error || 'Failed to undo')
+            if (result.success) {
+              toast.success('Column restored')
+              router.refresh()
+            } else {
+              toast.error(result.error || 'Failed to undo')
+            }
           }
         }
       })
+      router.refresh()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to delete column'
       toast.error(message)

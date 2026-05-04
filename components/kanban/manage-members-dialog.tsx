@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,6 +40,7 @@ interface ManageMembersDialogProps {
 }
 
 export function ManageMembersDialog({ isOpen, onClose, boardId, members }: ManageMembersDialogProps) {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState<Array<{
     id: string
@@ -93,6 +96,7 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
             }
           }
         })
+        router.refresh()
         setSearch('')
         setSearchResults([])
       } else {
@@ -123,6 +127,7 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
             }
           }
         })
+        router.refresh()
       } else {
         toast.error(result.error || 'Failed to remove member')
       }
@@ -138,6 +143,7 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
       <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-primary/10">
         <DialogHeader>
           <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Manage Members</DialogTitle>
+          <DialogDescription className="sr-only">Manage board members</DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6 pt-4">
