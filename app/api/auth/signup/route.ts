@@ -31,6 +31,13 @@ export async function POST(request: Request) {
       }
     })
 
+    // Create default notification preferences
+    await prisma.notificationPreference.create({
+      data: {
+        userId: user.id,
+      }
+    })
+
     // Notify admins of new user signup
     notifyAdminsNewUser(user.id, user.name, user.email).catch(console.error)
 

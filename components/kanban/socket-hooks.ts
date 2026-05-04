@@ -14,6 +14,7 @@ interface PresenceUser {
 export function useSocket(boardId?: string, user?: PresenceUser) {
   const [isConnected, setIsConnected] = useState(false)
   const [presence, setPresence] = useState<PresenceUser[]>([])
+  const [editingTasks, setEditingTasks] = useState<Record<string, PresenceUser[]>>({})
 
   useEffect(() => {
     if (!socket) {
@@ -37,9 +38,17 @@ export function useSocket(boardId?: string, user?: PresenceUser) {
       setPresence(users)
     }
 
+    const handleEditingUpdate = (data: { taskId: string; editors: PresenceUser[] }) => {
+      setEditingTasks((prev) => ({
+        ...prev,
+        [data.taskId]: data.editors,
+      }))
+    }
+
     socket.on('connect', handleConnect)
     socket.on('disconnect', handleDisconnect)
     socket.on('presence:update', handlePresence)
+    socket.on('editing:update', handleEditingUpdate)
 
     if (socket.connected) {
       handleConnect()
@@ -49,13 +58,14 @@ export function useSocket(boardId?: string, user?: PresenceUser) {
       socket?.off('connect', handleConnect)
       socket?.off('disconnect', handleDisconnect)
       socket?.off('presence:update', handlePresence)
+      socket?.off('editing:update', handleEditingUpdate)
       if (boardId) {
         socket?.emit('leave-board', boardId)
       }
     }
   }, [boardId, user])
 
-  return { socket, isConnected, presence }
+  return { socket, isConnected, presence, editingTasks }
 }
 
 export function useBoardEvents(boardId: string, onEvent: (event: string, data: Record<string, unknown>) => void) {
@@ -70,6 +80,8 @@ export function useBoardEvents(boardId: string, onEvent: (event: string, data: R
       'task:updated': (data) => onEvent('task:updated', data),
       'task:deleted': (data) => onEvent('task:deleted', data),
       'column:created': (data) => onEvent('column:created', data),
+      'column:deleted': (data) => onEvent('column:deleted', data),
+      'column:updated': (data) => onEvent('column:updated', data),
     }
 
     Object.entries(handlers).forEach(([event, handler]) => {

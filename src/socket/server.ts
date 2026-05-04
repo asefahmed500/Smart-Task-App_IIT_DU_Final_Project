@@ -17,6 +17,9 @@ interface PresenceUser {
 
 const userSockets = new Map<string, Set<string>>() // userId -> Set of socket ids
 
+// Track who is editing which task: taskId -> Map<userId, PresenceUser>
+const editingTasks = new Map<string, Map<string, PresenceUser>>()
+
 function getUsersInBoard(boardId: string) {
   const roomName = `board:${boardId}`
   const sockets = io.sockets.adapter.rooms.get(roomName)
@@ -95,6 +98,40 @@ io.on('connection', (socket: Socket) => {
     socket.to(`board:${data.boardId}`).emit('task:deleted', data)
   })
 
+  // Typing indicator: track who is editing which task
+  socket.on('task:editing', (data: {
+    boardId: string
+    taskId: string
+    user: PresenceUser
+  }) => {
+    if (!editingTasks.has(data.taskId)) {
+      editingTasks.set(data.taskId, new Map())
+    }
+    editingTasks.get(data.taskId)!.set(data.user.id, data.user)
+    socket.to(`board:${data.boardId}`).emit('editing:update', {
+      taskId: data.taskId,
+      editors: Array.from(editingTasks.get(data.taskId)!.values()),
+    })
+  })
+
+  socket.on('task:stop-editing', (data: {
+    boardId: string
+    taskId: string
+    userId: string
+  }) => {
+    const editors = editingTasks.get(data.taskId)
+    if (editors) {
+      editors.delete(data.userId)
+      if (editors.size === 0) {
+        editingTasks.delete(data.taskId)
+      }
+      socket.to(`board:${data.boardId}`).emit('editing:update', {
+        taskId: data.taskId,
+        editors: Array.from(editors.values()),
+      })
+    }
+  })
+
   socket.on('column:created', (data: {
     boardId: string
     columnId: string
@@ -137,12 +174,70 @@ io.on('connection', (socket: Socket) => {
       }
     })
 
+    // Clean up editing state
+    if (user && boardId) {
+      editingTasks.forEach((editors, taskId) => {
+        if (editors.has(user.id)) {
+          editors.delete(user.id)
+          if (editors.size === 0) {
+            editingTasks.delete(taskId)
+          }
+          io.to(`board:${boardId}`).emit('editing:update', {
+            taskId,
+            editors: Array.from(editors.values()),
+          })
+        }
+      })
+    }
+
     if (boardId) {
       const currentUsers = getUsersInBoard(boardId)
       io.to(`board:${boardId}`).emit('presence:update', currentUsers)
     }
   })
 })
+
+// --- Background Notification Worker ---
+// This runs every minute to check for due date reminders and overdue tasks
+async function runBackgroundChecks() {
+  try {
+    const { runNotificationChecks } = await import('../../utils/notification-utils')
+    console.log('[Worker] Running background notification checks...')
+    const results = await runNotificationChecks()
+    if (results.dueDateReminders > 0 || results.overdueTasks > 0) {
+      console.log(`[Worker] Notifications sent: ${results.dueDateReminders} reminders, ${results.overdueTasks} overdue`)
+    }
+  } catch (error) {
+    console.error('[Worker] Error running background checks:', error)
+  }
+
+  // 90-day audit log cleanup (run once per day at midnight)
+  try {
+    const now = new Date()
+    const isMidnight = now.getHours() === 0 && now.getMinutes() === 0
+    if (isMidnight) {
+      const { PrismaClient } = await import('../../generated/prisma')
+      const prisma = new PrismaClient()
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+      const { count } = await prisma.auditLog.deleteMany({
+        where: { createdAt: { lt: ninetyDaysAgo } },
+      })
+      if (count > 0) {
+        console.log(`[Worker] Cleaned up ${count} audit logs older than 90 days`)
+      }
+      await prisma.$disconnect()
+    }
+  } catch (error) {
+    console.error('[Worker] Error cleaning up audit logs:', error)
+  }
+}
+
+// Initial run after a short delay to let server stabilize
+setTimeout(runBackgroundChecks, 5000)
+
+// Run every 60 seconds
+setInterval(runBackgroundChecks, 60000)
+// --------------------------------------
 
 const PORT = process.env.SOCKET_PORT || 3001
 

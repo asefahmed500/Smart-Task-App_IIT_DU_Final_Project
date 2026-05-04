@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -22,14 +22,14 @@ import { createPortal } from 'react-dom'
 import { ColumnContainer } from './column-container'
 import { TaskCard } from './task-card'
 import { Button } from '@/components/ui/button'
-import { Plus, AlertTriangle, ShieldAlert } from 'lucide-react'
+import { Plus, AlertTriangle, ShieldAlert, Search, X, Tag as TagIcon } from 'lucide-react'
 import { AddColumnDialog } from './add-column-dialog'
 import { TaskDetailsDialog } from './task-details-dialog'
 import { PresenceAvatars } from './presence-avatars'
 import { ConflictDialog } from './conflict-dialog'
 import { useKanbanBoard } from '@/hooks/use-kanban-board'
 
-import { Board, Task, Column, User } from '@/types/kanban'
+import { Board, Task, Column, User, Tag } from '@/types/kanban'
 
 interface KanbanBoardProps {
   board: Board
@@ -47,7 +47,9 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
     setConflictModalOpen,
     selectedTaskId,
     setSelectedTaskId,
+    isConnected,
     presence,
+    editingTasks,
     onDragStart,
     onDragOver,
     onDragEnd,
@@ -56,7 +58,43 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
     handleUndo
   } = useKanbanBoard({ initialBoard, currentUser })
 
-  const columnsId = useMemo(() => board.columns.map((col: Column) => col.id), [board.columns])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
+
+  const allTags = useMemo(() => {
+    const tagMap = new Map<string, Tag>()
+    board.columns.forEach((col) => {
+      col.tasks.forEach((task) => {
+        task.tags?.forEach((tag) => {
+          if (!tagMap.has(tag.id)) tagMap.set(tag.id, tag)
+        })
+      })
+    })
+    return Array.from(tagMap.values())
+  }, [board.columns])
+
+  const filteredColumns = useMemo(() => {
+    return board.columns.map((col) => ({
+      ...col,
+      tasks: col.tasks.filter((task) => {
+        const matchesSearch =
+          !searchQuery ||
+          task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (task.description?.toLowerCase() || '').includes(
+            searchQuery.toLowerCase()
+          )
+        const matchesTags =
+          selectedTagIds.length === 0 ||
+          task.tags?.some((t) => selectedTagIds.includes(t.id))
+        return matchesSearch && matchesTags
+      }),
+    }))
+  }, [board.columns, searchQuery, selectedTagIds])
+
+  const columnsId = useMemo(
+    () => filteredColumns.map((col: Column) => col.id),
+    [filteredColumns]
+  )
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -115,22 +153,96 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Active Now</span>
                 <PresenceAvatars users={presence} />
+                <div
+                  className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                    isConnected
+                      ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+                      : 'text-red-500 bg-red-500/10 border-red-500/20'
+                  }`}
+                  title={isConnected ? 'Connected to real-time server' : 'Disconnected — changes may not sync live'}
+                >
+                  <div className={`size-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                  {isConnected ? 'Live' : 'Offline'}
+                </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
-                {/* Stats or other tools could go here */}
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search tasks..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-7 pr-7 py-1 text-xs bg-muted/30 border border-primary/10 rounded-full focus:outline-none focus:border-primary/30 w-48"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                    >
+                      <X className="size-3 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Tag filters */}
+                {allTags.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    <TagIcon className="size-3 text-muted-foreground" />
+                    {allTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => {
+                          setSelectedTagIds((prev) =>
+                            prev.includes(tag.id)
+                              ? prev.filter((id) => id !== tag.id)
+                              : [...prev, tag.id]
+                          )
+                        }}
+                        className={`px-2 py-0.5 text-[10px] rounded-full border transition-colors ${
+                          selectedTagIds.includes(tag.id)
+                            ? 'bg-primary/20 border-primary/40 text-primary'
+                            : 'bg-muted/30 border-primary/10 text-muted-foreground hover:bg-muted/50'
+                        }`}
+                        style={
+                          selectedTagIds.includes(tag.id)
+                            ? {}
+                            : { borderColor: tag.color + '40' }
+                        }
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Clear filters */}
+                {(searchQuery || selectedTagIds.length > 0) && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('')
+                      setSelectedTagIds([])
+                    }}
+                    className="text-[10px] text-muted-foreground hover:text-primary underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="flex gap-6 h-full min-w-full">
             <SortableContext items={columnsId} strategy={horizontalListSortingStrategy}>
-              {board.columns.map((col: Column) => (
-                <ColumnContainer 
-                  key={col.id} 
-                  column={col} 
-                  tasks={col.tasks} 
+              {filteredColumns.map((col: Column) => (
+                <ColumnContainer
+                  key={col.id}
+                  column={col}
+                  tasks={col.tasks}
                   currentUser={currentUser}
                   boardId={board.id}
+                  boardMembers={board.members}
                   onTaskClick={(id) => setSelectedTaskId(id)}
                 />
               ))}
@@ -163,6 +275,8 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
             onClose={handleCloseTaskDetails}
             boardMembers={board.members}
             currentUser={currentUser}
+            editingTasks={editingTasks}
+            boardId={board.id}
           />
 
           {typeof document !== 'undefined' && createPortal(
@@ -173,6 +287,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
                   tasks={activeColumn.tasks}
                   currentUser={currentUser}
                   boardId={board.id}
+                  boardMembers={board.members}
                   onTaskClick={() => {}}
                 />
               )}

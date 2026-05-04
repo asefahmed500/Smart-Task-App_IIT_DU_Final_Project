@@ -17,6 +17,7 @@ import {
 } from '@/lib/schemas'
 import { ActionResult } from '@/types/kanban'
 import { emitBoardEvent } from '@/utils/socket-emitter'
+import { createAuditLog } from '@/lib/create-audit-log'
 
 /**
  * Helper to check board permissions
@@ -162,12 +163,10 @@ export async function createBoard(rawInput: any): Promise<ActionResult> {
       }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'CREATE_BOARD',
-        details: { boardId: board.id, name: board.name },
-      }
+    await createAuditLog({
+      userId: session.id,
+      action: 'CREATE_BOARD',
+      details: { boardId: board.id, name: board.name },
     })
 
     revalidatePath('/dashboard')
@@ -199,17 +198,15 @@ export async function updateBoard(rawInput: any): Promise<ActionResult> {
       data
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: (permission as any).session.id,
-        action: 'UPDATE_BOARD',
-        details: { 
-          boardId: id, 
-          ...data,
-          previousName: previousBoard.name,
-          previousDescription: previousBoard.description
-        },
-      }
+    await createAuditLog({
+      userId: (permission as any).session.id,
+      action: 'UPDATE_BOARD',
+      details: { 
+        boardId: id, 
+        ...data,
+        previousName: previousBoard.name,
+        previousDescription: previousBoard.description
+      },
     })
 
     emitBoardEvent('board:updated', { boardId: id, name: updatedBoard.name })
@@ -239,12 +236,10 @@ export async function deleteBoard(input: { boardId: string }): Promise<ActionRes
       where: { id: validatedId }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: (permission as any).session.id,
-        action: 'DELETE_BOARD',
-        details: { boardId: validatedId },
-      }
+    await createAuditLog({
+      userId: (permission as any).session.id,
+      action: 'DELETE_BOARD',
+      details: { boardId: validatedId },
     })
 
     emitBoardEvent('board:deleted', { boardId: validatedId })
@@ -286,12 +281,10 @@ export async function createColumn(rawInput: any): Promise<ActionResult> {
       }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: (permission as any).session.id,
-        action: 'CREATE_COLUMN',
-        details: { boardId, columnId: column.id, name },
-      }
+    await createAuditLog({
+      userId: (permission as any).session.id,
+      action: 'CREATE_COLUMN',
+      details: { boardId, columnId: column.id, name },
     })
 
     emitBoardEvent('column:created', { boardId, columnId: column.id })
@@ -354,20 +347,18 @@ export async function deleteColumn(input: { columnId: string, boardId: string, t
       where: { id: vColumnId }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: (permission as any).session.id,
-        action: 'DELETE_COLUMN',
-        details: { 
-          boardId: vBoardId, 
-          columnId: vColumnId, 
-          name: columnToDelete.name,
-          order: columnToDelete.order,
-          wipLimit: columnToDelete.wipLimit,
-          rehomedTo: finalTargetId,
-          movedTaskIds
-        },
-      }
+    await createAuditLog({
+      userId: (permission as any).session.id,
+      action: 'DELETE_COLUMN',
+      details: { 
+        boardId: vBoardId, 
+        columnId: vColumnId, 
+        name: columnToDelete.name,
+        order: columnToDelete.order,
+        wipLimit: columnToDelete.wipLimit,
+        rehomedTo: finalTargetId,
+        movedTaskIds
+      },
     })
 
     emitBoardEvent('column:deleted', { boardId: vBoardId, columnId: vColumnId })
@@ -404,17 +395,15 @@ export async function updateColumn(rawInput: any): Promise<ActionResult> {
       data
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: (permission as any).session.id,
-        action: 'UPDATE_COLUMN',
-        details: { 
-          boardId: column.boardId, 
-          columnId: id, 
-          previousState: existingColumn,
-          updatedFields: Object.keys(data)
-        },
-      }
+    await createAuditLog({
+      userId: (permission as any).session.id,
+      action: 'UPDATE_COLUMN',
+      details: { 
+        boardId: column.boardId, 
+        columnId: id, 
+        previousState: existingColumn,
+        updatedFields: Object.keys(data)
+      },
     })
 
     emitBoardEvent('column:updated', { boardId: column.boardId, columnId: id })
@@ -455,17 +444,15 @@ export async function updateColumnWipLimit(input: { columnId: string, wipLimit: 
       data: { wipLimit }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: (permission as any).session.id,
-        action: 'UPDATE_COLUMN_WIP_LIMIT',
-        details: { 
-          boardId: column.boardId, 
-          columnId, 
-          previousWipLimit: existingColumn?.wipLimit,
-          newWipLimit: wipLimit 
-        },
-      }
+    await createAuditLog({
+      userId: (permission as any).session.id,
+      action: 'UPDATE_COLUMN_WIP_LIMIT',
+      details: { 
+        boardId: column.boardId, 
+        columnId, 
+        previousWipLimit: existingColumn?.wipLimit,
+        newWipLimit: wipLimit 
+      },
     })
 
     emitBoardEvent('column:updated', { boardId: column.boardId, columnId })
@@ -503,12 +490,10 @@ export async function reorderColumns(rawInput: any): Promise<ActionResult> {
       )
     )
 
-    await prisma.auditLog.create({
-      data: {
-        userId: (permission as any).session.id,
-        action: 'REORDER_COLUMNS',
-        details: { boardId, columnIds, previousColumnIds },
-      }
+    await createAuditLog({
+      userId: (permission as any).session.id,
+      action: 'REORDER_COLUMNS',
+      details: { boardId, columnIds, previousColumnIds },
     })
 
     emitBoardEvent('columns:reordered', { boardId, columnIds })
@@ -571,12 +556,10 @@ export async function addBoardMember(rawInput: any): Promise<ActionResult> {
       }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: (permission as any).session.id,
-        action: 'ADD_BOARD_MEMBER',
-        details: { boardId, addedUserId: userId },
-      }
+    await createAuditLog({
+      userId: (permission as any).session.id,
+      action: 'ADD_BOARD_MEMBER',
+      details: { boardId, addedUserId: userId },
     })
 
     emitBoardEvent('board:member_added', { boardId, userId })
@@ -617,12 +600,10 @@ export async function removeBoardMember(rawInput: any): Promise<ActionResult> {
       }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: (permission as any).session.id,
-        action: 'REMOVE_BOARD_MEMBER',
-        details: { boardId, removedUserId: userId },
-      }
+    await createAuditLog({
+      userId: (permission as any).session.id,
+      action: 'REMOVE_BOARD_MEMBER',
+      details: { boardId, removedUserId: userId },
     })
 
     emitBoardEvent('board:member_removed', { boardId, userId })
@@ -651,8 +632,8 @@ export async function createTag(rawInput: any): Promise<ActionResult> {
     }
 
     if (boardId) {
-      // Permission check for board-specific tags
-      const permission = await checkBoardPermission({ boardId, allowedRoles: ['ADMIN', 'MANAGER', 'MEMBER'] })
+      // Permission check for board-specific tags — only Admin and Manager can create tags
+      const permission = await checkBoardPermission({ boardId, allowedRoles: ['ADMIN', 'MANAGER'] })
       if (!permission.success) return permission as any
     }
 
@@ -660,12 +641,10 @@ export async function createTag(rawInput: any): Promise<ActionResult> {
       data: { name, color, boardId }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'CREATE_TAG',
-        details: { tagId: tag.id, name, color, boardId },
-      }
+    await createAuditLog({
+      userId: session.id,
+      action: 'CREATE_TAG',
+      details: { tagId: tag.id, name, color, boardId },
     })
 
     if (boardId) {
@@ -708,17 +687,15 @@ export async function deleteTag(input: { tagId: string }): Promise<ActionResult>
 
     await prisma.tag.delete({ where: { id: vTagId } })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'DELETE_TAG',
-        details: { 
-          tagId: vTagId, 
-          boardId: tag.boardId,
-          name: tag.name,
-          color: tag.color
-        },
-      }
+    await createAuditLog({
+      userId: session.id,
+      action: 'DELETE_TAG',
+      details: { 
+        tagId: vTagId, 
+        boardId: tag.boardId,
+        name: tag.name,
+        color: tag.color
+      },
     })
 
     if (tag.boardId) {
@@ -1212,8 +1189,17 @@ export async function undoLastAction(): Promise<ActionResult> {
       }
     }
 
-    // Delete the audit log entry so it can't be undone again
-    await prisma.auditLog.delete({ where: { id: lastAction.id } })
+    // Log the undo action (keep original audit log for traceability)
+    await createAuditLog({
+      userId: session.id,
+      action: 'UNDO',
+      details: {
+        originalAction: lastAction.action,
+        originalActionId: lastAction.id,
+        boardId: details.boardId,
+        taskId: details.taskId,
+      },
+    })
 
     revalidatePath(`/dashboard/board/${details.boardId}`)
     return { success: true }

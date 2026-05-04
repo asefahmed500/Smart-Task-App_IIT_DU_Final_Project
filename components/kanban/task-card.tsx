@@ -144,7 +144,7 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
 
           <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
             <Calendar className="size-3" />
-            <span>{new Date(task.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+            <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : new Date(task.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
           </div>
         </div>
       </CardContent>

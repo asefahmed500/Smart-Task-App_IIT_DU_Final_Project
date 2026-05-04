@@ -30,7 +30,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
   
   const { isOnline, addAction } = useOfflineStore()
 
-  const { presence } = useSocket(initialBoard.id, {
+  const { isConnected, presence, editingTasks } = useSocket(initialBoard.id, {
     id: currentUser.id,
     name: currentUser.name || currentUser.email,
     image: currentUser.image
@@ -56,6 +56,92 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
         return { ...prev, columns: newColumns }
       })
       toast.info(`${data.userName} moved a task`)
+    }
+
+    if (event === 'task:updated') {
+      if (data.task) {
+        const updatedTask = data.task as Task
+        setBoard((prev: Board) => {
+          const newColumns = prev.columns.map((col: Column) => {
+            const taskIndex = col.tasks.findIndex((t: Task) => t.id === updatedTask.id)
+            if (taskIndex !== -1) {
+              const newTasks = [...col.tasks]
+              newTasks[taskIndex] = updatedTask
+              return { ...col, tasks: newTasks }
+            }
+            // Task may have moved columns
+            if (col.id === updatedTask.columnId && !col.tasks.some((t: Task) => t.id === updatedTask.id)) {
+              return { ...col, tasks: [...col.tasks, updatedTask] }
+            }
+            return col
+          })
+          return { ...prev, columns: newColumns }
+        })
+      } else if (data.taskId) {
+        toast.info('A task was updated')
+      }
+    }
+
+    if (event === 'task:created') {
+      if (data.task) {
+        const newTask = data.task as Task
+        setBoard((prev: Board) => {
+          const newColumns = prev.columns.map((col: Column) => {
+            if (col.id === newTask.columnId) {
+              return { ...col, tasks: [...col.tasks, newTask] }
+            }
+            return col
+          })
+          return { ...prev, columns: newColumns }
+        })
+        toast.info('A new task was created')
+      }
+    }
+
+    if (event === 'task:deleted') {
+      if (data.taskId) {
+        setBoard((prev: Board) => {
+          const newColumns = prev.columns.map((col: Column) => ({
+            ...col,
+            tasks: col.tasks.filter((t: Task) => t.id !== data.taskId)
+          }))
+          return { ...prev, columns: newColumns }
+        })
+        toast.info('A task was deleted')
+      }
+    }
+
+    if (event === 'column:created') {
+      if (data.column) {
+        const newColumn = data.column as Column
+        setBoard((prev: Board) => ({
+          ...prev,
+          columns: [...prev.columns, { ...newColumn, tasks: [] }]
+        }))
+        toast.info('A new column was created')
+      }
+    }
+
+    if (event === 'column:deleted') {
+      if (data.columnId) {
+        setBoard((prev: Board) => ({
+          ...prev,
+          columns: prev.columns.filter((col: Column) => col.id !== data.columnId)
+        }))
+        toast.info('A column was deleted')
+      }
+    }
+
+    if (event === 'column:updated') {
+      if (data.column) {
+        const updatedColumn = data.column as Column
+        setBoard((prev: Board) => ({
+          ...prev,
+          columns: prev.columns.map((col: Column) =>
+            col.id === updatedColumn.id ? { ...col, ...updatedColumn } : col
+          )
+        }))
+      }
     }
   }, [])
 
@@ -313,7 +399,9 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
     setConflictModalOpen,
     selectedTaskId,
     setSelectedTaskId,
+    isConnected,
     presence,
+    editingTasks,
     onDragStart,
     onDragOver,
     onDragEnd,

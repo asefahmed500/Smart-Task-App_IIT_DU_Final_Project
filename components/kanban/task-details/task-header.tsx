@@ -7,15 +7,22 @@ import { DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Trash2 } from 'lucide-react'
 import { Task, User, Priority } from '@/types/kanban'
 
+interface EditingUser {
+  id: string
+  name: string
+  image: string | null
+}
+
 interface TaskHeaderProps {
   task: Task
   currentUser: User
   onUpdate: (field: string, value: string | Priority | null) => Promise<void>
   onDelete: () => Promise<void>
   setTask: React.Dispatch<React.SetStateAction<Task | null>>
+  editingBy?: EditingUser[]
 }
 
-export function TaskHeader({ task, currentUser, onUpdate, onDelete, setTask }: TaskHeaderProps) {
+export function TaskHeader({ task, currentUser, onUpdate, onDelete, setTask, editingBy }: TaskHeaderProps) {
   return (
     <DialogHeader className="p-6 border-b border-primary/5 bg-muted/20">
       <div className="flex items-center justify-between gap-4">
@@ -27,6 +34,14 @@ export function TaskHeader({ task, currentUser, onUpdate, onDelete, setTask }: T
           <span className="text-xs text-muted-foreground">v{task.version}</span>
         </div>
         <div className="flex items-center gap-2">
+          {editingBy && editingBy.length > 0 && (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
+              <div className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-[10px] text-amber-600 font-medium">
+                {editingBy.map((u) => u.name).join(', ')} editing
+              </span>
+            </div>
+          )}
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER' || task?.creatorId === currentUser?.id || task?.assigneeId === currentUser?.id) && (
             <Button 
               variant="ghost" 

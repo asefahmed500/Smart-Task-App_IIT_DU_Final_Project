@@ -17,6 +17,8 @@ export interface Comment {
   createdAt: string | Date;
   updatedAt: string | Date;
   user: User;
+  reactions?: Reaction[];
+  isEditable?: boolean;
 }
 
 export interface ChecklistItem {
@@ -105,6 +107,30 @@ export interface Review {
   taskId: string;
   createdAt: string | Date;
   reviewer?: User;
+}
+
+export interface Reaction {
+  id: string;
+  emoji: string;
+  userId: string;
+  commentId: string;
+  createdAt: string | Date;
+  user?: User;
+}
+
+export interface NotificationPreference {
+  id: string;
+  userId: string;
+  taskAssigned: boolean;
+  statusChanged: boolean;
+  commentMention: boolean;
+  automationTriggered: boolean;
+  dueDateReminder: boolean;
+  overdueReminder: boolean;
+  reviewRequested: boolean;
+  reviewCompleted: boolean;
+  emailEnabled: boolean;
+  pushEnabled: boolean;
 }
 
 export interface Board {

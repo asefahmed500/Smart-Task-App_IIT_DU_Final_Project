@@ -1,8 +1,9 @@
 'use client'
 
 import { Button } from "@/components/ui/button"
-import { Paperclip, Plus, Trash2, File, Image as ImageIcon, FileText, FileCode, Loader2 } from 'lucide-react'
+import { Paperclip, Plus, Trash2, File, Image as ImageIcon, FileText, FileCode, Loader2, Download, WifiOff } from 'lucide-react'
 import { Attachment } from '@/types/kanban'
+import { useOfflineStore } from '@/lib/store/use-offline-store'
 
 interface TaskAttachmentsSectionProps {
   attachments: Attachment[]
@@ -17,6 +18,7 @@ export function TaskAttachmentsSection({
   onUpload,
   isUploading
 }: TaskAttachmentsSectionProps) {
+  const { isOnline } = useOfflineStore()
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/')) return <ImageIcon className="size-4" />
     if (type.includes('pdf')) return <FileText className="size-4" />
@@ -36,29 +38,41 @@ export function TaskAttachmentsSection({
             type="file"
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
             onChange={onUpload}
-            disabled={isUploading}
+            disabled={isUploading || !isOnline}
           />
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="h-7 text-xs border-primary/20 hover:bg-primary/5"
-            disabled={isUploading}
+            disabled={isUploading || !isOnline}
+            title={isOnline ? 'Attach a file' : 'File uploads are not available offline'}
           >
             {isUploading ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Plus className="mr-1 size-3" />}
-            Attach
+            {isOnline ? 'Attach' : 'Offline'}
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {attachments.map((attachment) => (
-          <div 
-            key={attachment.id} 
+          <div
+            key={attachment.id}
             className="group flex items-center gap-3 p-3 rounded-lg border border-primary/5 bg-muted/20 hover:bg-muted/30 transition-all hover:border-primary/20"
           >
-            <div className="size-10 rounded bg-background flex items-center justify-center text-primary border border-primary/5 shadow-sm group-hover:scale-105 transition-transform">
-              {getFileIcon(attachment.type)}
-            </div>
+            {attachment.type.startsWith('image/') && attachment.url ? (
+              <div className="size-10 rounded overflow-hidden bg-background border border-primary/5 shadow-sm flex-shrink-0">
+                <img
+                  src={attachment.url}
+                  alt={attachment.name}
+                  className="size-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ) : (
+              <div className="size-10 rounded bg-background flex items-center justify-center text-primary border border-primary/5 shadow-sm group-hover:scale-105 transition-transform flex-shrink-0">
+                {getFileIcon(attachment.type)}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium truncate pr-6">{attachment.name}</p>
               <p className="text-[10px] text-muted-foreground">
@@ -66,9 +80,21 @@ export function TaskAttachmentsSection({
               </p>
             </div>
             <div className="flex flex-col gap-1">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              {attachment.url && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                  asChild
+                >
+                  <a href={attachment.url} download={attachment.name} title="Download">
+                    <Download className="size-3" />
+                  </a>
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => onDeleteAttachment(attachment.id)}
                 className="size-6 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
               >

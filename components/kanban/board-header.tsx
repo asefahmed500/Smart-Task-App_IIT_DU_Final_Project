@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Layout, Calendar, Users, Edit2, ArrowLeft, BarChart3 } from 'lucide-react'
+import { Layout, Calendar, Users, Edit2, ArrowLeft, BarChart3, Trash2, WifiOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ManageMembersDialog } from './manage-members-dialog'
@@ -9,6 +9,9 @@ import { EditBoardDialog } from './edit-board-dialog'
 import { BoardAnalyticsDialog } from './board-analytics-dialog'
 import Image from 'next/image'
 import { Board, User } from '@/types/kanban'
+import { deleteBoard } from '@/actions/board-actions'
+import { toast } from 'sonner'
+import { useOfflineStore } from '@/lib/store/use-offline-store'
 
 interface BoardHeaderProps {
   board: Board
@@ -20,6 +23,7 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
   const [isManageMembersOpen, setIsManageMembersOpen] = useState(false)
   const [isEditBoardOpen, setIsEditBoardOpen] = useState(false)
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false)
+  const { isOnline } = useOfflineStore()
 
   const canManageMembers = currentUser.role !== 'MEMBER'
   const canEditBoard = currentUser.role === 'ADMIN' || board.ownerId === currentUser.id
@@ -85,18 +89,41 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
 
                 {canEditBoard && (
                   <>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="size-9 rounded-full hover:bg-primary/10 transition-colors"
                       onClick={() => setIsEditBoardOpen(true)}
                       title="Edit Board"
                     >
                       <Edit2 className="size-4 text-primary" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-9 rounded-full hover:bg-red-500/10 transition-colors"
+                      onClick={async () => {
+                        if (!isOnline) {
+                          toast.error('Board deletion is not available offline')
+                          return
+                        }
+                        if (!confirm('Are you sure you want to delete this board? All tasks and columns will be permanently removed.')) return
+                        const result = await deleteBoard({ boardId: board.id })
+                        if (result.success) {
+                          toast.success('Board deleted')
+                          const role = currentUser.role.toLowerCase()
+                          router.push(`/${role}/boards`)
+                        } else {
+                          toast.error(result.error || 'Failed to delete board')
+                        }
+                      }}
+                      title={isOnline ? 'Delete Board' : 'Board deletion not available offline'}
+                    >
+                      <Trash2 className="size-4 text-red-500" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="size-9 rounded-full hover:bg-primary/10 transition-colors"
                       onClick={() => setIsAnalyticsOpen(true)}
                       title="Board Analytics"

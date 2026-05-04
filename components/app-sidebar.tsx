@@ -54,6 +54,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
     { title: "Team Boards", icon: Layout, url: "/manager/boards" },
     { title: "Team Members", icon: Users, url: "/manager/team" },
     { title: "Analytics", icon: BarChart3, url: "/manager/analytics" },
+    { title: "Audit Logs", icon: History, url: "/manager/logs" },
   ]
 
   const memberItems = [
@@ -61,6 +62,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
     { title: "My Tasks", icon: ClipboardList, url: "/member/tasks" },
     { title: "Boards", icon: Layout, url: "/member/boards" },
     { title: "Reports", icon: BarChart3, url: "/member/reports" },
+    { title: "My Activity", icon: History, url: "/member/logs" },
   ]
 
   const items = role === 'ADMIN' ? adminItems : role === 'MANAGER' ? managerItems : memberItems

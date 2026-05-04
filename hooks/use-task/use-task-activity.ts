@@ -3,13 +3,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getTaskActivityLog } from '@/actions/task-actions'
 import { ActionResult } from '@/types/kanban'
+import { useBoardEvents } from '@/components/kanban/socket-hooks'
 
 interface UseTaskActivityProps {
   taskId: string | null
   isOpen: boolean
+  boardId?: string
 }
 
-export function useTaskActivity({ taskId, isOpen }: UseTaskActivityProps) {
+export function useTaskActivity({ taskId, isOpen, boardId }: UseTaskActivityProps) {
   const [activityLog, setActivityLog] = useState<any[]>([])
   const [activityFilter, setActivityFilter] = useState<string>('all')
   const [isLoading, setIsLoading] = useState(false)
@@ -35,8 +37,17 @@ export function useTaskActivity({ taskId, isOpen }: UseTaskActivityProps) {
     }
   }, [isOpen, taskId, fetchActivityLog])
 
-  const filteredActivityLog = activityFilter === 'all' 
-    ? activityLog 
+  // Real-time refresh on task events
+  const handleBoardEvent = useCallback((event: string, data: Record<string, unknown>) => {
+    if (taskId && (data.taskId === taskId || (data.task as any)?.id === taskId)) {
+      fetchActivityLog()
+    }
+  }, [taskId, fetchActivityLog])
+
+  useBoardEvents(boardId || 'none', handleBoardEvent)
+
+  const filteredActivityLog = activityFilter === 'all'
+    ? activityLog
     : activityLog.filter(log => log.action === activityFilter)
 
   return {

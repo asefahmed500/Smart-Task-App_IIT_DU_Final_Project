@@ -36,7 +36,7 @@ export function ManagerDashboardClient({ user, data }: ManagerDashboardClientPro
           <h1 className="text-3xl font-bold tracking-tight">Manager Dashboard</h1>
           <p className="text-muted-foreground">Welcome back, {user.name}. Here&apos;s your team overview.</p>
         </div>
-        <Button className="gap-2" onClick={() => router.push('/admin/boards')}>
+        <Button className="gap-2" onClick={() => router.push('/manager/boards')}>
           <Plus className="size-4" />
           Create Board
         </Button>

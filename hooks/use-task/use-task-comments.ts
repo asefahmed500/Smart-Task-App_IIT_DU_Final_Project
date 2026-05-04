@@ -2,10 +2,14 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { addComment, deleteComment } from '@/actions/task-actions'
+import { addComment, deleteComment, editComment, toggleReaction } from '@/actions/task-actions'
 import { undoLastAction } from '@/actions/board-actions'
 import { useOfflineStore } from '@/lib/store/use-offline-store'
-import { Task, User, Comment as TaskComment } from '@/types/kanban'
+import { Task, User, Comment as TaskComment, Reaction } from '@/types/kanban'
+
+const REACTION_EMOJIS = ["👍", "🚀", "❤️"]
+
+const FIVE_MINUTES_MS = 5 * 60 * 1000
 
 interface UseTaskCommentsProps {
   taskId: string | null
@@ -104,10 +108,50 @@ export function useTaskComments({ taskId, task, setTask, currentUser, fetchTaskD
     }
   }
 
+  const isCommentEditable = (comment: TaskComment): boolean => {
+    const ageMs = Date.now() - new Date(comment.createdAt).getTime()
+    return comment.userId === currentUser.id && ageMs < FIVE_MINUTES_MS
+  }
+
+  const handleEditComment = async (commentId: string, content: string) => {
+    try {
+      const result = await editComment({ id: commentId, content })
+      if (result.success) {
+        toast.success("Comment updated")
+        await fetchTaskDetails()
+      } else {
+        toast.error(result.error || "Failed to edit comment")
+      }
+    } catch (error) {
+      toast.error("Failed to edit comment")
+    }
+  }
+
+  const handleToggleReaction = async (commentId: string, emoji: string) => {
+    try {
+      const result = await toggleReaction({ commentId, emoji })
+      if (result.success && result.data) {
+        if (task) {
+          setTask({
+            ...task,
+            comments: (task.comments || []).map((c) =>
+              c.id === commentId ? result.data as TaskComment : c
+            ),
+          })
+        }
+      }
+    } catch {
+      toast.error("Failed to toggle reaction")
+    }
+  }
+
   return {
     newComment,
     setNewComment,
     handleAddComment,
-    handleDeleteComment
+    handleDeleteComment,
+    handleEditComment,
+    handleToggleReaction,
+    isCommentEditable,
   }
 }

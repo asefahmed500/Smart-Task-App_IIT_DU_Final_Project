@@ -20,6 +20,13 @@ export function useTaskAttachments({ taskId, task, setTask, fetchTaskDetails }: 
     const file = e.target.files?.[0]
     if (!file || !taskId) return
 
+    // Client-side 10MB limit
+    const TEN_MB = 10 * 1024 * 1024
+    if (file.size > TEN_MB) {
+      toast.error('File size exceeds 10MB limit')
+      return
+    }
+
     setIsUploading(true)
     try {
       // Simulation of file upload (using FileReader for demo)

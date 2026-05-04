@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Clock, Plus, History, Timer, Loader2 } from 'lucide-react'
+import { Clock, Plus, History, Timer, Loader2, Pencil, Trash2, X, Check } from 'lucide-react'
 import { TimeEntry } from '@/types/kanban'
 import { format } from 'date-fns'
 
@@ -19,6 +19,17 @@ interface TaskTimeTabProps {
   setTimeDescription: (val: string) => void
   onLogTime: () => Promise<void>
   isLoading: boolean
+  currentUserId: string
+  currentUserRole: string
+  editingEntryId: string | null
+  editDuration: string
+  setEditDuration: (val: string) => void
+  editDescription: string
+  setEditDescription: (val: string) => void
+  onStartEdit: (entry: TimeEntry) => void
+  onCancelEdit: () => void
+  onUpdateEntry: () => Promise<void>
+  onDeleteEntry: (id: string) => Promise<void>
 }
 
 export function TaskTimeTab({
@@ -30,7 +41,18 @@ export function TaskTimeTab({
   timeDescription,
   setTimeDescription,
   onLogTime,
-  isLoading
+  isLoading,
+  currentUserId,
+  currentUserRole,
+  editingEntryId,
+  editDuration,
+  setEditDuration,
+  editDescription,
+  setEditDescription,
+  onStartEdit,
+  onCancelEdit,
+  onUpdateEntry,
+  onDeleteEntry
 }: TaskTimeTabProps) {
   const totalMinutes = timeEntries.reduce((acc, entry) => acc + entry.duration, 0)
   const hours = Math.floor(totalMinutes / 60)
@@ -110,27 +132,88 @@ export function TaskTimeTab({
         )}
 
         <div className="space-y-3">
-          {timeEntries.map((entry) => (
-            <div 
-              key={entry.id} 
-              className="p-4 rounded-xl border border-primary/5 bg-muted/5 hover:bg-muted/10 transition-all flex items-center justify-between group"
-            >
-              <div className="space-y-1">
-                <p className="text-sm font-medium">
-                  {Math.floor(entry.duration / 60)}h {entry.duration % 60}m
-                </p>
-                <p className="text-xs text-muted-foreground">{entry.description || 'No description'}</p>
+          {timeEntries.map((entry) => {
+            const isEditing = editingEntryId === entry.id
+            const canModify = entry.userId === currentUserId || currentUserRole === 'ADMIN' || currentUserRole === 'MANAGER'
+
+            return (
+              <div
+                key={entry.id}
+                className="p-4 rounded-xl border border-primary/5 bg-muted/5 hover:bg-muted/10 transition-all flex items-center justify-between group"
+              >
+                {isEditing ? (
+                  <div className="flex-1 space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-bold">Duration (minutes)</Label>
+                        <Input
+                          type="number"
+                          value={editDuration}
+                          onChange={(e) => setEditDuration(e.target.value)}
+                          className="bg-background border-primary/10 h-8"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Description</Label>
+                      <Textarea
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        className="bg-background border-primary/10 resize-none h-16 text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={onUpdateEntry} className="h-7">
+                        <Check className="mr-1 size-3" /> Save
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={onCancelEdit} className="h-7">
+                        <X className="mr-1 size-3" /> Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">
+                        {Math.floor(entry.duration / 60)}h {entry.duration % 60}m
+                      </p>
+                      <p className="text-xs text-muted-foreground">{entry.description || 'No description'}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                          {format(new Date(entry.createdAt), 'MMM d, yyyy')}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/60">
+                          {format(new Date(entry.createdAt), 'hh:mm a')}
+                        </p>
+                      </div>
+                      {canModify && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-muted-foreground hover:text-primary"
+                            onClick={() => onStartEdit(entry)}
+                          >
+                            <Pencil className="size-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-muted-foreground hover:text-red-500"
+                            onClick={() => onDeleteEntry(entry.id)}
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="text-right">
-                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                  {format(new Date(entry.createdAt), 'MMM d, yyyy')}
-                </p>
-                <p className="text-[10px] text-muted-foreground/60">
-                  {format(new Date(entry.createdAt), 'hh:mm a')}
-                </p>
-              </div>
-            </div>
-          ))}
+            )
+          })}
 
           {timeEntries.length === 0 && !isLoggingTime && (
             <div className="text-center py-12 bg-muted/5 rounded-2xl border-2 border-dashed border-primary/5">

@@ -22,7 +22,7 @@ import {
 import { createTask } from '@/actions/task-actions'
 import { toast } from 'sonner'
 import { undoLastAction } from '@/actions/board-actions'
-import { Loader2 } from 'lucide-react'
+import { Loader2, CalendarDays, UserCircle } from 'lucide-react'
 import { useOfflineStore } from '@/lib/store/use-offline-store'
 import { User } from '@/types/kanban'
 import { Priority } from '@/generated/prisma/enums'
@@ -32,16 +32,28 @@ interface AddTaskDialogProps {
   onClose: () => void
   columnId: string
   currentUser: User
+  boardMembers: User[]
 }
 
-export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTaskDialogProps) {
+export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMembers }: AddTaskDialogProps) {
   const [loading, setLoading] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('MEDIUM')
+  const [dueDate, setDueDate] = useState('')
+  const [assigneeId, setAssigneeId] = useState('')
   const { isOnline, addAction } = useOfflineStore()
 
   const isMember = currentUser.role === 'MEMBER'
+  const canAssign = currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER'
+
+  const handleClose = () => {
+    setTitle('')
+    setDescription('')
+    setDueDate('')
+    setAssigneeId('')
+    onClose()
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,6 +69,8 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTas
             description,
             priority: priority as Priority,
             columnId,
+            dueDate: dueDate || undefined,
+            assigneeId: canAssign ? (assigneeId || undefined) : undefined,
           }
         })
         toast.success('Task creation queued (offline)')
@@ -71,6 +85,8 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTas
         description,
         priority: priority as Priority,
         columnId,
+        dueDate: dueDate || undefined,
+        assigneeId: canAssign ? (assigneeId || undefined) : undefined,
       })
 
       if (!result.success) {
@@ -92,6 +108,8 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTas
       })
       setTitle('')
       setDescription('')
+      setDueDate('')
+      setAssigneeId('')
       onClose()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to create task'
@@ -102,7 +120,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTas
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-primary/10">
         <DialogHeader>
           <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Add New Task</DialogTitle>
@@ -143,13 +161,52 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser }: AddTas
               </SelectContent>
             </Select>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="dueDate" className="flex items-center gap-1.5">
+                <CalendarDays className="size-3.5 text-muted-foreground" />
+                Due Date
+              </Label>
+              <Input
+                id="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="bg-background/50 border-primary/10 focus:border-primary/30 text-sm"
+              />
+            </div>
+
+            {canAssign && (
+              <div className="space-y-2">
+                <Label htmlFor="assignee" className="flex items-center gap-1.5">
+                  <UserCircle className="size-3.5 text-muted-foreground" />
+                  Assignee
+                </Label>
+                <Select value={assigneeId} onValueChange={setAssigneeId}>
+                  <SelectTrigger className="bg-background/50 border-primary/10">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Unassigned</SelectItem>
+                    {boardMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name || member.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
           {isMember && (
             <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
               You will be automatically assigned to this task
             </div>
           )}
           <DialogFooter className="pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading} className="gap-2">

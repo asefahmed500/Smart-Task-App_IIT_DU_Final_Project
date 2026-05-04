@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, CheckCheck } from 'lucide-react'
+import { Bell, CheckCheck, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/actions/notification-actions'
+import { getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification } from '@/actions/notification-actions'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/utils/utils'
 import { useNotificationListener } from '@/components/kanban/socket-hooks'
+import { toast } from 'sonner'
 
 interface Notification {
   id: string
@@ -46,6 +47,15 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
   useNotificationListener(userId, (newNotif: any) => {
     console.log('Real-time notification received:', newNotif)
     
+    // Show toast
+    toast(newNotif.message, {
+      description: 'You have a new mention/notification',
+      action: newNotif.link ? {
+        label: 'View',
+        onClick: () => router.push(newNotif.link)
+      } : undefined,
+    })
+
     // Add to state if it's not already there
     setNotifications(prev => {
       if (prev.some(n => n.id === newNotif.notificationId)) return prev
@@ -87,6 +97,15 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
     await markAllNotificationsRead()
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
     setUnreadCount(0)
+  }
+
+  const handleDelete = async (e: React.MouseEvent, notificationId: string) => {
+    e.stopPropagation()
+    const result = await deleteNotification({ notificationId })
+    if (result.success) {
+      setNotifications(prev => prev.filter(n => n.id !== notificationId))
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    }
   }
 
   const getTypeIcon = (type: string) => {
@@ -140,10 +159,10 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
         ) : (
           <div className="divide-y">
             {notifications.map((notification) => (
-              <DropdownMenuItem
+                <DropdownMenuItem
                 key={notification.id}
                 className={cn(
-                  "p-3 cursor-pointer focus:bg-muted focus:outline-none",
+                  "p-3 cursor-pointer focus:bg-muted focus:outline-none group",
                   !notification.isRead && "bg-primary/5"
                 )}
                 onClick={() => handleNotificationClick(notification)}
@@ -160,9 +179,19 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
                       {new Date(notification.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  {!notification.isRead && (
-                    <div className="size-2 bg-primary rounded-full flex-shrink-0 mt-2" />
-                  )}
+                  <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                    {!notification.isRead && (
+                      <div className="size-2 bg-primary rounded-full" />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => handleDelete(e, notification.id)}
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </div>
                 </div>
               </DropdownMenuItem>
             ))}

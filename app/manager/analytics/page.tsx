@@ -5,7 +5,9 @@ import { getManagerAnalytics, getManagerBoards } from '@/actions/manager-actions
 import { getAdvancedReports } from '@/actions/dashboard-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertCircle, PieChart, Calendar, ArrowUpRight, ArrowDownRight, ChevronDown, Filter } from "lucide-react"
+import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertCircle, PieChart, Calendar, ArrowUpRight, ArrowDownRight, ChevronDown, Filter, RefreshCw, Users } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ReportExportButtons } from "@/components/report-export-buttons"
 import {
   Select,
   SelectContent,
@@ -124,6 +126,28 @@ export default function ManagerAnalyticsPage() {
         </div>
         
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            onClick={() => handleBoardChange(selectedBoardId)}
+            disabled={loading}
+          >
+            <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <ReportExportButtons
+            metrics={[
+              { title: "Completion Rate", value: `${data.overallCompletionRate}%`, change: "N/A" },
+              { title: "Total Throughput", value: `${data.totalCompleted}`, change: "N/A" },
+              { title: "Avg Cycle Time", value: `${data.avgCycleTime}d`, change: "N/A" },
+              { title: "Avg Lead Time", value: `${data.avgLeadTime}d`, change: "N/A" },
+            ]}
+            throughputData={data.throughput || []}
+            title="Manager Analytics Report"
+            avgLeadTime={`${data.avgLeadTime}d`}
+            avgCycleTime={`${data.avgCycleTime}d`}
+          />
           <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-2 shadow-sm">
             <Filter className="size-4 text-muted-foreground" />
             <span className="text-xs font-medium text-muted-foreground">Filter by Board:</span>
@@ -363,6 +387,84 @@ export default function ManagerAnalyticsPage() {
                     <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-red-500/20 text-[10px]">
                       {data.isAdvanced ? (b.averageDuration > 48 ? 'HIGH BOTTLE' : 'BOTTLE') : `WIP LIMIT: ${b.wipLimit || 10}`}
                     </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Priority Leaderboard */}
+      {data.advancedData?.priorityBreakdown && (
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="size-5 text-primary" />
+              Completion by Priority
+            </CardTitle>
+            <CardDescription>Average completion time per priority level.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {data.advancedData.priorityBreakdown.map((item: any, index: number) => (
+                <div key={item.priority} className="flex items-center justify-between p-3 rounded-lg border border-primary/5 bg-muted/10">
+                  <div className="flex items-center gap-3">
+                    <div className={`size-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                      item.priority === 'URGENT' ? 'bg-red-500/10 text-red-500' :
+                      item.priority === 'HIGH' ? 'bg-orange-500/10 text-orange-500' :
+                      item.priority === 'MEDIUM' ? 'bg-yellow-500/10 text-yellow-500' :
+                      'bg-blue-500/10 text-blue-500'
+                    }`}>
+                      {item.priority[0]}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{item.priority}</p>
+                      <p className="text-xs text-muted-foreground">{item.count} tasks</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold">{item.avgCompletionTime?.toFixed(1)}d</p>
+                    <p className="text-[10px] text-muted-foreground">avg completion</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Assignee Leaderboard */}
+      {data.advancedData?.assigneeLeaderboard && (
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="size-5 text-primary" />
+              Team Leaderboard
+            </CardTitle>
+            <CardDescription>Tasks completed by team member.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {data.advancedData.assigneeLeaderboard.map((item: any, index: number) => (
+                <div key={item.userId} className="flex items-center justify-between p-3 rounded-lg border border-primary/5 bg-muted/10">
+                  <div className="flex items-center gap-3">
+                    <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{item.name}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-sm font-bold">{item.completed}</p>
+                      <p className="text-[10px] text-muted-foreground">completed</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold">{item.avgCycleTime?.toFixed(1)}d</p>
+                      <p className="text-[10px] text-muted-foreground">avg cycle</p>
+                    </div>
                   </div>
                 </div>
               ))}

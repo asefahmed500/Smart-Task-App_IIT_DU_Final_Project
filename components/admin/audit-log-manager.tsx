@@ -22,10 +22,13 @@ interface AuditLogManagerProps {
 export function AuditLogManager({ initialLogs }: AuditLogManagerProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
+  const [dateFrom, setDateFrom] = useState<string | null>(null)
+  const [dateTo, setDateTo] = useState<string | null>(null)
 
   const filteredLogs = useMemo(() => {
     return initialLogs.filter(log => {
       const matchesSearch = 
+        !searchQuery ||
         log.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         log.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -33,18 +36,23 @@ export function AuditLogManager({ initialLogs }: AuditLogManagerProps) {
 
       const matchesAction = !selectedAction || log.action === selectedAction
 
-      return matchesSearch && matchesAction
+      const logDate = new Date(log.createdAt)
+      const matchesDateFrom = !dateFrom || logDate >= new Date(dateFrom)
+      const matchesDateTo = !dateTo || logDate <= new Date(dateTo + 'T23:59:59')
+
+      return matchesSearch && matchesAction && matchesDateFrom && matchesDateTo
     })
-  }, [initialLogs, searchQuery, selectedAction])
+  }, [initialLogs, searchQuery, selectedAction, dateFrom, dateTo])
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <AuditLogControls 
-        onSearch={setSearchQuery} 
-        onFilter={() => {
-          // In a real app, this would open a dialog with checkboxed action types
-          toast.info("Advanced filtering coming soon!")
-        }} 
+      <AuditLogControls
+        onSearch={setSearchQuery}
+        onActionFilter={setSelectedAction}
+        onDateFilter={(from, to) => { setDateFrom(from); setDateTo(to) }}
+        selectedAction={selectedAction}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
       />
 
       <Card className="bg-card/50 backdrop-blur-md border-primary/10 shadow-xl overflow-hidden">
@@ -127,4 +135,4 @@ export function AuditLogManager({ initialLogs }: AuditLogManagerProps) {
   )
 }
 
-import { toast } from 'sonner'
+

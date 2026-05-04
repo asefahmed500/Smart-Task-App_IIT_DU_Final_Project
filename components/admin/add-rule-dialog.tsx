@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,29 +22,48 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createAutomationRule } from '@/actions/admin-actions'
+import { getManagerBoards } from '@/actions/manager-actions'
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { getAvailableTriggers, getAvailableConditions, getAvailableActions } from '@/utils/automation-utils'
 
+interface BoardOption {
+  id: string
+  name: string
+}
+
 export function AddRuleDialog() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [boards, setBoards] = useState<BoardOption[]>([])
   const router = useRouter()
 
   const triggers = getAvailableTriggers()
   const conditions = getAvailableConditions()
   const actions = getAvailableActions()
 
+  useEffect(() => {
+    if (open) {
+      getManagerBoards().then((res) => {
+        if (res.success && res.data) {
+          setBoards(res.data as BoardOption[])
+        }
+      })
+    }
+  }, [open])
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
 
     const formData = new FormData(e.currentTarget)
+    const boardId = formData.get('boardId') as string
     const data = {
       name: formData.get('name') as string,
       trigger: formData.get('trigger') as string,
       action: formData.get('action') as string,
       condition: formData.get('condition') as string,
+      boardId: boardId === 'global' ? null : boardId,
     }
 
     try {
@@ -126,6 +145,20 @@ export function AddRuleDialog() {
                 <SelectContent>
                   {conditions.filter(c => c.value).map((c) => (
                     <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="boardId">Scope</Label>
+              <Select name="boardId" defaultValue="global">
+                <SelectTrigger className="bg-muted/50 border-primary/10">
+                  <SelectValue placeholder="Global (all boards)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="global">Global (all boards)</SelectItem>
+                  {boards.map((board) => (
+                    <SelectItem key={board.id} value={board.id}>{board.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

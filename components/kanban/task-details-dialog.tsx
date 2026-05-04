@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useOfflineStore } from '@/lib/store/use-offline-store'
+import { getSocket } from '@/components/kanban/socket-hooks'
 import { cn } from '@/utils/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConflictDialog } from './conflict-dialog'
@@ -65,9 +66,11 @@ interface TaskDetailsDialogProps {
   onClose: () => void
   boardMembers: User[]
   currentUser: User
+  editingTasks?: Record<string, { id: string; name: string; image: string | null }[]>
+  boardId?: string
 }
 
-export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, currentUser }: TaskDetailsDialogProps) {
+export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, currentUser, editingTasks, boardId }: TaskDetailsDialogProps) {
   const isMember = currentUser.role === 'MEMBER'
   const isAdmin = currentUser.role === 'ADMIN'
 
@@ -90,7 +93,10 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     newComment,
     setNewComment,
     handleAddComment,
-    handleDeleteComment
+    handleDeleteComment,
+    handleEditComment,
+    handleToggleReaction,
+    isCommentEditable,
   } = useTaskComments({ taskId, task, setTask, currentUser, fetchTaskDetails })
 
   const {
@@ -127,7 +133,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     activityFilter,
     setActivityFilter,
     isLoading: activityLoading
-  } = useTaskActivity({ taskId, isOpen })
+  } = useTaskActivity({ taskId, isOpen, boardId })
 
   const {
     timeEntries,
@@ -137,7 +143,16 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     setTimeDuration,
     timeDescription,
     setTimeDescription,
-    handleLogTime
+    handleLogTime,
+    editingEntryId,
+    editDuration,
+    setEditDuration,
+    editDescription,
+    setEditDescription,
+    startEdit,
+    cancelEdit,
+    handleUpdateTimeEntry,
+    handleDeleteTimeEntry
   } = useTaskTime({ taskId, isOpen, fetchTaskDetails })
 
   const {
@@ -153,6 +168,34 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
 
   const [showActivity, setShowActivity] = useState(false)
   const { isOnline } = useOfflineStore()
+
+  // Emit editing events
+  useEffect(() => {
+    const socket = getSocket()
+    if (!socket.connected || !boardId || !taskId) return
+
+    if (isOpen) {
+      socket.emit('task:editing', {
+        boardId,
+        taskId,
+        user: {
+          id: currentUser.id,
+          name: currentUser.name || currentUser.email,
+          image: currentUser.image,
+        },
+      })
+    }
+
+    return () => {
+      if (isOpen) {
+        socket.emit('task:stop-editing', {
+          boardId,
+          taskId,
+          userId: currentUser.id,
+        })
+      }
+    }
+  }, [isOpen, taskId, boardId, currentUser])
 
   const eligibleAssignees = (() => {
     if (isMember) {
@@ -180,12 +223,13 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
           </div>
         ) : task ? (
           <>
-            <TaskHeader 
-              task={task} 
-              currentUser={currentUser} 
-              onUpdate={handleUpdate} 
+            <TaskHeader
+              task={task}
+              currentUser={currentUser}
+              onUpdate={handleUpdate}
               onDelete={handleDelete}
               setTask={setTask}
+              editingBy={taskId ? editingTasks?.[taskId]?.filter((u) => u.id !== currentUser.id) : undefined}
             />
 
             <div className="flex-1 flex overflow-hidden">
@@ -269,19 +313,23 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
 
                         <Separator className="bg-primary/5" />
 
-                        <TaskCommentsSection 
+                        <TaskCommentsSection
                           comments={task.comments || []}
                           onAddComment={handleAddComment}
                           onDeleteComment={handleDeleteComment}
+                          onEditComment={handleEditComment}
+                          onToggleReaction={handleToggleReaction}
+                          isCommentEditable={isCommentEditable}
                           newComment={newComment}
                           setNewComment={setNewComment}
                           currentUser={currentUser}
+                          boardMembers={boardMembers}
                         />
                       </div>
                     </TabsContent>
 
                     <TabsContent value="time" className="p-6 m-0 space-y-8 animate-in fade-in zoom-in-95 duration-300">
-                      <TaskTimeTab 
+                      <TaskTimeTab
                         timeEntries={timeEntries}
                         isLoggingTime={isLoggingTime}
                         setIsLoggingTime={setIsLoggingTime}
@@ -291,6 +339,17 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                         setTimeDescription={setTimeDescription}
                         onLogTime={handleLogTime}
                         isLoading={loading}
+                        currentUserId={currentUser.id}
+                        currentUserRole={currentUser.role}
+                        editingEntryId={editingEntryId}
+                        editDuration={editDuration}
+                        setEditDuration={setEditDuration}
+                        editDescription={editDescription}
+                        setEditDescription={setEditDescription}
+                        onStartEdit={startEdit}
+                        onCancelEdit={cancelEdit}
+                        onUpdateEntry={handleUpdateTimeEntry}
+                        onDeleteEntry={handleDeleteTimeEntry}
                       />
                     </TabsContent>
                   </div>

@@ -110,7 +110,7 @@ export const addAttachmentSchema = z.object({
   name: z.string().min(1).max(255),
   url: z.string().url(),
   type: z.string(),
-  size: z.number().int().min(0),
+  size: z.number().int().min(0).max(10 * 1024 * 1024, 'File size must not exceed 10MB'),
 });
 
 // Time Entry Schemas
@@ -154,7 +154,12 @@ export const updateAutomationRuleSchema = z.object({
 // Comment Schemas
 export const createCommentSchema = z.object({
   taskId: idSchema,
-  content: z.string().min(1, 'Comment cannot be empty').max(1000),
+  content: z.string().min(1, "Comment cannot be empty").max(1000),
+});
+
+export const editCommentSchema = z.object({
+  id: idSchema,
+  content: z.string().min(1, "Comment cannot be empty").max(1000),
 });
 // Auth Schemas
 export const loginSchema = z.object({

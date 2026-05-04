@@ -1,13 +1,13 @@
 'use server'
 
-import prisma from '@/lib/prisma'
-import { getSession } from '@/lib/auth-server'
-import { revalidatePath } from 'next/cache'
-import { Role } from '@/lib/prisma'
-import bcrypt from 'bcryptjs'
-import { notifyAdminsNewUser } from '@/utils/notification-utils'
-import { ActionResult } from '@/types/kanban'
-import { idSchema, roleSchema } from '@/lib/schemas'
+import prisma from "@/lib/prisma"
+import { getSession } from "@/lib/auth-server"
+import { revalidatePath } from "next/cache"
+import { Role } from "@/lib/prisma"
+import bcrypt from "bcryptjs"
+import { notifyAdminsNewUser } from "@/utils/notification-utils"
+import { ActionResult } from "@/types/kanban"
+import { idSchema, roleSchema } from "@/lib/schemas"
 import { z } from 'zod'
 import { 
   getAutomationRules, 
@@ -16,6 +16,7 @@ import {
   deleteAutomationRule, 
   toggleAutomationRule 
 } from './automation-actions'
+import { createAuditLog } from '@/lib/create-audit-log'
 
 const createUserSchema = z.object({
   name: z.string().min(1).max(50),
@@ -71,12 +72,10 @@ export async function updateUserRole(input: { userId: string, role: Role }): Pro
       data: { role },
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: auth.session!.id,
-        action: 'UPDATE_USER_ROLE',
-        details: { targetUserId: userId, newRole: role },
-      }
+    await createAuditLog({
+      userId: auth.session!.id,
+      action: 'UPDATE_USER_ROLE',
+      details: { targetUserId: userId, newRole: role },
     })
 
     revalidatePath('/admin')
@@ -100,12 +99,10 @@ export async function deleteUser(input: { userId: string }): Promise<ActionResul
       where: { id: userId },
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: auth.session!.id,
-        action: 'DELETE_USER',
-        details: { targetUserId: userId },
-      }
+    await createAuditLog({
+      userId: auth.session!.id,
+      action: 'DELETE_USER',
+      details: { targetUserId: userId },
     })
 
     revalidatePath('/admin')
@@ -134,12 +131,10 @@ export async function createUser(data: any): Promise<ActionResult> {
       }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: auth.session!.id,
-        action: 'CREATE_USER',
-        details: { targetUserId: user.id, email: user.email, role: user.role },
-      }
+    await createAuditLog({
+      userId: auth.session!.id,
+      action: 'CREATE_USER',
+      details: { targetUserId: user.id, email: user.email, role: user.role },
     })
 
     notifyAdminsNewUser(user.id, user.name, user.email, auth.session!.id).catch(console.error)
@@ -162,12 +157,10 @@ export async function updateUserDetails(input: { userId: string, name?: string, 
       data,
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: auth.session!.id,
-        action: 'UPDATE_USER_DETAILS',
-        details: { targetUserId: userId, ...data },
-      }
+    await createAuditLog({
+      userId: auth.session!.id,
+      action: 'UPDATE_USER_DETAILS',
+      details: { targetUserId: userId, ...data },
     })
 
     revalidatePath('/admin')
@@ -192,19 +185,67 @@ export async function getAuditLogs(): Promise<ActionResult> {
   try {
     const logs = await prisma.auditLog.findMany({
       take: 100,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       include: {
         user: {
           select: {
             name: true,
             email: true,
-          }
-        }
-      }
+          },
+        },
+      },
     })
     return { success: true, data: logs }
   } catch (error) {
-    return { success: false, error: 'Failed to fetch audit logs' }
+    return { success: false, error: "Failed to fetch audit logs" }
+  }
+}
+
+export async function getManagerAuditLogs(): Promise<ActionResult> {
+  const session = await getSession()
+  if (!session) return { success: false, error: "Unauthorized" }
+  if (session.role !== "MANAGER" && session.role !== "ADMIN") {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        user: {
+          boards: {
+            some: {
+              OR: [
+                { ownerId: session.id },
+                { members: { some: { id: session.id, role: "MANAGER" } } },
+              ],
+            },
+          },
+        },
+      },
+      take: 100,
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { name: true, email: true } } },
+    })
+    return { success: true, data: logs }
+  } catch (error) {
+    return { success: false, error: "Failed to fetch manager audit logs" }
+  }
+}
+
+export async function getMemberAuditLogs(): Promise<ActionResult> {
+  const session = await getSession()
+  if (!session) return { success: false, error: "Unauthorized" }
+
+  try {
+    const logs = await prisma.auditLog.findMany({
+      where: { userId: session.id },
+      take: 100,
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { name: true, email: true } } },
+    })
+    return { success: true, data: logs }
+  } catch (error) {
+    return { success: false, error: "Failed to fetch member audit logs" }
   }
 }
 

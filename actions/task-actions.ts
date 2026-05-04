@@ -5,11 +5,12 @@ import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
 import { evaluateAutomationRules } from './automation-actions'
 import { emitNotification, emitBoardEvent } from '@/utils/socket-emitter'
-import { 
-  createTaskSchema, 
-  updateTaskSchema, 
-  moveTaskSchema, 
+import {
+  createTaskSchema,
+  updateTaskSchema,
+  moveTaskSchema,
   createCommentSchema,
+  editCommentSchema,
   addChecklistItemSchema,
   toggleChecklistItemSchema,
   addAttachmentSchema,
@@ -19,8 +20,9 @@ import {
   idSchema,
   createTagSchema,
   manageTaskTagSchema,
-  updateChecklistItemSchema
-} from '@/lib/schemas'
+  updateChecklistItemSchema,
+} from "@/lib/schemas"
+import { createAuditLog } from "@/lib/create-audit-log"
 import { Priority, Role } from '@/lib/prisma'
 import { ActionResult } from '@/types/kanban'
 import { checkBoardPermission, getTagsForBoard } from './board-actions'
@@ -79,19 +81,18 @@ async function checkTaskPermission(input: { taskId: string, allowedRoles?: strin
       return { success: false, error: 'Forbidden: Manager permissions required' }
     }
 
-    // Default Member access: can only edit/delete tasks they created or are assigned to
-    const isCreator = task.creatorId === session.id
+    // Default Member access: can only edit/delete tasks they are assigned to
     const isAssignee = task.assigneeId === session.id
 
-    if (!isCreator && !isAssignee) {
+    if (!isAssignee) {
        // At this point, the user is a MEMBER (not ADMIN/MANAGER/Owner)
-       // If they aren't the creator or assignee, they can only proceed if MEMBER_ALL is allowed
+       // If they aren't the assignee, they can only proceed if MEMBER_ALL is allowed (read-only ops)
        if (!allowedRoles.includes('MEMBER_ALL')) {
          return { success: false, error: 'Forbidden: You do not have permission to modify this task' }
        }
     }
 
-    return { success: true, task, session, isCreator, isAssignee }
+    return { success: true, task, session, isAssignee }
   } catch (error) {
     console.error('[CHECK_TASK_PERMISSION_ERROR]', error)
     return { success: false, error: 'Failed to verify task permissions' }
@@ -123,24 +124,27 @@ export async function createTask(input: any): Promise<ActionResult> {
 
     const session = (perm as any).session
 
+    // Members can only assign tasks to themselves
+    const createData = { ...validation.data, creatorId: session.id }
+    if (session.role === "MEMBER") {
+      createData.assigneeId = session.id
+    }
+
     const task = await prisma.task.create({
       data: {
-        ...validation.data,
-        creatorId: session.id,
+        ...createData,
         dueDate: validation.data.dueDate ? new Date(validation.data.dueDate) : null
       }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'CREATE_TASK',
-        details: { 
-          taskId: task.id, 
-          title: task.title, 
-          columnId: task.columnId,
-          boardId: column.boardId
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'CREATE_TASK',
+      details: { 
+        taskId: task.id, 
+        title: task.title, 
+        columnId: task.columnId,
+        boardId: column.boardId
       }
     })
 
@@ -182,10 +186,14 @@ export async function updateTask(input: { id: string } & any): Promise<ActionRes
 
     // Conflict detection
     if (validation.data.version !== existingTask.version) {
-      return { success: false, error: 'Conflict: Task was modified by another user' }
+      return { success: false, error: "Conflict: Task was modified by another user" }
     }
 
+    // Members can only assign tasks to themselves
     const { id, version, ...data } = validation.data
+    if (session.role === "MEMBER" && data.assigneeId && data.assigneeId !== session.id) {
+      return { success: false, error: "Members can only assign tasks to themselves" }
+    }
 
     const task = await prisma.task.update({
       where: { id: taskId },
@@ -197,16 +205,14 @@ export async function updateTask(input: { id: string } & any): Promise<ActionRes
       include: { column: true }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'UPDATE_TASK',
-        details: { 
-          taskId, 
-          updatedFields: Object.keys(data), 
-          previousState: existingTask,
-          boardId: task.column.boardId
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'UPDATE_TASK',
+      details: { 
+        taskId, 
+        updatedFields: Object.keys(data), 
+        previousState: existingTask,
+        boardId: task.column.boardId
       }
     })
 
@@ -302,18 +308,16 @@ export async function updateTaskStatus(input: { taskId: string, columnId: string
 
     const wasOverride = targetColumn.wipLimit > 0 && (await prisma.task.count({ where: { columnId: newColumnId } })) > targetColumn.wipLimit
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: wasOverride ? 'UPDATE_TASK_STATUS_OVERRIDE' : 'UPDATE_TASK_STATUS',
-        details: { 
-          taskId, 
-          newStatus: newStatusName,
-          columnId: newColumnId,
-          override: wasOverride,
-          previousColumnId: existingTask.columnId,
-          boardId: task.column.boardId
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: wasOverride ? 'UPDATE_TASK_STATUS_OVERRIDE' : 'UPDATE_TASK_STATUS',
+      details: { 
+        taskId, 
+        newStatus: newStatusName,
+        columnId: newColumnId,
+        override: wasOverride,
+        previousColumnId: existingTask.columnId,
+        boardId: task.column.boardId
       }
     })
 
@@ -399,16 +403,14 @@ export async function deleteTask(input: { id: string }): Promise<ActionResult> {
       }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: perm.session!.id,
-        action: 'DELETE_TASK',
-        details: { 
-          taskId, 
-          title: task.title, 
-          boardId: task.column.boardId,
-          fullTask: task // Store full task for undo
-        },
+    await createAuditLog({
+      userId: perm.session!.id,
+      action: 'DELETE_TASK',
+      details: { 
+        taskId, 
+        title: task.title, 
+        boardId: task.column.boardId,
+        fullTask: task // Store full task for undo
       }
     })
 
@@ -439,8 +441,8 @@ export async function getTaskDetails(input: { id: string }): Promise<ActionResul
         creator: true,
         column: { include: { board: true } },
         comments: {
-          include: { user: true },
-          orderBy: { createdAt: 'desc' }
+          include: { user: true, reactions: { include: { user: true } } },
+          orderBy: { createdAt: "desc" },
         },
         attachments: { orderBy: { createdAt: 'desc' } },
         checklists: {
@@ -483,15 +485,13 @@ export async function addComment(input: { taskId: string, content: string }): Pr
       include: { user: true }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'ADD_COMMENT',
-        details: { 
-          taskId, 
-          commentId: comment.id,
-          boardId: taskData.column.boardId
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'ADD_COMMENT',
+      details: { 
+        taskId, 
+        commentId: comment.id,
+        boardId: taskData.column.boardId
       }
     })
 
@@ -499,10 +499,10 @@ export async function addComment(input: { taskId: string, content: string }): Pr
     emitBoardEvent('task:updated', { boardId: taskData.column.boardId, taskId })
 
     // Mentions
-    const mentionRegex = /@(\w+)/g
+    const mentionRegex = /@([\w\s]+?)(?=\s|$|[,.!?:;])/g
     const mentions = validation.data.content.match(mentionRegex)
     if (mentions) {
-      const mentionedNames = mentions.map((m: string) => m.slice(1))
+      const mentionedNames = mentions.map((m: string) => m.slice(1).trim())
       const mentionedUsers = await prisma.user.findMany({
         where: { name: { in: mentionedNames } }
       })
@@ -528,12 +528,10 @@ export async function addComment(input: { taskId: string, content: string }): Pr
       }
     }
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'ADD_COMMENT',
-        details: { taskId, commentId: comment.id, boardId: taskData.column.boardId },
-      }
+    await createAuditLog({
+      userId: session.id,
+      action: 'ADD_COMMENT',
+      details: { taskId, commentId: comment.id, boardId: taskData.column.boardId }
     })
 
     return { success: true, data: comment }
@@ -574,18 +572,16 @@ export async function deleteComment(input: { id: string }): Promise<ActionResult
 
     await prisma.comment.delete({ where: { id: commentId } })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'DELETE_COMMENT',
-        details: { 
-          commentId, 
-          taskId: comment.taskId,
-          boardId: comment.task.column.boardId,
-          content: comment.content,
-          commentUserId: comment.userId,
-          createdAt: comment.createdAt
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'DELETE_COMMENT',
+      details: { 
+        commentId, 
+        taskId: comment.taskId,
+        boardId: comment.task.column.boardId,
+        content: comment.content,
+        commentUserId: comment.userId,
+        createdAt: comment.createdAt
       }
     })
 
@@ -594,8 +590,128 @@ export async function deleteComment(input: { id: string }): Promise<ActionResult
 
     return { success: true }
   } catch (error) {
-    console.error('[DELETE_COMMENT_ERROR]', error)
-    return { success: false, error: 'Failed to delete comment' }
+    console.error("[DELETE_COMMENT_ERROR]", error)
+    return { success: false, error: "Failed to delete comment" }
+  }
+}
+
+const FIVE_MINUTES_MS = 5 * 60 * 1000
+
+export async function editComment(input: {
+  id: string
+  content: string
+}): Promise<ActionResult> {
+  const { id: commentId, content } = input
+  const validation = editCommentSchema.safeParse({ id: commentId, content })
+  if (!validation.success) {
+    return { success: false, error: "Validation failed", fieldErrors: validation.error.flatten().fieldErrors }
+  }
+
+  const session = await getSession()
+  if (!session) return { success: false, error: "Unauthorized" }
+
+  try {
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: {
+        task: {
+          include: {
+            column: {
+              include: {
+                board: {
+                  include: {
+                    members: { select: { id: true, role: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!comment) return { success: false, error: "Comment not found" }
+
+    const isOwner = comment.userId === session.id
+    const isAdmin = session.role === "ADMIN"
+    const isBoardManager =
+      comment.task.column.board.ownerId === session.id ||
+      comment.task.column.board.members.find((m) => m.id === session.id)?.role === "MANAGER"
+
+    if (!isOwner && !isAdmin && !isBoardManager) {
+      return { success: false, error: "Access denied: You cannot edit this comment" }
+    }
+
+    const ageMs = Date.now() - comment.createdAt.getTime()
+    if (!isAdmin && !isBoardManager && ageMs > FIVE_MINUTES_MS) {
+      return { success: false, error: "Comments can only be edited within 5 minutes of creation" }
+    }
+
+    const updated = await prisma.comment.update({
+      where: { id: commentId },
+      data: { content },
+      include: { user: true },
+    })
+
+    await createAuditLog({
+      userId: session.id,
+      action: "EDIT_COMMENT",
+      details: {
+        commentId,
+        taskId: comment.taskId,
+        boardId: comment.task.column.boardId,
+        previousContent: comment.content,
+      },
+    })
+
+    emitBoardEvent("task:updated", {
+      boardId: comment.task.column.boardId,
+      taskId: comment.taskId,
+    })
+
+    return { success: true, data: updated }
+  } catch (error) {
+    console.error("[EDIT_COMMENT_ERROR]", error)
+    return { success: false, error: "Failed to edit comment" }
+  }
+}
+
+export async function toggleReaction(input: {
+  commentId: string
+  emoji: string
+}): Promise<ActionResult> {
+  const { commentId, emoji } = input
+  const validation = idSchema.safeParse(commentId)
+  if (!validation.success) return { success: false, error: "Invalid comment ID" }
+
+  const session = await getSession()
+  if (!session) return { success: false, error: "Unauthorized" }
+
+  try {
+    const existing = await prisma.reaction.findFirst({
+      where: { userId: session.id, commentId, emoji },
+    })
+
+    if (existing) {
+      await prisma.reaction.delete({ where: { id: existing.id } })
+    } else {
+      await prisma.reaction.create({
+        data: { userId: session.id, commentId, emoji },
+      })
+    }
+
+    const updatedComment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: {
+        reactions: { include: { user: { select: { id: true, name: true, image: true } } } },
+        user: true,
+      },
+    })
+
+    return { success: true, data: updatedComment }
+  } catch (error) {
+    console.error("[TOGGLE_REACTION_ERROR]", error)
+    return { success: false, error: "Failed to toggle reaction" }
   }
 }
 
@@ -615,12 +731,10 @@ export async function addChecklist(input: { taskId: string, title: string }): Pr
       include: { items: true }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: perm.session!.id,
-        action: 'ADD_CHECKLIST',
-        details: { taskId, checklistId: checklist.id, title, boardId: perm.task!.column.boardId },
-      }
+    await createAuditLog({
+      userId: perm.session!.id,
+      action: 'ADD_CHECKLIST',
+      details: { taskId, checklistId: checklist.id, title, boardId: perm.task!.column.boardId }
     })
 
     emitBoardEvent('task:updated', { boardId: perm.task!.column.boardId, taskId })
@@ -652,16 +766,14 @@ export async function deleteChecklist(input: { id: string }): Promise<ActionResu
 
     await prisma.checklist.delete({ where: { id: checklistId } })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'DELETE_CHECKLIST',
-        details: { 
-          taskId: checklist.taskId, 
-          checklistId, 
-          title: checklist.title,
-          boardId: checklist.task.column.boardId 
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'DELETE_CHECKLIST',
+      details: { 
+        taskId: checklist.taskId, 
+        checklistId, 
+        title: checklist.title,
+        boardId: checklist.task.column.boardId 
       }
     })
 
@@ -698,12 +810,10 @@ export async function addChecklistItem(input: { taskId: string, content: string,
       data: { content, checklistId: targetChecklistId! }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: perm.session!.id,
-        action: 'ADD_CHECKLIST_ITEM',
-        details: { taskId, itemId: item.id, boardId: perm.task!.column.boardId },
-      }
+    await createAuditLog({
+      userId: perm.session!.id,
+      action: 'ADD_CHECKLIST_ITEM',
+      details: { taskId, itemId: item.id, boardId: perm.task!.column.boardId }
     })
 
     // Real-time update
@@ -740,17 +850,15 @@ export async function updateChecklistItem(input: { id: string, content: string }
       data: { content }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'UPDATE_CHECKLIST_ITEM',
-        details: { 
-          taskId: item.checklist.taskId, 
-          itemId, 
-          content,
-          previousContent: item.content,
-          boardId: perm.task!.column.boardId
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'UPDATE_CHECKLIST_ITEM',
+      details: { 
+        taskId: item.checklist.taskId, 
+        itemId, 
+        content,
+        previousContent: item.content,
+        boardId: perm.task!.column.boardId
       }
     })
 
@@ -784,17 +892,15 @@ export async function deleteChecklistItem(input: { id: string }): Promise<Action
 
     await prisma.checklistItem.delete({ where: { id: itemId } })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'DELETE_CHECKLIST_ITEM',
-        details: { 
-          taskId: item.checklist.taskId, 
-          itemId,
-          boardId: perm.task!.column.boardId,
-          content: item.content,
-          checklistId: item.checklistId
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'DELETE_CHECKLIST_ITEM',
+      details: { 
+        taskId: item.checklist.taskId, 
+        itemId,
+        boardId: perm.task!.column.boardId,
+        content: item.content,
+        checklistId: item.checklistId
       }
     })
 
@@ -831,16 +937,14 @@ export async function toggleChecklistItem(input: { id: string, isCompleted: bool
       data: { isCompleted }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'TOGGLE_CHECKLIST_ITEM',
-        details: { 
-          taskId: item.checklist.taskId, 
-          itemId, 
-          isCompleted,
-          boardId: item.checklist.task.column.boardId
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'TOGGLE_CHECKLIST_ITEM',
+      details: { 
+        taskId: item.checklist.taskId, 
+        itemId, 
+        isCompleted,
+        boardId: item.checklist.task.column.boardId
       }
     })
 
@@ -875,12 +979,10 @@ export async function addAttachment(input: {
       data: { ...validation.data, taskId }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: perm.session!.id,
-        action: 'ADD_ATTACHMENT',
-        details: { taskId, attachmentId: attachment.id, boardId: perm.task!.column.boardId },
-      }
+    await createAuditLog({
+      userId: perm.session!.id,
+      action: 'ADD_ATTACHMENT',
+      details: { taskId, attachmentId: attachment.id, boardId: perm.task!.column.boardId }
     })
 
     // Real-time update
@@ -914,19 +1016,17 @@ export async function deleteAttachment(input: { id: string }): Promise<ActionRes
 
     await prisma.attachment.delete({ where: { id: attachmentId } })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'DELETE_ATTACHMENT',
-        details: { 
-          taskId: attachment.taskId, 
-          attachmentId,
-          boardId: perm.task!.column.boardId,
-          name: attachment.name,
-          url: attachment.url,
-          type: attachment.type,
-          size: attachment.size
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'DELETE_ATTACHMENT',
+      details: { 
+        taskId: attachment.taskId, 
+        attachmentId,
+        boardId: perm.task!.column.boardId,
+        name: attachment.name,
+        url: attachment.url,
+        type: attachment.type,
+        size: attachment.size
       }
     })
 
@@ -956,12 +1056,10 @@ export async function addTagToTask(input: { taskId: string, tagId: string }): Pr
       include: { tags: true, column: true }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: perm.session!.id,
-        action: 'ADD_TAG',
-        details: { taskId, tagId, boardId: task.column.boardId },
-      }
+    await createAuditLog({
+      userId: perm.session!.id,
+      action: 'ADD_TAG',
+      details: { taskId, tagId, boardId: task.column.boardId }
     })
 
     // Real-time update
@@ -989,12 +1087,10 @@ export async function removeTagFromTask(input: { taskId: string, tagId: string }
       include: { tags: true, column: true }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: perm.session!.id,
-        action: 'REMOVE_TAG',
-        details: { taskId, tagId, boardId: task.column.boardId },
-      }
+    await createAuditLog({
+      userId: perm.session!.id,
+      action: 'REMOVE_TAG',
+      details: { taskId, tagId, boardId: task.column.boardId }
     })
 
     // Real-time update
@@ -1029,16 +1125,14 @@ export async function logTime(input: {
       data: { ...validation.data, taskId, userId: session.id }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'LOG_TIME',
-        details: { 
-          taskId, 
-          entryId: entry.id, 
-          duration: validation.data.duration,
-          boardId: perm.task!.column.boardId
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'LOG_TIME',
+      details: { 
+        taskId, 
+        entryId: entry.id, 
+        duration: validation.data.duration,
+        boardId: perm.task!.column.boardId
       }
     })
 
@@ -1071,12 +1165,10 @@ export async function submitForReview(input: { taskId: string, reviewerId: strin
 
     await prisma.task.update({ where: { id: taskId }, data: { version: { increment: 1 } } })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'SUBMIT_REVIEW',
-        details: { taskId, reviewId: review.id, reviewerId, boardId: perm.task!.column.boardId },
-      }
+    await createAuditLog({
+      userId: session.id,
+      action: 'SUBMIT_REVIEW',
+      details: { taskId, reviewId: review.id, reviewerId, boardId: perm.task!.column.boardId }
     })
 
     // Real-time update
@@ -1138,22 +1230,51 @@ export async function completeReview(input: { id: string, status: any, feedback:
       include: { task: { include: { column: true } } }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'COMPLETE_REVIEW',
-        details: { 
-          taskId: updatedReview.taskId, 
-          reviewId, 
-          status: validation.data.status,
-          previousStatus: review.status,
-          boardId: updatedReview.task.column.boardId
-        },
+    await createAuditLog({
+      userId: session.id,
+      action: 'COMPLETE_REVIEW',
+      details: { 
+        taskId: updatedReview.taskId, 
+        reviewId, 
+        status: validation.data.status,
+        previousStatus: review.status,
+        boardId: updatedReview.task.column.boardId
       }
     })
 
     // Real-time update
     emitBoardEvent('task:updated', { boardId: updatedReview.task.column.boardId, taskId: updatedReview.taskId })
+
+    // Move task based on review outcome
+    const statusValue = validation.data.status as string
+    let targetColumnName: string | null = null
+    if (statusValue === 'APPROVED') {
+      targetColumnName = 'Done'
+    } else if (statusValue === 'CHANGES_REQUESTED') {
+      targetColumnName = 'In Progress'
+    } else if (statusValue === 'REJECTED') {
+      targetColumnName = 'To Do'
+    }
+
+    if (targetColumnName) {
+      const boardColumns = await prisma.column.findMany({
+        where: { boardId: updatedReview.task.column.boardId },
+      })
+      const targetColumn = boardColumns.find(
+        (c) => c.name.toLowerCase() === targetColumnName!.toLowerCase()
+      )
+      if (targetColumn && targetColumn.id !== updatedReview.task.columnId) {
+        await prisma.task.update({
+          where: { id: updatedReview.taskId },
+          data: { columnId: targetColumn.id, version: { increment: 1 } },
+        })
+        emitBoardEvent('task:moved', {
+          boardId: updatedReview.task.column.boardId,
+          taskId: updatedReview.taskId,
+          columnId: targetColumn.id,
+        })
+      }
+    }
 
     // Notification to creator
     const notification = await prisma.notification.create({
@@ -1227,6 +1348,101 @@ export async function getTaskActivityLog(input: { id: string }): Promise<ActionR
   } catch (error) {
     console.error('[GET_TASK_ACTIVITY_ERROR]', error)
     return { success: false, error: 'Failed to fetch activity log' }
+  }
+}
+
+export async function deleteTimeEntry(input: { entryId: string }): Promise<ActionResult> {
+  const { entryId } = input
+  const validation = idSchema.safeParse(entryId)
+  if (!validation.success) return { success: false, error: 'Invalid ID' }
+
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const entry = await prisma.timeEntry.findUnique({
+      where: { id: entryId },
+      include: { task: { include: { column: true } } }
+    })
+
+    if (!entry) return { success: false, error: 'Time entry not found' }
+
+    // Only allow owner, admin, or manager to delete
+    const isOwner = entry.userId === session.id
+    const isAdmin = session.role === 'ADMIN'
+    const isManager = session.role === 'MANAGER'
+    if (!isOwner && !isAdmin && !isManager) {
+      return { success: false, error: 'Forbidden: You can only delete your own time entries' }
+    }
+
+    await prisma.timeEntry.delete({ where: { id: entryId } })
+
+    await createAuditLog({
+      userId: session.id,
+      action: 'DELETE_TIME_ENTRY',
+      details: {
+        taskId: entry.taskId,
+        entryId,
+        duration: entry.duration,
+        boardId: entry.task.column.boardId
+      }
+    })
+
+    emitBoardEvent('task:updated', { boardId: entry.task.column.boardId, taskId: entry.taskId })
+
+    return { success: true }
+  } catch (error) {
+    console.error('[DELETE_TIME_ENTRY_ERROR]', error)
+    return { success: false, error: 'Failed to delete time entry' }
+  }
+}
+
+export async function updateTimeEntry(input: { entryId: string, duration: number, description?: string | null }): Promise<ActionResult> {
+  const { entryId, duration, description } = input
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  if (isNaN(duration) || duration <= 0) {
+    return { success: false, error: 'Invalid duration' }
+  }
+
+  try {
+    const entry = await prisma.timeEntry.findUnique({
+      where: { id: entryId },
+      include: { task: { include: { column: true } } }
+    })
+
+    if (!entry) return { success: false, error: 'Time entry not found' }
+
+    const isOwner = entry.userId === session.id
+    const isAdmin = session.role === 'ADMIN'
+    const isManager = session.role === 'MANAGER'
+    if (!isOwner && !isAdmin && !isManager) {
+      return { success: false, error: 'Forbidden: You can only edit your own time entries' }
+    }
+
+    const updatedEntry = await prisma.timeEntry.update({
+      where: { id: entryId },
+      data: { duration, description: description || null }
+    })
+
+    await createAuditLog({
+      userId: session.id,
+      action: 'UPDATE_TIME_ENTRY',
+      details: {
+        taskId: entry.taskId,
+        entryId,
+        duration,
+        boardId: entry.task.column.boardId
+      }
+    })
+
+    emitBoardEvent('task:updated', { boardId: entry.task.column.boardId, taskId: entry.taskId })
+
+    return { success: true, data: updatedEntry }
+  } catch (error) {
+    console.error('[UPDATE_TIME_ENTRY_ERROR]', error)
+    return { success: false, error: 'Failed to update time entry' }
   }
 }
 

@@ -11,6 +11,7 @@ import {
 import { sendPasswordResetEmail } from '@/utils/mail'
 import crypto from 'crypto'
 import { ActionResult } from '@/types/kanban'
+import { createAuditLog } from '@/lib/create-audit-log'
 import { z } from 'zod'
 
 /**
@@ -53,12 +54,10 @@ export async function requestPasswordReset(email: string): Promise<ActionResult>
 
     const mailResult = await sendPasswordResetEmail(email, token)
     
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'PASSWORD_RESET_REQUESTED',
-        details: { email }
-      }
+    await createAuditLog({
+      userId: user.id,
+      action: 'PASSWORD_RESET_REQUESTED',
+      details: { email }
     })
 
     return { success: true, message: 'If an account exists with this email, a reset link has been sent.' }
@@ -99,14 +98,13 @@ export async function resetPassword(token: string, password: string): Promise<Ac
       prisma.passwordResetToken.delete({
         where: { id: resetToken.id }
       }),
-      prisma.auditLog.create({
-        data: {
-          userId: user.id,
-          action: 'PASSWORD_RESET_COMPLETED',
-          details: { email: user.email }
-        }
-      })
     ])
+
+    await createAuditLog({
+      userId: user.id,
+      action: 'PASSWORD_RESET_COMPLETED',
+      details: { email: user.email }
+    })
 
     return { success: true, message: 'Password reset successful. You can now log in.' }
   } catch (error) {
@@ -140,12 +138,10 @@ export async function updateProfile(data: z.infer<typeof updateProfileSchema>): 
       data: updateData
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'UPDATE_PROFILE',
-        details: { name: validation.data.name, passwordChanged: !!validation.data.password }
-      }
+    await createAuditLog({
+      userId: session.id,
+      action: 'UPDATE_PROFILE',
+      details: { name: validation.data.name, passwordChanged: !!validation.data.password }
     })
 
     revalidatePath('/dashboard')
@@ -206,12 +202,10 @@ export async function changePassword(data: any): Promise<ActionResult> {
       data: { password: hashedPassword }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: session.id,
-        action: 'CHANGE_PASSWORD',
-        details: { message: 'User changed their own password' }
-      }
+    await createAuditLog({
+      userId: session.id,
+      action: 'CHANGE_PASSWORD',
+      details: { message: 'User changes their own password' }
     })
 
     return { success: true, message: 'Password updated successfully' }

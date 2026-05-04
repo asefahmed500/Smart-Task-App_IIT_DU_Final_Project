@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import prisma from '@/lib/prisma'
 import { login } from '@/lib/auth-server'
+import { createAuditLog } from '@/lib/create-audit-log'
 
 export async function POST(request: Request) {
   try {
@@ -26,6 +27,12 @@ export async function POST(request: Request) {
     }
 
     await login({ id: user.id, email: user.email, name: user.name, image: user.image, role: user.role })
+
+    await createAuditLog({
+      userId: user.id,
+      action: 'LOGIN',
+      details: { email: user.email, role: user.role },
+    })
 
     return NextResponse.json({ 
       user: { id: user.id, email: user.email, name: user.name, image: user.image, role: user.role } 

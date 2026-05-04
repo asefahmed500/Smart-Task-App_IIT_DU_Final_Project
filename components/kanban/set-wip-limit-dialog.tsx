@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { updateColumnWipLimit, undoLastAction } from '@/actions/board-actions'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Loader2, WifiOff } from 'lucide-react'
+import { useOfflineStore } from '@/lib/store/use-offline-store'
 
 interface SetWipLimitDialogProps {
   isOpen: boolean
@@ -26,9 +27,14 @@ interface SetWipLimitDialogProps {
 export function SetWipLimitDialog({ isOpen, onClose, columnId, boardId, currentLimit }: SetWipLimitDialogProps) {
   const [loading, setLoading] = useState(false)
   const [limit, setLimit] = useState(currentLimit.toString())
+  const { isOnline } = useOfflineStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isOnline) {
+      toast.error('WIP limit changes are not available offline')
+      return
+    }
     const numLimit = parseInt(limit)
     if (isNaN(numLimit) || numLimit < 0) return
 
@@ -68,6 +74,12 @@ export function SetWipLimitDialog({ isOpen, onClose, columnId, boardId, currentL
           <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Set WIP Limit</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          {!isOnline && (
+            <div className="flex items-center gap-2 text-xs text-red-500 bg-red-500/10 p-2 rounded-lg border border-red-500/20">
+              <WifiOff className="size-3.5" />
+              WIP limit changes are not available offline
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="limit">WIP Limit (0 for unlimited)</Label>
             <Input

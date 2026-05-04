@@ -19,7 +19,8 @@ import { toast } from 'sonner'
 import { updateProfile, changePassword } from '@/actions/auth-actions'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Camera, Mail, Shield, Calendar, Lock, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Camera, Mail, Shield, Calendar, Lock, Eye, EyeOff, Bell } from 'lucide-react'
+import Link from 'next/link'
 import { Separator } from '@/components/ui/separator'
 
 const profileSchema = z.object({
@@ -155,6 +156,22 @@ export function ProfileForm({ user }: { user: UserProfile | null }) {
             </p>
           </CardContent>
         </Card>
+
+        <Link href="/profile/notifications">
+          <Card className="bg-card/40 backdrop-blur-xl border-primary/10 shadow-xl overflow-hidden relative cursor-pointer hover:border-primary/30 transition-all group">
+            <CardHeader>
+              <CardTitle className="font-oswald uppercase text-lg flex items-center gap-2">
+                <Bell className="size-5 text-primary group-hover:scale-110 transition-transform" />
+                Notification Preferences
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p className="text-muted-foreground">
+                Choose which notifications you receive and how they are delivered.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div className="lg:col-span-2 space-y-6">

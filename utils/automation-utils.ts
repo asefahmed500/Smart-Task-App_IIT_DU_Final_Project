@@ -18,6 +18,7 @@ export function getAvailableConditions(): { value: string; label: string }[] {
     { value: 'assignee!=null', label: 'Task has assignee' },
     { value: 'column=In Progress', label: 'Moved to In Progress' },
     { value: 'column=Done', label: 'Moved to Done' },
+    { value: 'column=To Do', label: 'Moved to To Do' },
   ]
 }
 
@@ -29,5 +30,11 @@ export function getAvailableActions(): { value: string; label: string }[] {
     { value: 'SET_PRIORITY:HIGH', label: 'Set Priority to High' },
     { value: 'SET_PRIORITY:MEDIUM', label: 'Set Priority to Medium' },
     { value: 'SET_PRIORITY:LOW', label: 'Set Priority to Low' },
+    { value: 'MOVE_TASK:column:Done', label: 'Move Task to Done' },
+    { value: 'MOVE_TASK:column:In Progress', label: 'Move Task to In Progress' },
+    { value: 'MOVE_TASK:column:To Do', label: 'Move Task to To Do' },
+    { value: 'ADD_TAG:tag:urgent', label: 'Add Urgent Tag' },
+    { value: 'ADD_TAG:tag:review', label: 'Add Review Tag' },
+    { value: 'ADD_TAG:tag:bug', label: 'Add Bug Tag' },
   ]
 }

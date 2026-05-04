@@ -39,7 +39,7 @@ export default async function AdminPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_rgba(var(--primary),0.1)] group">
+        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_color-mix(in_srgb,var(--primary),transparent_90%)] group">
           <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Total Users</CardTitle>
@@ -57,7 +57,7 @@ export default async function AdminPage() {
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_rgba(var(--primary),0.1)] group">
+        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_color-mix(in_srgb,var(--primary),transparent_90%)] group">
           <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Active Boards</CardTitle>
@@ -74,7 +74,7 @@ export default async function AdminPage() {
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_rgba(var(--primary),0.1)] group">
+        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_color-mix(in_srgb,var(--primary),transparent_90%)] group">
           <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Audit Events</CardTitle>
@@ -88,7 +88,7 @@ export default async function AdminPage() {
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_rgba(var(--primary),0.1)] group">
+        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_color-mix(in_srgb,var(--primary),transparent_90%)] group">
           <div className="absolute top-0 left-0 w-1 h-full bg-green-500" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">System Health</CardTitle>

@@ -27,10 +27,11 @@ interface ColumnContainerProps {
   tasks: Task[]
   currentUser: User
   boardId: string
+  boardMembers: User[]
   onTaskClick: (taskId: string) => void
 }
 
-export function ColumnContainer({ column, tasks, currentUser, boardId, onTaskClick }: ColumnContainerProps) {
+export function ColumnContainer({ column, tasks, currentUser, boardId, boardMembers, onTaskClick }: ColumnContainerProps) {
   const tasksIds = useMemo(() => tasks.map((task) => task.id), [tasks])
 
   const {
@@ -175,11 +176,12 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, onTaskCli
         </Button>
       </div>
 
-      <AddTaskDialog 
-        isOpen={isAddTaskOpen} 
-        onClose={() => setIsAddTaskOpen(false)} 
+      <AddTaskDialog
+        isOpen={isAddTaskOpen}
+        onClose={() => setIsAddTaskOpen(false)}
         columnId={column.id}
         currentUser={currentUser}
+        boardMembers={boardMembers}
       />
 
       <SetWipLimitDialog

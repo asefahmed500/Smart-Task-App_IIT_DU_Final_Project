@@ -7,6 +7,7 @@ import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
 import { createAutomationRuleSchema, updateAutomationRuleSchema, idSchema } from '@/lib/schemas'
 import { ActionResult } from '@/types/kanban'
+import { createAuditLog } from '@/lib/create-audit-log'
 
 export type Trigger = 'TASK_CREATED' | 'TASK_MOVED' | 'TASK_UPDATED' | 'TASK_ASSIGNED'
 export type Action = 'SEND_NOTIFICATION' | 'MOVE_TASK' | 'SET_PRIORITY' | 'ADD_TAG'
@@ -45,18 +46,16 @@ export async function evaluateAutomationRules(
       if (matchesCondition) {
         await executeAction(rule.action, context, rule)
         
-        await prisma.auditLog.create({
-          data: {
-            userId: 'system',
-            action: 'AUTOMATION_EXECUTED',
-            details: {
-              ruleId: rule.id,
-              ruleName: rule.name,
-              trigger,
-              taskId: context.taskId,
-              action: rule.action,
-              boardId: context.boardId
-            }
+        await createAuditLog({
+          userId: 'system',
+          action: 'AUTOMATION_EXECUTED',
+          details: {
+            ruleId: rule.id,
+            ruleName: rule.name,
+            trigger,
+            taskId: context.taskId,
+            action: rule.action,
+            boardId: context.boardId
           }
         })
       }
@@ -304,12 +303,10 @@ export async function createAutomationRule(data: any): Promise<ActionResult> {
       data: validation.data
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: perm.session!.id,
-        action: 'CREATE_AUTOMATION_RULE',
-        details: { ruleId: rule.id, name: rule.name, boardId: rule.boardId }
-      }
+    await createAuditLog({
+      userId: perm.session!.id,
+      action: 'CREATE_AUTOMATION_RULE',
+      details: { ruleId: rule.id, name: rule.name, boardId: rule.boardId }
     })
 
     if (rule.boardId) revalidatePath(`/dashboard/board/${rule.boardId}`)
@@ -339,12 +336,10 @@ export async function updateAutomationRule(data: any): Promise<ActionResult> {
       data: validation.data
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: perm.session!.id,
-        action: 'UPDATE_AUTOMATION_RULE',
-        details: { ruleId: rule.id, changes: validation.data }
-      }
+    await createAuditLog({
+      userId: perm.session!.id,
+      action: 'UPDATE_AUTOMATION_RULE',
+      details: { ruleId: rule.id, changes: validation.data }
     })
 
     if (rule.boardId) revalidatePath(`/dashboard/board/${rule.boardId}`)
@@ -372,12 +367,10 @@ export async function deleteAutomationRule(input: { id: string }): Promise<Actio
       where: { id }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: perm.session!.id,
-        action: 'DELETE_AUTOMATION_RULE',
-        details: { ruleId: id, name: existingRule.name, boardId: existingRule.boardId }
-      }
+    await createAuditLog({
+      userId: perm.session!.id,
+      action: 'DELETE_AUTOMATION_RULE',
+      details: { ruleId: id, name: existingRule.name, boardId: existingRule.boardId }
     })
 
     if (existingRule.boardId) revalidatePath(`/dashboard/board/${existingRule.boardId}`)
@@ -406,12 +399,10 @@ export async function toggleAutomationRule(input: { id: string, enabled: boolean
       data: { enabled }
     })
 
-    await prisma.auditLog.create({
-      data: {
-        userId: perm.session!.id,
-        action: 'TOGGLE_AUTOMATION_RULE',
-        details: { ruleId: rule.id, enabled }
-      }
+    await createAuditLog({
+      userId: perm.session!.id,
+      action: 'TOGGLE_AUTOMATION_RULE',
+      details: { ruleId: rule.id, enabled }
     })
 
     if (rule.boardId) revalidatePath(`/dashboard/board/${rule.boardId}`)

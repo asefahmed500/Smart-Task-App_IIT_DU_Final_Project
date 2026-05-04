@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { logTime, getTimeEntries } from '@/actions/task-actions'
+import { logTime, getTimeEntries, deleteTimeEntry, updateTimeEntry } from '@/actions/task-actions'
 import { undoLastAction } from '@/actions/board-actions'
 import { TimeEntry, ActionResult } from '@/types/kanban'
 
@@ -18,6 +18,9 @@ export function useTaskTime({ taskId, isOpen, fetchTaskDetails }: UseTaskTimePro
   const [timeDuration, setTimeDuration] = useState('')
   const [timeDescription, setTimeDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  const [editDuration, setEditDuration] = useState('')
+  const [editDescription, setEditDescription] = useState('')
 
   const fetchTimeEntries = useCallback(async () => {
     if (!taskId) return
@@ -78,6 +81,54 @@ export function useTaskTime({ taskId, isOpen, fetchTaskDetails }: UseTaskTimePro
     }
   }
 
+  const startEdit = (entry: TimeEntry) => {
+    setEditingEntryId(entry.id)
+    setEditDuration(entry.duration.toString())
+    setEditDescription(entry.description || '')
+  }
+
+  const cancelEdit = () => {
+    setEditingEntryId(null)
+    setEditDuration('')
+    setEditDescription('')
+  }
+
+  const handleUpdateTimeEntry = async () => {
+    if (!editingEntryId) return
+    const duration = parseInt(editDuration)
+    if (isNaN(duration) || duration <= 0) {
+      toast.error('Invalid duration')
+      return
+    }
+    try {
+      const result = await updateTimeEntry({ entryId: editingEntryId, duration, description: editDescription })
+      if (result.success) {
+        toast.success('Time entry updated')
+        setEditingEntryId(null)
+        fetchTimeEntries()
+      } else {
+        toast.error(result.error || 'Failed to update time entry')
+      }
+    } catch {
+      toast.error('An unexpected error occurred')
+    }
+  }
+
+  const handleDeleteTimeEntry = async (entryId: string) => {
+    if (!confirm('Are you sure you want to delete this time entry?')) return
+    try {
+      const result = await deleteTimeEntry({ entryId })
+      if (result.success) {
+        toast.success('Time entry deleted')
+        setTimeEntries(prev => prev.filter(e => e.id !== entryId))
+      } else {
+        toast.error(result.error || 'Failed to delete time entry')
+      }
+    } catch {
+      toast.error('An unexpected error occurred')
+    }
+  }
+
   return {
     timeEntries,
     isLoggingTime,
@@ -88,6 +139,15 @@ export function useTaskTime({ taskId, isOpen, fetchTaskDetails }: UseTaskTimePro
     setTimeDescription,
     isLoading,
     handleLogTime,
+    editingEntryId,
+    editDuration,
+    setEditDuration,
+    editDescription,
+    setEditDescription,
+    startEdit,
+    cancelEdit,
+    handleUpdateTimeEntry,
+    handleDeleteTimeEntry,
     refreshTimeEntries: fetchTimeEntries
   }
 }

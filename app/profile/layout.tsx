@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/app-sidebar"
 import { getSession } from "@/lib/auth-server"
 import { redirect } from "next/navigation"
+import { NotificationBell } from "@/components/notification-bell"
 
 export default async function ProfileLayout({
   children,
@@ -31,6 +32,7 @@ export default async function ProfileLayout({
                   <span className="text-foreground font-semibold uppercase font-oswald tracking-wider">Profile</span>
                 </nav>
               </div>
+              <NotificationBell userId={session.id} />
             </header>
 
             <div className="flex-1 relative overflow-y-auto">
