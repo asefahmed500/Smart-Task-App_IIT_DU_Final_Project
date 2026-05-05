@@ -55,8 +55,6 @@ Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (defaults t
 
 ## Critical Bugs / Patterns to Avoid
 
-**Radix Select values must be non-empty strings.** `<SelectItem value="">` crashes. Use a sentinel like `value="__none__"` and convert in `onValueChange`. Never use empty string as a Select value.
-
 **Never pass object references as useEffect dependencies.** The `useSocket` hook must use `useMemo` to stabilize the `user` prop. Raw objects cause infinite join/leave loops because every render creates a new reference.
 
 **Zod `z.string().datetime()` rejects HTML date input.** `<input type="date">` returns `YYYY-MM-DD`, not ISO 8601 datetime. Use `z.string()` for date fields from HTML forms.
@@ -69,18 +67,27 @@ Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (defaults t
 
 **Comment `@mention` matching must be case-insensitive and partial.** Use `{ contains: name, mode: 'insensitive' }` not `{ in: exactNames }` for user lookup after regex extraction.
 
+**Socket event field names must match.** When emitting `task:moved`, use `newColumnId`/`oldColumnId` — not `columnId`/`previousColumnId`.
+
+**Board queries must include owner.** Use `OR: [{ members: { some: { id } } }, { ownerId: id }]` to include boards the user owns.
+
+**Real-time emits after database commits.** Emit socket events AFTER `await prisma.task.update()` so clients receive the updated task object.
+
 **`dnd-kit` generates SSR hydration mismatches** (`DndDescribedBy-0` vs `DndDescribedBy-1`). This is a known dnd-kit issue. Do not use `next/dynamic` with `ssr: false` in a Server Component — it causes a runtime error. Either accept the warning or wrap DndContext in a Client Component boundary.
 
 **AuditLog `details` is a JSON object, not a string.** Never render it directly as `{log.details}` — it will throw "Objects are not valid as React child". Format it with a helper function based on the `action` type.
 
 **Props-to-state sync:** When a client component receives props from a server component (e.g., `useKanbanBoard({ initialBoard })`), use `useEffect` to sync internal state when props change. `useState(initialBoard)` only uses initialBoard on first render.
 
+**Radix Select crash on empty value:** `<SelectItem value="">` crashes. Always use non-empty value like `value="__none__"` or handle empty in onValueChange.
+
 ## RBAC in Server Actions
 
 - `checkAdmin()` — ADMIN only
 - `checkManager()` — ADMIN or MANAGER
-- `checkBoardPermission()` — board membership + role; ADMIN always has access
-- `checkTaskPermission()` — ADMIN full access; owner/manager on board full access; MEMBER can only edit tasks they are **assigned to**, unless `MEMBER_ALL` is in `allowedRoles`
+- `checkBoardPermission()` — board membership + owner + role; ADMIN always has access
+- `checkTaskPermission()` — ADMIN/owner/manager full access; **MEMBER can edit/delete/add to ANY task in their board** (collaboration model)
+- Board visibility: users see boards where they are member OR owner (OR query in Prisma)
 
 ## Socket Architecture
 
