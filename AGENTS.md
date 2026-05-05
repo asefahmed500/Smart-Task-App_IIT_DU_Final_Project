@@ -81,6 +81,8 @@ Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (defaults t
 
 **Radix Select crash on empty value:** `<SelectItem value="">` crashes. Always use non-empty value like `value="__none__"` or handle empty in onValueChange.
 
+**Don't assume _count includes full relations.** Querying with `_count: { select: { checklists: true } }` returns only a number, not the full objects. If UI expects `task.checklists?.length`, include the full relation: `checklists: { include: { items: true } }`.
+
 ## RBAC in Server Actions
 
 - `checkAdmin()` — ADMIN only
