@@ -81,18 +81,17 @@ async function checkTaskPermission(input: { taskId: string, allowedRoles?: strin
       return { success: false, error: 'Forbidden: Manager permissions required' }
     }
 
-    // Default Member access: can only edit/delete tasks they are assigned to
-    const isAssignee = task.assigneeId === session.id
-
-    if (!isAssignee) {
-       // At this point, the user is a MEMBER (not ADMIN/MANAGER/Owner)
-       // If they aren't the assignee, they can only proceed if MEMBER_ALL is allowed (read-only ops)
-       if (!allowedRoles.includes('MEMBER_ALL')) {
-         return { success: false, error: 'Forbidden: You do not have permission to modify this task' }
-       }
+    // Member access: any board member can do anything on any task in their board (full collaboration)
+    if (allowedRoles.includes('MEMBER_ALL') || allowedRoles.includes('MEMBER')) {
+      return { success: true, task, session, isAssignee: task.assigneeId === session.id }
     }
 
-    return { success: true, task, session, isAssignee }
+    // Default: must be assignee to modify
+    if (task.assigneeId !== session.id) {
+       return { success: false, error: 'Forbidden: You do not have permission to modify this task' }
+    }
+
+    return { success: true, task, session, isAssignee: true }
   } catch (error) {
     console.error('[CHECK_TASK_PERMISSION_ERROR]', error)
     return { success: false, error: 'Failed to verify task permissions' }
@@ -325,8 +324,8 @@ export async function updateTaskStatus(input: { taskId: string, columnId: string
     emitBoardEvent('task:moved', { 
       boardId: task.column.boardId,
       taskId, 
-      columnId: newColumnId, 
-      previousColumnId: existingTask.columnId,
+      newColumnId: newColumnId, 
+      oldColumnId: existingTask.columnId,
       task 
     })
 

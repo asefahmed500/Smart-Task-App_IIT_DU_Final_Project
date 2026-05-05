@@ -63,7 +63,7 @@ export function useTaskDetails({ taskId, isOpen, onClose, currentUser, isAdmin }
   }, [isOpen, taskId, fetchTaskDetails])
 
   useEffect(() => {
-    if (isOpen && isAdmin) {
+    if (isOpen) {
       getAllUsers().then((result: ActionResult) => {
         if (result.success && result.data) {
           setAllUsers(result.data as User[])
@@ -72,7 +72,7 @@ export function useTaskDetails({ taskId, isOpen, onClose, currentUser, isAdmin }
         console.error('Failed to fetch all users:', error)
       })
     }
-  }, [isOpen, isAdmin])
+  }, [isOpen])
 
   const handleUpdate = async (field: string, value: string | Priority | null) => {
     if (!task || !taskId) return

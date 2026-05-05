@@ -59,7 +59,6 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
 
   const memberItems = [
     { title: "My Dashboard", icon: LayoutDashboard, url: "/member" },
-    { title: "My Tasks", icon: ClipboardList, url: "/member/tasks" },
     { title: "Boards", icon: Layout, url: "/member/boards" },
     { title: "Reports", icon: BarChart3, url: "/member/reports" },
     { title: "My Activity", icon: History, url: "/member/logs" },

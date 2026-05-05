@@ -97,6 +97,9 @@ export async function getBoardData(input: { boardId: string }): Promise<ActionRe
                     checklists: true
                   }
                 },
+                checklists: {
+                  include: { items: true }
+                },
                 tags: true
               }
             }
