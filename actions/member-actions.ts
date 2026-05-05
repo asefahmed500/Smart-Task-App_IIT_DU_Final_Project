@@ -51,7 +51,10 @@ export async function getMemberBoards(): Promise<ActionResult> {
   try {
     const boards = await prisma.board.findMany({
       where: {
-        members: { some: { id: auth.session!.id } }
+        OR: [
+          { members: { some: { id: auth.session!.id } } },
+          { ownerId: auth.session!.id }
+        ]
       },
       include: {
         owner: { select: { name: true, email: true } },

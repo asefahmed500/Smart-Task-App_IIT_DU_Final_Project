@@ -11,7 +11,10 @@ export async function getManagerDashboardData(): Promise<ActionResult> {
   try {
     const boards = await prisma.board.findMany({
       where: {
-        members: { some: { id: session.id } }
+        OR: [
+          { members: { some: { id: session.id } } },
+          { ownerId: session.id }
+        ]
       },
       include: {
         columns: { include: { tasks: true } },
@@ -237,7 +240,12 @@ export async function getMemberDashboardData(): Promise<ActionResult> {
     })
 
     const myBoards = await prisma.board.findMany({
-      where: { members: { some: { id: session.id } } },
+      where: {
+        OR: [
+          { members: { some: { id: session.id } } },
+          { ownerId: session.id }
+        ]
+      },
       select: { id: true, name: true }
     })
 
