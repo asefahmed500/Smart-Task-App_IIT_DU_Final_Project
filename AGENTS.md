@@ -105,7 +105,7 @@ RBAC checks live inside server action files (not a shared lib):
 - `checkManager()` (private, in `actions/manager-actions.ts`) — ADMIN or MANAGER
 - `checkBoardPermission()` (exported from `actions/board-actions.ts`) — board membership + owner + role; ADMIN always has access
 - `checkTaskPermission()` (private, in `actions/task-actions.ts`) — board membership + ownership + role check; ADMIN always has access
-- MEMBER can edit/delete/add to ANY task in their board (collaboration model)
+- MEMBER can edit/delete/add to ANY task in their board (collaboration model); MEMBER cannot create boards (only ADMIN/MANAGER can)
 
 ## Socket Architecture
 
