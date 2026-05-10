@@ -2,110 +2,107 @@
 
 ## Project
 
-SmartTask — real-time Kanban board with RBAC, WIP limits, offline support, undo via audit log, and task automation.
+Real-time Kanban board with RBAC, WIP limits, offline support (`lib/store/use-offline-store.ts`), undo via audit log, and task automation.
 
-## Verification Workflow
+## Verification
 
-**Primary check:** `npm run typecheck` (not lint — ESLint is less reliable)
-**Before build:** always `typecheck` first — `next build` will fail on type errors
+**Primary:** `npm run typecheck` (ESLint is less reliable for catching errors)
+**Before build:** always typecheck first — `next build` fails on type errors
 **No test suite** — verify via `typecheck && build`
 
-## Key Commands
+## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `npm run dev` | Runs `db:check`, then starts Socket.io (3001) + Next.js (3002) concurrently |
-| `npm run socket:dev` | Starts only the standalone Socket.io server |
+| `npm run dev` | `db:check`, then Socket.io (3001) + Next.js (3002) concurrently |
+| `npm run socket:dev` | Standalone Socket.io server only |
 | `npm run db:setup` | `prisma db push && prisma generate && npm run seed` |
-| `npm run typecheck` | `tsc --noEmit` — **primary verification** |
+| `npm run typecheck` | `tsc --noEmit` |
 | `npm run build` | `next build` |
-| `npm run seed` | Seeds DB (needs `.env.local`); test users share password `AdminPassword123!` |
-| `npm run format` | Prettier — no semicolons, double quotes, trailing commas `es5`, printWidth 80 |
+| `npm run seed` | Seeds DB; needs `.env.local`; password: `AdminPassword123!` |
+| `npm run format` | Prettier: no semicolons, double quotes, trailing commas `es5`, printWidth 80, auto-sorts Tailwind classes via `prettier-plugin-tailwindcss` |
 
 ## Environment
 
-`.env.local` required: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PORT=3002`
+`.env.local` required: `DATABASE_URL`, `JWT_SECRET`, `PORT=3002`
 
-Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (defaults to `http://localhost:3001`), `NEXT_PUBLIC_APP_URL`
+Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `http://localhost:3001`), `NEXT_PUBLIC_APP_URL`, `SOCKET_PORT` (default 3001)
 
-## Architecture Gotchas
+## Architecture
 
-**Port 3002, not 3000.** Next.js dev server on 3002. Socket.io standalone on 3001.
+**Port 3002, not 3000.** Next.js dev server on 3002. Socket.io standalone on 3001 (configurable via `SOCKET_PORT`).
 
 **ESM project** (`"type": "module"`). All config files use `.mjs`. Never create `.cjs` configs.
 
-**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` reads `DATABASE_URL` from `.env.local` via dotenv.
+**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` reads `DATABASE_URL` from `.env.local` via dotenv. `postinstall` runs `prisma generate`.
 
-**Socket.io is standalone** (`src/socket/server.ts` on 3001), not Next.js built-in. `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit events through it to the standalone server.
+**Socket.io is standalone** (`src/socket/server.ts` on 3001), not Next.js built-in. Also runs background jobs: due date reminders/overdue checks every 60s, 90-day audit log cleanup at midnight. `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit events through it to the standalone server.
 
 **Middleware is `proxy.ts`** at project root — not `middleware.ts`. Handles auth guards + RBAC redirects.
 
-**Auth:** Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API route (`POST /api/auth/login`), not server action.
+**Auth:** Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API route (`POST /api/auth/login`), not a server action.
 
 **Roles:** `ADMIN`, `MANAGER`, `MEMBER` (UPPERCASE in DB).
 
-## Critical Code Conventions
+**Tailwind CSS 4** new syntax: `@import "tailwindcss"` (not PostCSS plugin), `@theme inline` for custom properties, `@custom-variant dark` for dark mode. PostCSS uses `@tailwindcss/postcss`. See `app/globals.css`.
+
+**Zod v4** (`zod@4.x`). Date fields from HTML forms use `z.string()` (not `z.string().datetime()`) since `<input type="date">` returns `YYYY-MM-DD`.
+
+**shadcn** style is `radix-nova`. UI components in `components/ui/`.
+
+## Code Conventions
 
 - `@/` path alias maps to project root (`./*` in tsconfig)
-- All server actions return `ActionResult<T>`: `{ success: boolean, data?: T, error?: string, fieldErrors?: Record<string, string[]> }`
+- All server actions return `ActionResult<T>` (defined in `types/kanban.ts`): `{ success: boolean, data?: T, error?: string, message?: string, fieldErrors?: Record<string, string[] | undefined> }`
 - Server actions live in `actions/*-actions.ts` (not `lib/`)
-- `createAuditLog()` in `lib/create-audit-log.ts` auto-injects IP address — use it for all mutations
+- `createAuditLog()` in `lib/create-audit-log.ts` auto-injects IP address — use for all mutations
 - Prisma enum returns need casting (`as string`, `as Priority`) when crossing server/client boundary
-- Import enums from `@/generated/prisma` or use `Role`/`Priority` from `@/lib/prisma`
+- Import enums via `@/lib/prisma` (re-exports from `generated/prisma`)
+- ESLint ignores `generated/` and `scratch/` directories
 
-## Critical Bugs / Patterns to Avoid
+## Gotchas
 
-**Never pass object references as useEffect dependencies.** The `useSocket` hook must use `useMemo` to stabilize the `user` prop. Raw objects cause infinite join/leave loops because every render creates a new reference.
+**Never pass object references as useEffect dependencies.** The `useSocket` hook must use `useMemo` to stabilize the `user` prop. Raw objects cause infinite join/leave loops.
 
-**Zod `z.string().datetime()` rejects HTML date input.** `<input type="date">` returns `YYYY-MM-DD`, not ISO 8601 datetime. Use `z.string()` for date fields from HTML forms.
+**All Dialog components must include `<DialogDescription>`** (even with `className="sr-only"`). Radix throws without it.
 
-**All Dialog components must include `<DialogDescription>`** (even with `className="sr-only"`). Radix throws a console warning and accessibility error without it.
+**Recharts `ResponsiveContainer` needs explicit pixel dimensions.** `height="100%"` causes negative dimension errors. Use `height={300}` or fixed values.
 
-**Recharts `ResponsiveContainer` needs explicit pixel dimensions.** Using `height="100%"` causes negative dimension errors when the parent hasn't rendered. Use `height={300}` or similar fixed values.
+**After mutations, call `router.refresh()`.** Server actions use `revalidatePath` but the client needs `router.refresh()` to pick up changes.
 
-**After mutations, call `router.refresh()`** to ensure Next.js server components re-render with fresh data. Server actions use `revalidatePath` but the client needs `router.refresh()` to pick up changes.
+**Comment `@mention` matching:** use `{ contains: name, mode: 'insensitive' }` not `{ in: exactNames }`.
 
-**Comment `@mention` matching must be case-insensitive and partial.** Use `{ contains: name, mode: 'insensitive' }` not `{ in: exactNames }` for user lookup after regex extraction.
+**Socket event field names must match exactly.** `task:moved` uses `newColumnId`/`oldColumnId` — not `columnId`/`previousColumnId`.
 
-**Socket event field names must match.** When emitting `task:moved`, use `newColumnId`/`oldColumnId` — not `columnId`/`previousColumnId`.
+**Board queries must include owner.** Use `OR: [{ members: { some: { id } } }, { ownerId: id }]`.
 
-**Board queries must include owner.** Use `OR: [{ members: { some: { id } } }, { ownerId: id }]` to include boards the user owns.
+**Emit socket events AFTER database commits** so clients receive updated data.
 
-**Real-time emits after database commits.** Emit socket events AFTER `await prisma.task.update()` so clients receive the updated task object.
+**`dnd-kit` SSR hydration mismatches** (`DndDescribedBy-0` vs `DndDescribedBy-1`) are a known issue. Do not use `next/dynamic` with `ssr: false` in a Server Component — wrap DndContext in a Client Component boundary instead.
 
-**`dnd-kit` generates SSR hydration mismatches** (`DndDescribedBy-0` vs `DndDescribedBy-1`). This is a known dnd-kit issue. Do not use `next/dynamic` with `ssr: false` in a Server Component — it causes a runtime error. Either accept the warning or wrap DndContext in a Client Component boundary.
+**AuditLog `details` is `Json`, not a string.** Never render as `{log.details}`. Format with a helper based on `action` type.
 
-**AuditLog `details` is a JSON object, not a string.** Never render it directly as `{log.details}` — it will throw "Objects are not valid as React child". Format it with a helper function based on the `action` type.
+**Props-to-state sync:** Client components receiving server props (e.g., `useKanbanBoard({ initialBoard })`) need `useEffect` to sync state on prop changes. `useState(initialBoard)` only uses the value on first render.
 
-**Props-to-state sync:** When a client component receives props from a server component (e.g., `useKanbanBoard({ initialBoard })`), use `useEffect` to sync internal state when props change. `useState(initialBoard)` only uses initialBoard on first render.
+**Radix Select crash on empty value:** `<SelectItem value="">` crashes. Use `value="__none__"` or handle empty in `onValueChange`.
 
-**Radix Select crash on empty value:** `<SelectItem value="">` crashes. Always use non-empty value like `value="__none__"` or handle empty in onValueChange.
+**`_count` returns numbers, not relations.** If UI needs `task.checklists?.length`, include full relation: `checklists: { include: { items: true } }`.
 
-**Don't assume _count includes full relations.** Querying with `_count: { select: { checklists: true } }` returns only a number, not the full objects. If UI expects `task.checklists?.length`, include the full relation: `checklists: { include: { items: true } }`.
+## RBAC
 
-## RBAC in Server Actions
-
-- `checkAdmin()` — ADMIN only
-- `checkManager()` — ADMIN or MANAGER
-- `checkBoardPermission()` — board membership + owner + role; ADMIN always has access
-- `checkTaskPermission()` — ADMIN/owner/manager full access; **MEMBER can edit/delete/add to ANY task in their board** (collaboration model)
-- Board visibility: users see boards where they are member OR owner (OR query in Prisma)
+RBAC checks live inside server action files (not a shared lib):
+- `checkAdmin()` (private, in `actions/admin-actions.ts`) — ADMIN only
+- `checkManager()` (private, in `actions/manager-actions.ts`) — ADMIN or MANAGER
+- `checkBoardPermission()` (exported from `actions/board-actions.ts`) — board membership + owner + role; ADMIN always has access
+- MEMBER can edit/delete/add to ANY task in their board (collaboration model, no `checkTaskPermission` function)
 
 ## Socket Architecture
 
-`useSocket` hook (`components/kanban/socket-hooks.ts`):
-- Keeps a module-level singleton socket
-- Joins/leaves board rooms when `boardId` changes
-- Uses `useMemo` for the user object to prevent infinite re-render loops
-- Unmount cleanup emits `leave-board` via ref (not dependency array)
+`useSocket` hook (`components/kanban/socket-hooks.ts`): module-level singleton, joins/leaves board rooms on `boardId` change, `useMemo` for user prop, unmount cleanup via ref.
 
-Server actions emit via `emitBoardEvent()` and `emitNotification()` (both in `utils/socket-emitter.ts`), which connects as a Socket.io client to port 3001.
+Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/socket-emitter.ts`.
 
-## Feature Specs
-
-Canonical feature requirements in `systemtodo.md` and `roledependent.md`.
-
-## File Quick Reference
+## Key Files
 
 | Purpose | Path |
 |---------|------|
@@ -120,6 +117,7 @@ Canonical feature requirements in `systemtodo.md` and `roledependent.md`.
 | Kanban board hook | `hooks/use-kanban-board.ts` |
 | Kanban socket hooks | `components/kanban/socket-hooks.ts` |
 | Shared types | `types/kanban.ts` |
+| Offline store | `lib/store/use-offline-store.ts` |
 
 ## Seed Accounts
 
@@ -128,3 +126,7 @@ Canonical feature requirements in `systemtodo.md` and `roledependent.md`.
 | admin@smarttask.com | AdminPassword123! | ADMIN |
 | manager@smarttask.com | AdminPassword123! | MANAGER |
 | member@smarttask.com | AdminPassword123! | MEMBER |
+
+## Specs
+
+Feature requirements in `systemtodo.md` and `roledependent.md`.

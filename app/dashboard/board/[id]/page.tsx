@@ -18,10 +18,10 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
   const board = result.data as any
 
   return (
-    <div className="h-[calc(100vh-12rem)] flex flex-col gap-6 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="h-[calc(100vh-4rem)] flex flex-col -m-6 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
       <BoardHeader board={board} currentUser={session} />
 
-      <div className="flex-1 min-h-0 bg-muted/20 rounded-2xl border border-primary/5 p-4 overflow-hidden relative">
+      <div className="flex-1 min-h-0 bg-muted/20 border-t border-primary/5 p-4 overflow-hidden relative">
         <div className="absolute inset-0 bg-noise opacity-[0.02] pointer-events-none" />
         <KanbanBoard board={board} currentUser={session} />
       </div>
