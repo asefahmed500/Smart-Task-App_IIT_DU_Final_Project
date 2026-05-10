@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { addTagToTask, removeTagFromTask, getBoardTags } from '@/actions/task-actions'
 import { undoLastAction } from '@/actions/board-actions'

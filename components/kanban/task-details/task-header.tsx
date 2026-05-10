@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +24,18 @@ interface TaskHeaderProps {
 }
 
 export function TaskHeader({ task, currentUser, onUpdate, onDelete, setTask, editingBy }: TaskHeaderProps) {
+  const [localTitle, setLocalTitle] = useState(task.title)
+
+  const handleTitleBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value.trim()
+    if (newTitle && newTitle !== task.title) {
+      setTask({ ...task, title: newTitle })
+      await onUpdate('title', newTitle)
+    } else {
+      setLocalTitle(task.title)
+    }
+  }
+
   return (
     <DialogHeader className="p-6 border-b border-primary/5 bg-muted/20">
       <div className="flex items-center justify-between gap-4">
@@ -56,9 +69,9 @@ export function TaskHeader({ task, currentUser, onUpdate, onDelete, setTask, edi
       </div>
       <DialogTitle className="mt-4">
         <Input
-          value={task.title}
-          onChange={(e) => setTask({ ...task, title: e.target.value })}
-          onBlur={(e) => onUpdate('title', e.target.value)}
+          value={localTitle}
+          onChange={(e) => setLocalTitle(e.target.value)}
+          onBlur={handleTitleBlur}
           className="text-2xl font-bold bg-transparent border-none p-0 focus-visible:ring-0 h-auto font-oswald uppercase tracking-tight"
         />
       </DialogTitle>

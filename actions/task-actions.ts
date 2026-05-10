@@ -4,7 +4,8 @@ import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
 import { evaluateAutomationRules } from './automation-actions'
-import { emitNotification, emitBoardEvent } from '@/utils/socket-emitter'
+import { emitBoardEvent } from '@/utils/socket-emitter'
+import { sendNotification } from '@/utils/notification-utils'
 import {
   createTaskSchema,
   updateTaskSchema,
@@ -42,14 +43,14 @@ async function checkTaskPermission(input: { taskId: string, allowedRoles?: strin
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       include: {
-        column: { 
-          include: { 
+        column: {
+          include: {
             board: {
               include: {
                 members: { select: { id: true, role: true } }
               }
-            } 
-          } 
+            }
+          }
         }
       }
     })
@@ -161,6 +162,18 @@ export async function createTask(input: any): Promise<ActionResult> {
       assigneeId: task.assigneeId
     }).catch(err => console.error('[AUTOMATION_ERROR]', err))
 
+    if (task.assigneeId && task.assigneeId !== session.id) {
+      evaluateAutomationRules('TASK_ASSIGNED', {
+        taskId: task.id,
+        taskTitle: task.title,
+        columnId: task.columnId,
+        columnName: column.name,
+        boardId: column.boardId,
+        priority: task.priority,
+        assigneeId: task.assigneeId,
+      }).catch(err => console.error('[AUTOMATION_ERROR]', err))
+    }
+
     revalidatePath(`/dashboard/board/${column.boardId}`)
     return { success: true, data: task }
   } catch (error) {
@@ -220,21 +233,22 @@ export async function updateTask(input: { id: string } & any): Promise<ActionRes
 
     // Assignment notification
     if (data.assigneeId && data.assigneeId !== existingTask.assigneeId && data.assigneeId !== session.id) {
-      const notification = await prisma.notification.create({
-        data: {
-          userId: data.assigneeId,
-          type: 'TASK_ASSIGNED',
-          message: `You have been assigned to task: ${task.title}`,
-          link: `/dashboard/board/${task.column.boardId}`
-        }
-      })
-      emitNotification({
+      await sendNotification({
         userId: data.assigneeId,
         type: 'TASK_ASSIGNED',
         message: `You have been assigned to task: ${task.title}`,
         link: `/dashboard/board/${task.column.boardId}`,
-        notificationId: notification.id
       })
+
+      evaluateAutomationRules('TASK_ASSIGNED', {
+        taskId: task.id,
+        taskTitle: task.title,
+        columnId: task.columnId,
+        columnName: task.column.name,
+        boardId: task.column.boardId,
+        priority: task.priority,
+        assigneeId: data.assigneeId,
+      }).catch(err => console.error('[AUTOMATION_ERROR]', err))
     }
 
     // Automation
@@ -335,20 +349,11 @@ export async function updateTaskStatus(input: { taskId: string, columnId: string
     if (task.creatorId && task.creatorId !== session.id) notifyUsers.add(task.creatorId)
 
     for (const userId of notifyUsers) {
-      const notification = await prisma.notification.create({
-        data: {
-          userId,
-          type: 'TASK_STATUS_CHANGED',
-          message: `Task "${task.title}" moved to ${newStatusName}`,
-          link: `/dashboard/board/${task.column.boardId}`
-        }
-      })
-      emitNotification({
+      await sendNotification({
         userId,
         type: 'TASK_STATUS_CHANGED',
         message: `Task "${task.title}" moved to ${newStatusName}`,
         link: `/dashboard/board/${task.column.boardId}`,
-        notificationId: notification.id
       })
     }
 
@@ -515,30 +520,15 @@ export async function addComment(input: { taskId: string, content: string }): Pr
 
       for (const user of mentionedUsers) {
         if (user.id !== session.id) {
-          const notification = await prisma.notification.create({
-            data: {
-              userId: user.id,
-              type: 'COMMENT_MENTION',
-              message: `${session.name || 'Someone'} mentioned you on task: ${taskData.title}`,
-              link: `/dashboard/board/${taskData.column.boardId}`
-            }
-          })
-          emitNotification({
+          await sendNotification({
             userId: user.id,
             type: 'COMMENT_MENTION',
             message: `${session.name || 'Someone'} mentioned you on task: ${taskData.title}`,
             link: `/dashboard/board/${taskData.column.boardId}`,
-            notificationId: notification.id
           })
         }
       }
     }
-
-    await createAuditLog({
-      userId: session.id,
-      action: 'ADD_COMMENT',
-      details: { taskId, commentId: comment.id, boardId: taskData.column.boardId }
-    })
 
     return { success: true, data: comment }
   } catch (error) {
@@ -1181,20 +1171,11 @@ export async function submitForReview(input: { taskId: string, reviewerId: strin
     emitBoardEvent('task:updated', { boardId: perm.task!.column.boardId, taskId })
 
     // Notification
-    const notification = await prisma.notification.create({
-      data: {
-        userId: reviewerId,
-        type: 'REVIEW_REQUESTED',
-        message: `${session.name} requested a review for: ${perm.task!.title}`,
-        link: `/dashboard/board/${perm.task!.column.boardId}`
-      }
-    })
-    emitNotification({
+    await sendNotification({
       userId: reviewerId,
       type: 'REVIEW_REQUESTED',
       message: `${session.name} requested a review for: ${perm.task!.title}`,
       link: `/dashboard/board/${perm.task!.column.boardId}`,
-      notificationId: notification.id
     })
 
     return { success: true, data: review }
@@ -1236,22 +1217,6 @@ export async function completeReview(input: { id: string, status: any, feedback:
       include: { task: { include: { column: true } } }
     })
 
-    await createAuditLog({
-      userId: session.id,
-      action: 'COMPLETE_REVIEW',
-      details: { 
-        taskId: updatedReview.taskId, 
-        reviewId, 
-        status: validation.data.status,
-        previousStatus: review.status,
-        boardId: updatedReview.task.column.boardId
-      }
-    })
-
-    // Real-time update
-    emitBoardEvent('task:updated', { boardId: updatedReview.task.column.boardId, taskId: updatedReview.taskId })
-
-    // Move task based on review outcome
     const statusValue = validation.data.status as string
     let targetColumnName: string | null = null
     if (statusValue === 'APPROVED') {
@@ -1262,6 +1227,9 @@ export async function completeReview(input: { id: string, status: any, feedback:
       targetColumnName = 'To Do'
     }
 
+    let movedColumnId: string | null = null
+    let previousColumnId: string | null = null
+
     if (targetColumnName) {
       const boardColumns = await prisma.column.findMany({
         where: { boardId: updatedReview.task.column.boardId },
@@ -1270,33 +1238,75 @@ export async function completeReview(input: { id: string, status: any, feedback:
         (c) => c.name.toLowerCase() === targetColumnName!.toLowerCase()
       )
       if (targetColumn && targetColumn.id !== updatedReview.task.columnId) {
-        await prisma.task.update({
-          where: { id: updatedReview.taskId },
-          data: { columnId: targetColumn.id, version: { increment: 1 } },
-        })
-        emitBoardEvent('task:moved', {
-          boardId: updatedReview.task.column.boardId,
-          taskId: updatedReview.taskId,
+        previousColumnId = updatedReview.task.columnId
+        movedColumnId = targetColumn.id
+
+await prisma.task.update({
+        where: { id: updatedReview.taskId },
+        data: { columnId: targetColumn.id, version: { increment: 1 } },
+      })
+
+      emitBoardEvent('task:moved', {
+        boardId: updatedReview.task.column.boardId,
+        taskId: updatedReview.taskId,
+        columnId: targetColumn.id,
+        previousColumnId,
+        task: { ...updatedReview.task, columnId: targetColumn.id },
+      })
+
+      const task = await prisma.task.findUnique({
+        where: { id: updatedReview.taskId },
+        include: { assignee: true, creator: true, column: true },
+      })
+      if (task) {
+        const moveNotifyUsers = new Set<string>()
+        if (task.assigneeId && task.assigneeId !== session.id) moveNotifyUsers.add(task.assigneeId)
+        if (task.creatorId && task.creatorId !== session.id) moveNotifyUsers.add(task.creatorId)
+        for (const userId of moveNotifyUsers) {
+          await sendNotification({
+            userId,
+            type: 'TASK_STATUS_CHANGED',
+            message: `Task "${task.title}" moved to ${targetColumnName} (review)`,
+            link: `/dashboard/board/${task.column.boardId}`,
+          })
+        }
+
+        evaluateAutomationRules('TASK_MOVED', {
+          taskId: task.id,
+          taskTitle: task.title,
           columnId: targetColumn.id,
-        })
+          columnName: targetColumnName!,
+          boardId: task.column.boardId,
+          priority: task.priority as string,
+          assigneeId: task.assigneeId,
+          previousColumnId,
+        }).catch(err => console.error('[AUTOMATION_ERROR]', err))
+      }
       }
     }
 
-    // Notification to creator
-    const notification = await prisma.notification.create({
-      data: {
-        userId: updatedReview.task.creatorId,
-        type: 'REVIEW_COMPLETED',
-        message: `Review completed for "${updatedReview.task.title}": ${status}`,
-        link: `/dashboard/board/${updatedReview.task.column.boardId}`
+    await createAuditLog({
+      userId: session.id,
+      action: 'COMPLETE_REVIEW',
+      details: {
+        taskId: updatedReview.taskId,
+        reviewId,
+        status: validation.data.status,
+        previousStatus: review.status,
+        boardId: updatedReview.task.column.boardId,
+        columnId: movedColumnId,
+        previousColumnId,
       }
     })
-    emitNotification({
+
+    // Real-time update
+    emitBoardEvent('task:updated', { boardId: updatedReview.task.column.boardId, taskId: updatedReview.taskId })
+
+    await sendNotification({
       userId: updatedReview.task.creatorId,
       type: 'REVIEW_COMPLETED',
       message: `Review completed for "${updatedReview.task.title}": ${status}`,
       link: `/dashboard/board/${updatedReview.task.column.boardId}`,
-      notificationId: notification.id
     })
 
     return { success: true, data: updatedReview }

@@ -72,7 +72,9 @@ Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `h
 
 **Comment `@mention` matching:** use `{ contains: name, mode: 'insensitive' }` not `{ in: exactNames }`.
 
-**Socket event field names must match exactly.** `task:moved` uses `newColumnId`/`oldColumnId` — not `columnId`/`previousColumnId`.
+**Socket event field names must match exactly.** `task:moved` uses `newColumnId`/`oldColumnId` — not `columnId`/`previousColumnId`. `handleBoardEvent` in `useKanbanBoard` uses fallbacks for both variants.
+
+**Reviewer dropdown** shows only board members filtered by role (MANAGER/ADMIN for MEMBER submitter). `eligibleReviewers` in `task-details-dialog.tsx` derives this from `boardMembers` (not `allUsers`).
 
 **Board queries must include owner.** Use `OR: [{ members: { some: { id } } }, { ownerId: id }]`.
 
@@ -80,13 +82,19 @@ Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `h
 
 **`dnd-kit` SSR hydration mismatches** (`DndDescribedBy-0` vs `DndDescribedBy-1`) are a known issue. Do not use `next/dynamic` with `ssr: false` in a Server Component — wrap DndContext in a Client Component boundary instead.
 
+**Props-to-state sync:** Client components receiving server props (e.g., `useKanbanBoard({ initialBoard })`) need `useEffect` to sync state on prop changes. `useState(initialBoard)` only uses the value on first render.
+
 **AuditLog `details` is `Json`, not a string.** Never render as `{log.details}`. Format with a helper based on `action` type.
 
-**Props-to-state sync:** Client components receiving server props (e.g., `useKanbanBoard({ initialBoard })`) need `useEffect` to sync state on prop changes. `useState(initialBoard)` only uses the value on first render.
+**completeReview flow:** Single `COMPLETE_REVIEW` audit log contains both review status and column move data (including `previousColumnId`). The audit log is created AFTER the task is moved so undo can reverse both.
+
+**Inline title editing:** `TaskHeader` uses local `useState` for title to prevent `setTask` during `onChange` (which triggers re-renders). Only calls `onUpdate` on `onBlur`.
 
 **Radix Select crash on empty value:** `<SelectItem value="">` crashes. Use `value="__none__"` or handle empty in `onValueChange`.
 
 **`_count` returns numbers, not relations.** If UI needs `task.checklists?.length`, include full relation: `checklists: { include: { items: true } }`.
+
+**Board page full-width trick:** The board page (`app/dashboard/board/[id]/page.tsx`) uses `-m-6` to cancel the parent layout's `p-6` padding, making it the only dashboard page that renders edge-to-edge. Don't add margin/padding wrappers inside it.
 
 ## RBAC
 
@@ -94,7 +102,8 @@ RBAC checks live inside server action files (not a shared lib):
 - `checkAdmin()` (private, in `actions/admin-actions.ts`) — ADMIN only
 - `checkManager()` (private, in `actions/manager-actions.ts`) — ADMIN or MANAGER
 - `checkBoardPermission()` (exported from `actions/board-actions.ts`) — board membership + owner + role; ADMIN always has access
-- MEMBER can edit/delete/add to ANY task in their board (collaboration model, no `checkTaskPermission` function)
+- `checkTaskPermission()` (private, in `actions/task-actions.ts`) — board membership + ownership + role check; ADMIN always has access
+- MEMBER can edit/delete/add to ANY task in their board (collaboration model)
 
 ## Socket Architecture
 

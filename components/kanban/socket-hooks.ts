@@ -113,15 +113,16 @@ export function useBoardEvents(boardId: string, onEvent: (event: string, data: R
 export function useNotificationListener(userId: string | undefined, onNotification: (notification: Record<string, unknown>) => void) {
   const { socket, isConnected } = useSocket()
 
+  const onNotificationRef = useRef(onNotification)
+  onNotificationRef.current = onNotification
+
   useEffect(() => {
     if (!socket || !isConnected || !userId) return
 
-    // Register user for personal notifications
     socket.emit('register-user', userId)
 
-  // Listen for notifications
-  const handleNotification = (data: Record<string, unknown>) => {
-      onNotification(data)
+    const handleNotification = (data: Record<string, unknown>) => {
+      onNotificationRef.current(data)
     }
 
     socket.on('notification', handleNotification)
@@ -129,7 +130,7 @@ export function useNotificationListener(userId: string | undefined, onNotificati
     return () => {
       socket.off('notification', handleNotification)
     }
-  }, [socket, isConnected, userId, onNotification])
+  }, [socket, isConnected, userId])
 }
 
 export function getSocket() {

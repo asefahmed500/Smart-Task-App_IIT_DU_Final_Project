@@ -143,7 +143,7 @@ Revalidation: The board path is revalidated to guarantee that if any client miss
 Conflict resolution during drag‑and‑drop:
 If a task is moved by two people at nearly the same time, the task’s version number prevents lost updates. The second move will receive a conflict error, and the client will show a modal asking the user to refresh or overwrite. Because drag‑and‑drop is an explicit action, this case is rare.
 
-
+.
 
 ---
 

@@ -208,6 +208,16 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     return boardMembers
   })()
 
+  const eligibleReviewers = (() => {
+    if (isMember) {
+      return boardMembers.filter(u => u.role === 'MANAGER' || u.role === 'ADMIN')
+    }
+    if (isAdmin && allUsers.length > 0) {
+      return allUsers
+    }
+    return boardMembers
+  })()
+
 
   if (!isOpen) return null
 
@@ -267,7 +277,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                       <TaskReviewsSection 
                         task={task}
                         currentUser={currentUser}
-                        allUsers={allUsers}
+                        allUsers={eligibleReviewers}
                         isSubmittingReview={isSubmittingReview}
                         setIsSubmittingReview={setIsSubmittingReview}
                         selectedReviewer={selectedReviewer}

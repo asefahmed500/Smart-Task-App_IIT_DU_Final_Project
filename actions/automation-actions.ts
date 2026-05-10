@@ -1,7 +1,8 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { emitNotification, emitBoardEvent } from '@/utils/socket-emitter'
+import { emitBoardEvent } from '@/utils/socket-emitter'
+import { sendNotification } from '@/utils/notification-utils'
 import { Priority } from '@/lib/prisma'
 import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
@@ -132,20 +133,11 @@ async function handleSendNotification(params: string, context: TaskContext, rule
   }
 
   if (notifyUserId) {
-    const notification = await prisma.notification.create({
-      data: {
-        userId: notifyUserId,
-        type: 'AUTOMATION_TRIGGERED',
-        message: `Automation rule "${ruleName}" triggered: ${context.taskTitle}`,
-        link: `/dashboard/board/${context.boardId}`
-      }
-    })
-    emitNotification({
+    await sendNotification({
       userId: notifyUserId,
       type: 'AUTOMATION_TRIGGERED',
       message: `Automation rule "${ruleName}" triggered: ${context.taskTitle}`,
       link: `/dashboard/board/${context.boardId}`,
-      notificationId: notification.id
     })
   }
 }
@@ -174,8 +166,8 @@ async function handleMoveTask(params: string, context: TaskContext): Promise<voi
     emitBoardEvent('task:moved', {
       boardId: context.boardId,
       taskId: context.taskId,
-      columnId: targetColumn.id,
-      previousColumnId: context.columnId,
+      newColumnId: targetColumn.id,
+      oldColumnId: context.columnId,
       task: updatedTask
     })
   }

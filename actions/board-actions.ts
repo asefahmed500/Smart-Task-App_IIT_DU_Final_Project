@@ -121,9 +121,10 @@ export async function getBoardData(input: { boardId: string }): Promise<ActionRe
     if (!board) return { success: false, error: 'Board not found' }
 
     const isMember = board.members.some(m => m.id === session.id)
+    const isOwner = board.ownerId === session.id
     const isAdmin = session.role === 'ADMIN'
 
-    if (!isMember && !isAdmin) {
+    if (!isMember && !isOwner && !isAdmin) {
       return { success: false, error: 'Unauthorized: You are not a member of this board' }
     }
 
@@ -1060,6 +1061,18 @@ export async function undoLastAction(): Promise<ActionResult> {
           where: { id: details.reviewId },
           data: { status: details.previousStatus }
         })
+        if (details.previousColumnId) {
+          await prisma.task.update({
+            where: { id: details.taskId },
+            data: { columnId: details.previousColumnId, version: { increment: 1 } },
+          })
+          emitBoardEvent('task:moved', {
+            boardId: details.boardId,
+            taskId: details.taskId,
+            columnId: details.previousColumnId,
+            previousColumnId: details.columnId,
+          })
+        }
         emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
         break
       }

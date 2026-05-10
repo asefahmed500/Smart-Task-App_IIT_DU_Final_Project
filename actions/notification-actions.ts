@@ -3,30 +3,22 @@
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
-import { checkDueDateReminders, checkOverdueTasks } from '@/utils/notification-utils'
 import { ActionResult } from '@/types/kanban'
 import { idSchema } from '@/lib/schemas'
 
 /**
- * Get notifications and also trigger due date/overdue checks for the current user
+ * Get notifications for the current user
+ * Background checks run on the Socket.IO server every 60s, not here
  */
 export async function getNotifications(): Promise<ActionResult> {
   try {
     const session = await getSession()
     if (!session) return { success: false, error: 'Unauthorized' }
 
-    // Run notification checks for this user's tasks
-    // In a production system, you'd want to optimize this to check only the current user's tasks
-    // or run it via a background job
-    Promise.all([
-      checkDueDateReminders(),
-      checkOverdueTasks(),
-    ]).catch(err => console.error('Error in background notification checks:', err))
-
     const notifications = await prisma.notification.findMany({
       where: { userId: session.id },
       orderBy: { createdAt: 'desc' },
-      take: 50 // Increased limit
+      take: 50
     })
 
     const unreadCount = await prisma.notification.count({

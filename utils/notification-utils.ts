@@ -3,6 +3,65 @@
 import prisma from '@/lib/prisma'
 import { emitNotification } from '@/utils/socket-emitter'
 
+type NotifType =
+  | 'TASK_ASSIGNED'
+  | 'TASK_STATUS_CHANGED'
+  | 'COMMENT_MENTION'
+  | 'REVIEW_REQUESTED'
+  | 'REVIEW_COMPLETED'
+  | 'AUTOMATION_TRIGGERED'
+  | 'DUE_DATE_REMINDER'
+  | 'OVERDUE'
+  | 'NEW_USER_SIGNUP'
+
+const notifTypeToPrefKey: Partial<Record<NotifType, string>> = {
+  TASK_ASSIGNED: 'taskAssigned',
+  TASK_STATUS_CHANGED: 'statusChanged',
+  COMMENT_MENTION: 'commentMention',
+  REVIEW_REQUESTED: 'reviewRequested',
+  REVIEW_COMPLETED: 'reviewCompleted',
+  AUTOMATION_TRIGGERED: 'automationTriggered',
+  DUE_DATE_REMINDER: 'dueDateReminder',
+  OVERDUE: 'overdueReminder',
+}
+
+const booleanPrefKeys = new Set([
+  'taskAssigned', 'statusChanged', 'commentMention',
+  'automationTriggered', 'dueDateReminder', 'overdueReminder',
+  'reviewRequested', 'reviewCompleted',
+])
+
+export async function sendNotification(input: {
+  userId: string
+  type: NotifType
+  message: string
+  link?: string
+}): Promise<void> {
+  const prefKey = notifTypeToPrefKey[input.type]
+  if (prefKey && booleanPrefKeys.has(prefKey)) {
+    const prefs = await prisma.notificationPreference.findUnique({
+      where: { userId: input.userId },
+    })
+    if (prefs && (prefs as any)[prefKey] === false) return
+  }
+
+  const notification = await prisma.notification.create({
+    data: {
+      userId: input.userId,
+      type: input.type,
+      message: input.message,
+      link: input.link ?? null,
+    },
+  })
+  emitNotification({
+    userId: input.userId,
+    type: input.type,
+    message: input.message,
+    link: input.link,
+    notificationId: notification.id,
+  })
+}
+
 /**
  * Check for tasks that are due within the next 24 hours and create DUE_DATE_REMINDER notifications
  * This should be called periodically (e.g., via cron job or API route)
@@ -46,20 +105,11 @@ export async function checkDueDateReminders(): Promise<number> {
     })
 
     if (!existingReminder) {
-      const notification = await prisma.notification.create({
-        data: {
-          userId: task.assigneeId,
-          type: 'DUE_DATE_REMINDER',
-          message: `Task "${task.title}" (ID: ${task.id}) is due within 24 hours`,
-          link: `/dashboard/board/${task.column.boardId}`,
-        },
-      })
-      emitNotification({
+      await sendNotification({
         userId: task.assigneeId,
         type: 'DUE_DATE_REMINDER',
         message: `Task "${task.title}" (ID: ${task.id}) is due within 24 hours`,
         link: `/dashboard/board/${task.column.boardId}`,
-        notificationId: notification.id,
       })
       reminderCount++
     }
@@ -113,20 +163,11 @@ export async function checkOverdueTasks(): Promise<number> {
     })
 
     if (!existingOverdue) {
-      const notification = await prisma.notification.create({
-        data: {
-          userId: task.assigneeId,
-          type: 'OVERDUE',
-          message: `Task "${task.title}" (ID: ${task.id}) is overdue`,
-          link: `/dashboard/board/${task.column.boardId}`,
-        },
-      })
-      emitNotification({
+      await sendNotification({
         userId: task.assigneeId,
         type: 'OVERDUE',
         message: `Task "${task.title}" (ID: ${task.id}) is overdue`,
         link: `/dashboard/board/${task.column.boardId}`,
-        notificationId: notification.id,
       })
       overdueCount++
     }
@@ -154,20 +195,11 @@ export async function notifyAdminsNewUser(
   })
 
   for (const admin of admins) {
-    const notification = await prisma.notification.create({
-      data: {
-        userId: admin.id,
-        type: 'NEW_USER_SIGNUP',
-        message: `New user signed up: ${newUserName || newUserEmail} (${newUserEmail})`,
-        link: `/admin/users`,
-      },
-    })
-    emitNotification({
+    await sendNotification({
       userId: admin.id,
       type: 'NEW_USER_SIGNUP',
       message: `New user signed up: ${newUserName || newUserEmail} (${newUserEmail})`,
       link: `/admin/users`,
-      notificationId: notification.id,
     })
   }
 }

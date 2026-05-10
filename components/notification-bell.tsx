@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Bell, CheckCheck, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,20 +43,17 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
     void loadNotifications()
   }, [])
 
-  // Socket Listener
-  useNotificationListener(userId, (newNotif: any) => {
+  const handleNewNotification = useCallback((newNotif: any) => {
     console.log('Real-time notification received:', newNotif)
     
-    // Show toast
     toast(newNotif.message, {
-      description: 'You have a new mention/notification',
+      description: 'You have a new notification',
       action: newNotif.link ? {
         label: 'View',
         onClick: () => router.push(newNotif.link)
       } : undefined,
     })
 
-    // Add to state if it's not already there
     setNotifications(prev => {
       if (prev.some(n => n.id === newNotif.notificationId)) return prev
       
@@ -71,7 +68,10 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
       return [notification, ...prev].slice(0, 50)
     })
     setUnreadCount(prev => prev + 1)
-  })
+  }, [router])
+
+  // Socket Listener
+  useNotificationListener(userId, handleNewNotification)
 
   // Poll as fallback every 60s instead of 30s
   useEffect(() => {
@@ -117,6 +117,8 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
       case 'OVERDUE': return '⚠️'
       case 'NEW_USER_SIGNUP': return '🎉'
       case 'AUTOMATION_TRIGGERED': return '⚡'
+      case 'REVIEW_REQUESTED': return '🔍'
+      case 'REVIEW_COMPLETED': return '✅'
       default: return '🔔'
     }
   }

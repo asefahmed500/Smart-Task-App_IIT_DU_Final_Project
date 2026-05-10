@@ -43,24 +43,28 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
 
   const handleBoardEvent = useCallback((event: string, data: Record<string, unknown>) => {
     if (event === 'task:moved') {
+      const oldColId = (data.oldColumnId ?? data.previousColumnId) as string | undefined
+      const newColId = (data.newColumnId ?? data.columnId) as string | undefined
+      if (!oldColId || !newColId) return
       setBoard((prev: Board) => {
         const newColumns = prev.columns.map((col: Column) => {
-          if (col.id === data.oldColumnId) {
+          if (col.id === oldColId) {
             return { ...col, tasks: col.tasks.filter((t: Task) => t.id !== data.taskId) }
           }
-          if (col.id === data.newColumnId) {
+          if (col.id === newColId) {
             const task = prev.columns
               .flatMap((c: Column) => c.tasks)
               .find((t: Task) => t.id === data.taskId)
             if (task) {
-              return { ...col, tasks: [...col.tasks, { ...task, columnId: data.newColumnId as string }] }
+              return { ...col, tasks: [...col.tasks, { ...task, columnId: newColId }] }
             }
           }
           return col
         })
         return { ...prev, columns: newColumns }
       })
-      toast.info(`${data.userName} moved a task`)
+      const userName = (data.userName ?? (data.user as any)?.name ?? 'Someone') as string
+      toast.info(`${userName} moved a task`)
     }
 
     if (event === 'task:updated') {
