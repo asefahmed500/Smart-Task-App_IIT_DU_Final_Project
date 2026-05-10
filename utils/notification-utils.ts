@@ -14,7 +14,12 @@ type NotifType =
   | 'OVERDUE'
   | 'NEW_USER_SIGNUP'
 
-const notifTypeToPrefKey: Partial<Record<NotifType, string>> = {
+const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
+  import('@/lib/prisma').NotificationPreference,
+  'taskAssigned' | 'statusChanged' | 'commentMention' |
+  'automationTriggered' | 'dueDateReminder' | 'overdueReminder' |
+  'reviewRequested' | 'reviewCompleted' | 'newUserSignup'
+>>> = {
   TASK_ASSIGNED: 'taskAssigned',
   TASK_STATUS_CHANGED: 'statusChanged',
   COMMENT_MENTION: 'commentMention',
@@ -23,13 +28,14 @@ const notifTypeToPrefKey: Partial<Record<NotifType, string>> = {
   AUTOMATION_TRIGGERED: 'automationTriggered',
   DUE_DATE_REMINDER: 'dueDateReminder',
   OVERDUE: 'overdueReminder',
+  NEW_USER_SIGNUP: 'newUserSignup',
 }
 
 const booleanPrefKeys = new Set([
   'taskAssigned', 'statusChanged', 'commentMention',
   'automationTriggered', 'dueDateReminder', 'overdueReminder',
-  'reviewRequested', 'reviewCompleted',
-])
+  'reviewRequested', 'reviewCompleted', 'newUserSignup',
+]) as Set<string & keyof import('@/lib/prisma').NotificationPreference>
 
 export async function sendNotification(input: {
   userId: string
@@ -42,7 +48,7 @@ export async function sendNotification(input: {
     const prefs = await prisma.notificationPreference.findUnique({
       where: { userId: input.userId },
     })
-    if (prefs && (prefs as any)[prefKey] === false) return
+    if (prefs && (prefs[prefKey] as boolean | undefined) === false) return
   }
 
   const notification = await prisma.notification.create({

@@ -96,6 +96,8 @@ Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `h
 
 **Board page full-width trick:** The board page (`app/dashboard/board/[id]/page.tsx`) uses `-m-6` to cancel the parent layout's `p-6` padding, making it the only dashboard page that renders edge-to-edge. Don't add margin/padding wrappers inside it.
 
+**Notification preference typing:** `notifTypeToPrefKey` in `utils/notification-utils.ts` uses `keyof Pick<NotificationPreference, ...>` — all 9 boolean toggle keys. Non-boolean fields (id, userId, emailEnabled, etc.) are excluded. New notification types need both a pref key entry and a schema field. `booleanPrefKeys` is a typed `Set` for `.has()` checks.
+
 ## RBAC
 
 RBAC checks live inside server action files (not a shared lib):
@@ -123,6 +125,7 @@ Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/so
 | Server actions | `actions/*-actions.ts` |
 | Socket server | `src/socket/server.ts` |
 | Socket client | `utils/socket-emitter.ts` |
+| Notification utils | `utils/notification-utils.ts` |
 | Kanban board hook | `hooks/use-kanban-board.ts` |
 | Kanban socket hooks | `components/kanban/socket-hooks.ts` |
 | Shared types | `types/kanban.ts` |

@@ -183,6 +183,7 @@ model NotificationPreference {
   overdueReminder     Boolean  @default(true)
   reviewRequested    Boolean  @default(true)
   reviewCompleted    Boolean  @default(true)
+  newUserSignup      Boolean  @default(true)
   emailEnabled       Boolean  @default(false)
   pushEnabled        Boolean  @default(false)
   createdAt          DateTime @default(now())
