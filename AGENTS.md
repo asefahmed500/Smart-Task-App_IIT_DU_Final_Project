@@ -96,7 +96,7 @@ Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `h
 
 **Board page full-width trick:** The board page (`app/dashboard/board/[id]/page.tsx`) uses `-m-6` to cancel the parent layout's `p-6` padding, making it the only dashboard page that renders edge-to-edge. Don't add margin/padding wrappers inside it.
 
-**Notification preference typing:** `notifTypeToPrefKey` in `utils/notification-utils.ts` uses `keyof Pick<NotificationPreference, ...>` — all 9 boolean toggle keys. Non-boolean fields (id, userId, emailEnabled, etc.) are excluded. New notification types need both a pref key entry and a schema field. `booleanPrefKeys` is a typed `Set` for `.has()` checks.
+**Notification preference typing:** `notifTypeToPrefKey` in `utils/notification-utils.ts` uses `keyof Pick<NotificationPreference, ...>` — all 9 boolean toggle keys. Non-boolean fields (id, userId, emailEnabled, pushEnabled, createdAt, updatedAt) are excluded. New notification types need both a pref key entry and a schema field. `booleanPrefKeys` is a typed `Set` for `.has()` checks.
 
 ## RBAC
 
@@ -112,6 +112,23 @@ RBAC checks live inside server action files (not a shared lib):
 `useSocket` hook (`components/kanban/socket-hooks.ts`): module-level singleton, joins/leaves board rooms on `boardId` change, `useMemo` for user prop, unmount cleanup via ref.
 
 Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/socket-emitter.ts`.
+
+## Progress
+
+### Bugs Fixed (11 total)
+1. **(High)** Reviewer dropdown showed ALL system users → `eligibleReviewers` from `boardMembers` filtered by role
+2. **(High)** `completeReview` undo picked wrong audit log → Single COMPLETE_REVIEW log with column move data
+3. **(Medium)** TASK_ASSIGNED automation never fired → Fires on both create and update paths
+4. **(Low)** Duplicate ADD_COMMENT audit log → Removed duplicate
+5. **(Medium)** Board owner denied access if not in members → `getBoardData` checks `isOwner`
+6. **(High)** Stale `updatedReview.task` used after column move → Re-fetch fresh task from DB
+7. **(Medium)** `handleMoveTask` wrong field names → Emits `newColumnId`/`oldColumnId`
+8. **(Medium)** `handleBoardEvent` only handled one naming convention → Fallbacks for both
+9. **(Low)** Title editing called `setTask` on every keystroke → Local `useState`, `onUpdate` on `onBlur`
+10. **(Low)** `useTaskTags` missing `useRef` → Added import
+11. **(High)** `NEW_USER_SIGNUP` had no pref field → Added to schema + mapping with typed keys
+
+All fixes pass `npm run typecheck` && `npm run build`. Zero new lint errors.
 
 ## Key Files
 
@@ -130,6 +147,8 @@ Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/so
 | Kanban socket hooks | `components/kanban/socket-hooks.ts` |
 | Shared types | `types/kanban.ts` |
 | Offline store | `lib/store/use-offline-store.ts` |
+| Offline DB | `lib/offline-db.ts` |
+| Offline UI | `components/providers/offline-provider.tsx` |
 
 ## Seed Accounts
 
