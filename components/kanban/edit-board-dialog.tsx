@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Dialog,
@@ -33,6 +33,11 @@ export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps
   const [name, setName] = useState(board.name)
   const [description, setDescription] = useState(board.description || '')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setName(board.name)
+    setDescription(board.description || '')
+  }, [board.name, board.description])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

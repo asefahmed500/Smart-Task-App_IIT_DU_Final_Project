@@ -109,6 +109,8 @@ Optional: `ALLOWED_ORIGIN`, `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKE
 
 **Notification preference typing:** `notifTypeToPrefKey` in `utils/notification-utils.ts` maps 11 `NotifType` variants to their `NotificationPreference` boolean keys. Non-boolean fields (id, userId, emailEnabled, pushEnabled, createdAt, updatedAt) are excluded. New notification types need: a `NotifType` union member, a `notifTypeToPrefKey` entry, a `booleanPrefKeys` entry, a `NotificationPreference` schema field in `prisma/schema.prisma`, and a `NotificationPreference` interface field in `types/kanban.ts`.
 
+**EditBoardDialog state sync:** `EditBoardDialog` uses `useEffect` to sync `name`/`description` when the `board` prop changes. Without this, selecting a different board shows stale data since `useState` only reads the initial value.
+
 ## RBAC
 
 RBAC checks live inside server action files (not a shared lib):
@@ -145,6 +147,9 @@ Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/so
 | Offline store | `lib/store/use-offline-store.ts` |
 | Offline DB | `lib/offline-db.ts` |
 | Offline UI | `components/providers/offline-provider.tsx` |
+| Edit board dialog | `components/kanban/edit-board-dialog.tsx` |
+| Admin boards page | `app/admin/boards/page.tsx` |
+| Manager boards page | `app/manager/boards/page.tsx` |
 
 ## Seed Accounts
 

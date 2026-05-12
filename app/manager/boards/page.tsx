@@ -5,10 +5,11 @@ import { getManagerBoards } from '@/actions/manager-actions'
 import { deleteBoard, addBoardMember, removeBoardMember, searchUsers } from '@/actions/board-actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Layout, Users, Layers, Calendar, ExternalLink, MoreHorizontal, Trash2, UserPlus, UserMinus, Search } from "lucide-react"
+import { Layout, Users, Layers, Calendar, ExternalLink, MoreHorizontal, Trash2, UserPlus, UserMinus, Search, Pencil } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { CreateBoardDialog } from "@/components/kanban/create-board-dialog"
+import { EditBoardDialog } from "@/components/kanban/edit-board-dialog"
 import { useRouter } from "next/navigation"
 import { toast } from 'sonner'
 import {
@@ -56,6 +57,8 @@ export default function ManagerBoardsPage() {
   const [boards, setBoards] = useState<ManagerBoard[]>([])
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [memberDialogOpen, setMemberDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editBoard, setEditBoard] = useState<ManagerBoard | null>(null)
   const [selectedBoard, setSelectedBoard] = useState<ManagerBoard | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -203,7 +206,13 @@ export default function ManagerBoardsPage() {
                       }}>
                         <Users className="size-4" /> Manage Members
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
+                      <DropdownMenuItem className="gap-2" onClick={() => {
+                        setEditBoard(board)
+                        setEditDialogOpen(true)
+                      }}>
+                        <Pencil className="size-4" /> Edit Board
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         className="gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
                         onClick={() => handleDeleteBoard(board.id)}
                       >
@@ -356,6 +365,17 @@ export default function ManagerBoardsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {editBoard && (
+        <EditBoardDialog
+          isOpen={editDialogOpen}
+          onClose={() => {
+            setEditDialogOpen(false)
+            setEditBoard(null)
+          }}
+          board={editBoard}
+        />
+      )}
     </div>
   )
 }
