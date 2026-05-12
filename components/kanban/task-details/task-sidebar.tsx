@@ -46,6 +46,7 @@ export function TaskSidebar({
   onRemoveTag
 }: TaskSidebarProps) {
   const isMember = currentUser.role === 'MEMBER'
+  const canChangeAssignee = currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER'
   
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -68,6 +69,7 @@ export function TaskSidebar({
           <Select 
             value={task.assigneeId || 'unassigned'} 
             onValueChange={(val) => onUpdate('assigneeId', val === 'unassigned' ? null : val)}
+            disabled={!canChangeAssignee}
           >
             <SelectTrigger className="h-10 bg-muted/20 border-primary/5 hover:border-primary/20 transition-all focus:ring-0">
               <SelectValue placeholder="Unassigned">

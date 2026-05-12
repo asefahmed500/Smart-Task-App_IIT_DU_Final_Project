@@ -27,12 +27,11 @@ export function useTaskChecklist({ taskId, task, setTask, fetchTaskDetails }: Us
   const [editingContent, setEditingContent] = useState('')
   const { isOnline } = useOfflineStore()
 
-  const handleAddChecklist = async () => {
+  const handleAddChecklist = async (title?: string) => {
     if (!taskId) return
-    const title = prompt('Enter checklist title:', 'New Checklist')
-    if (!title) return
+    const checklistTitle = title || 'New Checklist'
     try {
-      const result = await addChecklist({ taskId, title })
+      const result = await addChecklist({ taskId, title: checklistTitle })
       if (result.success && result.data) {
         const newCl = result.data as Checklist
         setTask(prev => prev ? { ...prev, checklists: [...(prev.checklists || []), newCl] } : null)

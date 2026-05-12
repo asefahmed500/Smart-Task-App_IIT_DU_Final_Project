@@ -14,7 +14,7 @@ interface TaskChecklistSectionProps {
   onToggleItem: (itemId: string, isCompleted: boolean) => Promise<void>
   onDeleteItem: (itemId: string) => Promise<void>
   onUpdateItem: (itemId: string) => Promise<void>
-  onAddChecklist: () => Promise<void>
+  onAddChecklist: (title: string) => Promise<void>
   onDeleteChecklist: (checklistId: string) => Promise<void>
   newChecklistItem: string
   setNewChecklistItem: (value: string) => void
@@ -41,6 +41,16 @@ export function TaskChecklistSection({
   onStartEdit,
   onCancelEdit
 }: TaskChecklistSectionProps) {
+  const [isCreating, setIsCreating] = useState(false)
+  const [newChecklistTitle, setNewChecklistTitle] = useState('')
+
+  const handleCreate = async () => {
+    if (!newChecklistTitle.trim()) return
+    await onAddChecklist(newChecklistTitle.trim())
+    setIsCreating(false)
+    setNewChecklistTitle('')
+  }
+
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">
@@ -48,16 +58,40 @@ export function TaskChecklistSection({
           <CheckSquare className="size-4" />
           Checklists
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onAddChecklist}
-          className="h-7 text-xs border-primary/20 hover:bg-primary/5"
-        >
-          <Plus className="mr-1 size-3" />
-          Add Checklist
-        </Button>
+        {!isCreating && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setIsCreating(true)}
+            className="h-7 text-xs border-primary/20 hover:bg-primary/5"
+          >
+            <Plus className="mr-1 size-3" />
+            Add Checklist
+          </Button>
+        )}
       </div>
+
+      {isCreating && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/20 border border-primary/10">
+          <Input
+            autoFocus
+            placeholder="Checklist title..."
+            value={newChecklistTitle}
+            onChange={(e) => setNewChecklistTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreate()
+              if (e.key === 'Escape') { setIsCreating(false); setNewChecklistTitle('') }
+            }}
+            className="h-8 bg-background border-primary/20 text-sm"
+          />
+          <Button size="sm" onClick={handleCreate} disabled={!newChecklistTitle.trim()} className="h-8 px-3 text-xs">
+            Add
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => { setIsCreating(false); setNewChecklistTitle('') }} className="h-8 px-2 text-xs text-muted-foreground">
+            Cancel
+          </Button>
+        </div>
+      )}
 
       {checklists.map((checklist) => {
         const completedCount = checklist.items.filter(i => i.isCompleted).length
