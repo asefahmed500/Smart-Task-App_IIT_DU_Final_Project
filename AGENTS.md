@@ -79,6 +79,8 @@ Optional: `ALLOWED_ORIGIN`, `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKE
 
 **After mutations, call `router.refresh()`.** Server actions use `revalidatePath` but the client needs `router.refresh()` to pick up changes.
 
+**Turbopack build may fail on Google Fonts** if `fonts.gstatic.com` is unreachable (common in restricted networks). The error is `Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'`. Retrying usually succeeds once network resolves.
+
 **Comment `@mention` matching:** use `{ contains: name, mode: 'insensitive' }` not `{ in: exactNames }`.
 
 **Socket event field names must match exactly.** `task:moved` uses `newColumnId`/`oldColumnId` — not `columnId`/`previousColumnId`. `handleBoardEvent` in `useKanbanBoard` uses fallbacks for both variants.
@@ -105,7 +107,7 @@ Optional: `ALLOWED_ORIGIN`, `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKE
 
 **Board page full-width trick:** The board page (`app/dashboard/board/[id]/page.tsx`) uses `-m-6` to cancel the parent layout's `p-6` padding, making it the only dashboard page that renders edge-to-edge. Don't add margin/padding wrappers inside it.
 
-**Notification preference typing:** `notifTypeToPrefKey` in `utils/notification-utils.ts` uses `keyof Pick<NotificationPreference, ...>` — all 9 boolean toggle keys. Non-boolean fields (id, userId, emailEnabled, pushEnabled, createdAt, updatedAt) are excluded. New notification types need both a pref key entry and a schema field. `booleanPrefKeys` is a typed `Set` for `.has()` checks.
+**Notification preference typing:** `notifTypeToPrefKey` in `utils/notification-utils.ts` maps 11 `NotifType` variants to their `NotificationPreference` boolean keys. Non-boolean fields (id, userId, emailEnabled, pushEnabled, createdAt, updatedAt) are excluded. New notification types need: a `NotifType` union member, a `notifTypeToPrefKey` entry, a `booleanPrefKeys` entry, a `NotificationPreference` schema field in `prisma/schema.prisma`, and a `NotificationPreference` interface field in `types/kanban.ts`.
 
 ## RBAC
 
@@ -121,6 +123,8 @@ RBAC checks live inside server action files (not a shared lib):
 `useSocket` hook (`components/kanban/socket-hooks.ts`): module-level singleton, joins/leaves board rooms on `boardId` change, `useMemo` for user prop, unmount cleanup via ref.
 
 Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/socket-emitter.ts`.
+
+**Notification flow:** Server action → `sendNotification()` in `utils/notification-utils.ts` (checks prefs, writes DB) → `emitNotification()` (Socket.IO client to server) → server relays to `user:${userId}` room → browser `useNotificationListener` in `notification-bell.tsx` receives it. When adding a new notification-triggering action, you must call `sendNotification()` — just emitting a socket event is not enough (no DB record = no bell badge, no persistence).
 
 ## Key Files
 

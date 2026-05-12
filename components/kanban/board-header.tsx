@@ -25,123 +25,138 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false)
   const { isOnline } = useOfflineStore()
 
-  const canManageMembers = currentUser.role !== 'MEMBER'
-  const canEditBoard = currentUser.role === 'ADMIN' || board.ownerId === currentUser.id
+  const isAdmin = currentUser.role === 'ADMIN'
+  const isManager = currentUser.role === 'MANAGER'
+  const canManageMembers = isAdmin || isManager
+  const canEditBoard = isAdmin || board.ownerId === currentUser.id
 
   return (
     <>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/30 backdrop-blur-sm p-4 rounded-2xl border border-primary/5">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="gap-2 h-8 text-[10px] uppercase font-bold tracking-wider rounded-full border-primary/20 hover:bg-primary/10 transition-all shadow-sm"
-              onClick={() => {
-                const role = currentUser.role.toLowerCase()
-                router.push(`/${role}/boards`)
-              }}
-            >
-              <ArrowLeft className="size-3.5" />
-              Boards
-            </Button>
-            <div className="h-4 w-px bg-primary/10 mx-1" />
-            <div className="p-2 bg-primary/10 rounded-lg hidden sm:block">
-              <Layout className="size-5 text-primary" />
+      <div className="flex flex-col gap-3 bg-card/30 backdrop-blur-sm p-4 rounded-2xl border border-primary/5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 h-8 text-[10px] uppercase font-bold tracking-wider rounded-full border-primary/20 hover:bg-primary/10 transition-all shadow-sm"
+                onClick={() => {
+                  const role = currentUser.role.toLowerCase()
+                  router.push(`/${role}/boards`)
+                }}
+              >
+                <ArrowLeft className="size-3.5" />
+                Boards
+              </Button>
+              <div className="h-4 w-px bg-primary/10 mx-1" />
+              <div className="p-2 bg-primary/10 rounded-lg hidden sm:block">
+                <Layout className="size-5 text-primary" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-oswald uppercase text-foreground/90">{board.name}</h1>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-oswald uppercase text-foreground/90">{board.name}</h1>
+            <p className="text-muted-foreground max-w-2xl text-xs md:text-sm line-clamp-1 opacity-80 pl-[92px] sm:pl-[124px]">
+              {board.description || 'Manage your team tasks and workflow efficiency.'}
+            </p>
           </div>
-          <p className="text-muted-foreground max-w-2xl text-xs md:text-sm line-clamp-1 opacity-80 pl-[92px] sm:pl-[124px]">
-            {board.description || 'Manage your team tasks and workflow efficiency.'}
-          </p>
-        </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-3 overflow-hidden">
-              {board.members.slice(0, 5).map((member: User) => (
-                <div key={member.id} className="inline-block size-9 rounded-full ring-2 ring-background bg-muted flex items-center justify-center overflow-hidden" title={member.name || member.email}>
-                  {member.image ? (
-                    <Image src={member.image} alt={member.name || ''} width={36} height={36} className="size-full object-cover" />
-                  ) : (
-                    <span className="text-[10px] font-bold">{member.name?.[0] || member.email[0].toUpperCase()}</span>
-                  )}
-                </div>
-              ))}
-              {board.members.length > 5 && (
-                <div className="flex items-center justify-center size-9 rounded-full ring-2 ring-background bg-primary/10 text-primary text-[10px] font-bold">
-                  +{board.members.length - 5}
-                </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {canManageMembers && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9 rounded-full hover:bg-primary/10 transition-colors"
+                onClick={() => setIsManageMembersOpen(true)}
+                title="Manage Members"
+              >
+                <Users className="size-4 text-primary" />
+              </Button>
+
+              {canEditBoard && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 rounded-full hover:bg-primary/10 transition-colors"
+                    onClick={() => setIsEditBoardOpen(true)}
+                    title="Edit Board"
+                  >
+                    <Edit2 className="size-4 text-primary" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 rounded-full hover:bg-red-500/10 transition-colors"
+                    onClick={async () => {
+                      if (!isOnline) {
+                        toast.error('Board deletion is not available offline')
+                        return
+                      }
+                      if (!confirm('Are you sure you want to delete this board? All tasks and columns will be permanently removed.')) return
+                      const result = await deleteBoard({ boardId: board.id })
+                      if (result.success) {
+                        toast.success('Board deleted')
+                        const role = currentUser.role.toLowerCase()
+                        router.push(`/${role}/boards`)
+                      } else {
+                        toast.error(result.error || 'Failed to delete board')
+                      }
+                    }}
+                    title={isOnline ? 'Delete Board' : 'Board deletion not available offline'}
+                  >
+                    <Trash2 className="size-4 text-red-500" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 rounded-full hover:bg-primary/10 transition-colors"
+                    onClick={() => setIsAnalyticsOpen(true)}
+                    title="Board Analytics"
+                  >
+                    <BarChart3 className="size-4 text-primary" />
+                  </Button>
+                </>
               )}
             </div>
-            
-            {canManageMembers && (
-              <div className="flex items-center gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="size-9 rounded-full hover:bg-primary/10 transition-colors"
-                  onClick={() => setIsManageMembersOpen(true)}
-                  title="Manage Members"
-                >
-                  <Users className="size-4 text-primary" />
-                </Button>
+            )}
 
-                {canEditBoard && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-9 rounded-full hover:bg-primary/10 transition-colors"
-                      onClick={() => setIsEditBoardOpen(true)}
-                      title="Edit Board"
-                    >
-                      <Edit2 className="size-4 text-primary" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-9 rounded-full hover:bg-red-500/10 transition-colors"
-                      onClick={async () => {
-                        if (!isOnline) {
-                          toast.error('Board deletion is not available offline')
-                          return
-                        }
-                        if (!confirm('Are you sure you want to delete this board? All tasks and columns will be permanently removed.')) return
-                        const result = await deleteBoard({ boardId: board.id })
-                        if (result.success) {
-                          toast.success('Board deleted')
-                          const role = currentUser.role.toLowerCase()
-                          router.push(`/${role}/boards`)
-                        } else {
-                          toast.error(result.error || 'Failed to delete board')
-                        }
-                      }}
-                      title={isOnline ? 'Delete Board' : 'Board deletion not available offline'}
-                    >
-                      <Trash2 className="size-4 text-red-500" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-9 rounded-full hover:bg-primary/10 transition-colors"
-                      onClick={() => setIsAnalyticsOpen(true)}
-                      title="Board Analytics"
-                    >
-                      <BarChart3 className="size-4 text-primary" />
-                    </Button>
-                  </>
+            <div className="h-8 w-px bg-border hidden md:block" />
+            
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-full">
+              <Calendar className="size-3.5" />
+              <span>Updated {new Date(board.updatedAt).toLocaleDateString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex-shrink-0 mr-1">Members</span>
+          {board.members.slice(0, 8).map((member: User) => (
+            <div
+              key={member.id}
+              className="flex items-center gap-1.5 flex-shrink-0 bg-muted/50 hover:bg-muted border border-primary/5 rounded-full pl-0.5 pr-2.5 py-0.5 transition-colors"
+              title={member.name || member.email}
+            >
+              <div className="size-7 rounded-full ring-1 ring-background bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                {member.image ? (
+                  <Image src={member.image} alt={member.name || ''} width={28} height={28} className="size-full object-cover" />
+                ) : (
+                  <span className="text-[9px] font-bold text-muted-foreground">{member.name?.[0]?.toUpperCase() || member.email[0]?.toUpperCase()}</span>
                 )}
               </div>
-            )}
-          </div>
-
-          <div className="h-8 w-px bg-border hidden md:block" />
-          
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-full">
-            <Calendar className="size-3.5" />
-            <span>Updated {new Date(board.updatedAt).toLocaleDateString()}</span>
-          </div>
+              <span className="text-[11px] font-medium text-foreground/80 max-w-[80px] truncate">
+                {member.name || member.email.split('@')[0]}
+              </span>
+              {member.id === board.ownerId && (
+                <span className="text-[8px] font-bold uppercase bg-primary/15 text-primary px-1 py-px rounded-full">Owner</span>
+              )}
+            </div>
+          ))}
+          {board.members.length > 8 && (
+            <div className="flex items-center justify-center size-7 rounded-full ring-1 ring-background bg-primary/10 text-primary text-[9px] font-bold flex-shrink-0" title={`${board.members.length - 8} more members`}>
+              +{board.members.length - 8}
+            </div>
+          )}
         </div>
       </div>
 
