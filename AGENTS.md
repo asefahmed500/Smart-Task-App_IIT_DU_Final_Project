@@ -14,19 +14,22 @@ Real-time Kanban board with RBAC, WIP limits, offline support (`lib/store/use-of
 
 | Command | What it does |
 |---------|-------------|
-| `npm run dev` | `db:check`, then Socket.io (3001) + Next.js (3002) concurrently |
+| `npm run dev` | `db:check` **(blocks startup if DB unreachable)**, then Socket.io (3001) + Next.js (3002) concurrently |
 | `npm run socket:dev` | Standalone Socket.io server only |
 | `npm run db:setup` | `prisma db push && prisma generate && npm run seed` |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run build` | `next build` |
 | `npm run seed` | Seeds DB; needs `.env.local`; password: `AdminPassword123!` |
 | `npm run format` | Prettier: no semicolons, double quotes, trailing commas `es5`, printWidth 80, auto-sorts Tailwind classes via `prettier-plugin-tailwindcss` |
+| `npm run db:check` | Verifies DB connectivity before dev (run automatically by `dev`) |
+| `npm run check-users` | Diagnostic: verify user roles/credentials in DB |
+| `npm run check-boards` | Diagnostic: validate board memberships |
 
 ## Environment
 
 `.env.local` required: `DATABASE_URL`, `JWT_SECRET`, `PORT=3002`
 
-Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `http://localhost:3001`), `NEXT_PUBLIC_APP_URL`, `SOCKET_PORT` (default 3001)
+Optional: `ALLOWED_ORIGIN`, `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `http://localhost:3001`), `NEXT_PUBLIC_APP_URL`, `SOCKET_PORT` (default 3001)
 
 ## Architecture
 
@@ -34,13 +37,13 @@ Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `h
 
 **ESM project** (`"type": "module"`). All config files use `.mjs`. Never create `.cjs` configs.
 
-**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` reads `DATABASE_URL` from `.env.local` via dotenv. `postinstall` runs `prisma generate`.
+**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` reads `DATABASE_URL` from `.env.local` via dotenv. `postinstall` runs `prisma generate`. **`generated/` is gitignored** — always run `prisma generate` after pulling schema changes.
 
 **Socket.io is standalone** (`src/socket/server.ts` on 3001), not Next.js built-in. Also runs background jobs: due date reminders/overdue checks every 60s, 90-day audit log cleanup at midnight. `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit events through it to the standalone server.
 
 **Middleware is `proxy.ts`** at project root — not `middleware.ts`. Handles auth guards + RBAC redirects.
 
-**Auth:** Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API route (`POST /api/auth/login`), not a server action.
+**Auth:** Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API route (`POST /api/auth/login`), not a server action. `lib/auth.ts` has encrypt/decrypt; `lib/auth-server.ts` is a `'use server'` module for login/logout/getSession cookie management.
 
 **Roles:** `ADMIN`, `MANAGER`, `MEMBER` (UPPERCASE in DB).
 
@@ -49,6 +52,12 @@ Optional: `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `h
 **Zod v4** (`zod@4.x`). Date fields from HTML forms use `z.string()` (not `z.string().datetime()`) since `<input type="date">` returns `YYYY-MM-DD`.
 
 **shadcn** style is `radix-nova`. UI components in `components/ui/`.
+
+**Offline:** IndexedDB-backed action queue (`lib/offline-db.ts`) stores `CREATE_TASK`, `MOVE_TASK`, `EDIT_TASK`, `ADD_COMMENT`, `UPDATE_TASK` ops. Zustand store at `lib/store/use-offline-store.ts`. UI provider at `components/providers/offline-provider.tsx`.
+
+**Disposable workspace:** `scratch/` is gitignored and ESLint-ignored. Safe place for temporary experiments and debug output.
+
+**GEMINI.md is partially outdated** — server actions are in `actions/`, not `lib/`. Trust AGENTS.md over GEMINI.md where they conflict.
 
 ## Code Conventions
 
@@ -112,23 +121,6 @@ RBAC checks live inside server action files (not a shared lib):
 `useSocket` hook (`components/kanban/socket-hooks.ts`): module-level singleton, joins/leaves board rooms on `boardId` change, `useMemo` for user prop, unmount cleanup via ref.
 
 Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/socket-emitter.ts`.
-
-## Progress
-
-### Bugs Fixed (11 total)
-1. **(High)** Reviewer dropdown showed ALL system users → `eligibleReviewers` from `boardMembers` filtered by role
-2. **(High)** `completeReview` undo picked wrong audit log → Single COMPLETE_REVIEW log with column move data
-3. **(Medium)** TASK_ASSIGNED automation never fired → Fires on both create and update paths
-4. **(Low)** Duplicate ADD_COMMENT audit log → Removed duplicate
-5. **(Medium)** Board owner denied access if not in members → `getBoardData` checks `isOwner`
-6. **(High)** Stale `updatedReview.task` used after column move → Re-fetch fresh task from DB
-7. **(Medium)** `handleMoveTask` wrong field names → Emits `newColumnId`/`oldColumnId`
-8. **(Medium)** `handleBoardEvent` only handled one naming convention → Fallbacks for both
-9. **(Low)** Title editing called `setTask` on every keystroke → Local `useState`, `onUpdate` on `onBlur`
-10. **(Low)** `useTaskTags` missing `useRef` → Added import
-11. **(High)** `NEW_USER_SIGNUP` had no pref field → Added to schema + mapping with typed keys
-
-All fixes pass `npm run typecheck` && `npm run build`. Zero new lint errors.
 
 ## Key Files
 

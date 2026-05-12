@@ -91,6 +91,13 @@ export function useBoardEvents(boardId: string, onEvent: (event: string, data: R
       'column:created': (data) => onEvent('column:created', data),
       'column:deleted': (data) => onEvent('column:deleted', data),
       'column:updated': (data) => onEvent('column:updated', data),
+      'columns:reordered': (data) => onEvent('columns:reordered', data),
+      'board:updated': (data) => onEvent('board:updated', data),
+      'board:deleted': (data) => onEvent('board:deleted', data),
+      'board:member_added': (data) => onEvent('board:member_added', data),
+      'board:member_removed': (data) => onEvent('board:member_removed', data),
+      'tag:created': (data) => onEvent('tag:created', data),
+      'tag:deleted': (data) => onEvent('tag:deleted', data),
     }
 
     Object.entries(handlers).forEach(([event, handler]) => {

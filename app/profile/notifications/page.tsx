@@ -17,6 +17,9 @@ interface NotificationPrefs {
   overdueReminder: boolean
   reviewRequested: boolean
   reviewCompleted: boolean
+  newUserSignup: boolean
+  boardMemberAdded: boolean
+  boardMemberRemoved: boolean
   emailEnabled: boolean
   pushEnabled: boolean
 }
@@ -30,6 +33,9 @@ const PREF_LABELS: Record<keyof NotificationPrefs, { label: string; icon: React.
   overdueReminder: { label: 'Overdue Reminder', icon: <Bell className="size-4" /> },
   reviewRequested: { label: 'Review Requested', icon: <Bell className="size-4" /> },
   reviewCompleted: { label: 'Review Completed', icon: <Bell className="size-4" /> },
+  newUserSignup: { label: 'New User Signup', icon: <Bell className="size-4" /> },
+  boardMemberAdded: { label: 'Added to Board', icon: <Bell className="size-4" /> },
+  boardMemberRemoved: { label: 'Removed from Board', icon: <Bell className="size-4" /> },
   emailEnabled: { label: 'Email Notifications', icon: <Mail className="size-4" /> },
   pushEnabled: { label: 'Push Notifications', icon: <Smartphone className="size-4" /> },
 }

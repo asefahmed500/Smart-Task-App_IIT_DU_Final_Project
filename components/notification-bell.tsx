@@ -119,6 +119,8 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
       case 'AUTOMATION_TRIGGERED': return '⚡'
       case 'REVIEW_REQUESTED': return '🔍'
       case 'REVIEW_COMPLETED': return '✅'
+      case 'BOARD_MEMBER_ADDED': return '👥'
+      case 'BOARD_MEMBER_REMOVED': return '👋'
       default: return '🔔'
     }
   }

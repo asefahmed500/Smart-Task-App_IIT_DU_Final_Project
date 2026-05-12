@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   DragStartEvent,
   DragOverEvent,
@@ -20,6 +21,7 @@ interface UseKanbanBoardProps {
 }
 
 export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProps) {
+  const router = useRouter()
   const [board, setBoard] = useState<Board>(initialBoard)
   const [activeColumn, setActiveColumn] = useState<Column | null>(null)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
@@ -151,6 +153,40 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
           )
         }))
       }
+    }
+
+    if (event === 'columns:reordered') {
+      if (data.columnIds) {
+        const columnIds = data.columnIds as string[]
+        setBoard((prev: Board) => {
+          const columnMap = new Map(prev.columns.map((col: Column) => [col.id, col]))
+          const reordered = columnIds
+            .map((id: string) => columnMap.get(id))
+            .filter(Boolean) as Column[]
+          return { ...prev, columns: reordered }
+        })
+        toast.info('Columns were reordered')
+      }
+    }
+
+    if (event === 'board:updated') {
+      if (data.name) {
+        setBoard((prev: Board) => ({ ...prev, name: data.name as string }))
+        toast.info('Board was updated')
+      }
+    }
+
+    if (event === 'board:deleted') {
+      toast.info('Board was deleted')
+      router.push('/dashboard')
+    }
+
+    if (event === 'board:member_added' || event === 'board:member_removed') {
+      router.refresh()
+    }
+
+    if (event === 'tag:created' || event === 'tag:deleted') {
+      router.refresh()
     }
   }, [])
 

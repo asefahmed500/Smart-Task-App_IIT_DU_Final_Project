@@ -17,6 +17,7 @@ import {
 } from '@/lib/schemas'
 import { ActionResult } from '@/types/kanban'
 import { emitBoardEvent } from '@/utils/socket-emitter'
+import { sendNotification } from '@/utils/notification-utils'
 import { createAuditLog } from '@/lib/create-audit-log'
 
 /**
@@ -551,6 +552,11 @@ export async function addBoardMember(rawInput: any): Promise<ActionResult> {
     const permission = await checkBoardPermission({ boardId, allowedRoles: ['ADMIN', 'MANAGER'] })
     if (!permission.success) return permission as any
 
+    const board = await prisma.board.findUnique({
+      where: { id: boardId },
+      select: { name: true },
+    })
+
     await prisma.board.update({
       where: { id: boardId },
       data: {
@@ -567,6 +573,15 @@ export async function addBoardMember(rawInput: any): Promise<ActionResult> {
     })
 
     emitBoardEvent('board:member_added', { boardId, userId })
+
+    if (userId !== (permission as any).session.id) {
+      await sendNotification({
+        userId,
+        type: 'BOARD_MEMBER_ADDED',
+        message: `You were added to board: ${board?.name ?? 'Unknown'}`,
+        link: `/dashboard/board/${boardId}`,
+      })
+    }
 
     revalidatePath(`/dashboard/board/${boardId}`)
     return { success: true }
@@ -588,7 +603,7 @@ export async function removeBoardMember(rawInput: any): Promise<ActionResult> {
 
     const board = await prisma.board.findUnique({
       where: { id: boardId },
-      select: { ownerId: true }
+      select: { ownerId: true, name: true }
     })
 
     if (board && userId === board.ownerId) {
@@ -611,6 +626,15 @@ export async function removeBoardMember(rawInput: any): Promise<ActionResult> {
     })
 
     emitBoardEvent('board:member_removed', { boardId, userId })
+
+    if (userId !== (permission as any).session.id) {
+      await sendNotification({
+        userId,
+        type: 'BOARD_MEMBER_REMOVED',
+        message: `You were removed from board: ${board?.name ?? 'Unknown'}`,
+        link: `/dashboard`,
+      })
+    }
 
     revalidatePath(`/dashboard/board/${boardId}`)
     return { success: true }

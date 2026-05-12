@@ -1,7 +1,8 @@
-const CACHE_NAME = 'smart-task-v1';
+const CACHE_NAME = 'smart-task-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/login',
+  '/signup',
   '/dashboard',
   '/globals.css',
   '/manifest.json',

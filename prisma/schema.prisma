@@ -184,6 +184,8 @@ model NotificationPreference {
   reviewRequested    Boolean  @default(true)
   reviewCompleted    Boolean  @default(true)
   newUserSignup      Boolean  @default(true)
+  boardMemberAdded   Boolean  @default(true)
+  boardMemberRemoved Boolean  @default(true)
   emailEnabled       Boolean  @default(false)
   pushEnabled        Boolean  @default(false)
   createdAt          DateTime @default(now())

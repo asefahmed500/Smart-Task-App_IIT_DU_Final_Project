@@ -139,6 +139,67 @@ io.on('connection', (socket: Socket) => {
     socket.to(`board:${data.boardId}`).emit('column:created', data)
   })
 
+  socket.on('column:updated', (data: {
+    boardId: string
+    columnId: string
+  }) => {
+    socket.to(`board:${data.boardId}`).emit('column:updated', data)
+  })
+
+  socket.on('column:deleted', (data: {
+    boardId: string
+    columnId: string
+  }) => {
+    socket.to(`board:${data.boardId}`).emit('column:deleted', data)
+  })
+
+  socket.on('columns:reordered', (data: {
+    boardId: string
+    columnIds: string[]
+  }) => {
+    socket.to(`board:${data.boardId}`).emit('columns:reordered', data)
+  })
+
+  socket.on('board:updated', (data: {
+    boardId: string
+  }) => {
+    socket.to(`board:${data.boardId}`).emit('board:updated', data)
+  })
+
+  socket.on('board:deleted', (data: {
+    boardId: string
+  }) => {
+    socket.to(`board:${data.boardId}`).emit('board:deleted', data)
+  })
+
+  socket.on('board:member_added', (data: {
+    boardId: string
+    userId: string
+  }) => {
+    socket.to(`board:${data.boardId}`).emit('board:member_added', data)
+  })
+
+  socket.on('board:member_removed', (data: {
+    boardId: string
+    userId: string
+  }) => {
+    socket.to(`board:${data.boardId}`).emit('board:member_removed', data)
+  })
+
+  socket.on('tag:created', (data: {
+    boardId: string
+    tagId: string
+  }) => {
+    socket.to(`board:${data.boardId}`).emit('tag:created', data)
+  })
+
+  socket.on('tag:deleted', (data: {
+    boardId: string
+    tagId: string
+  }) => {
+    socket.to(`board:${data.boardId}`).emit('tag:deleted', data)
+  })
+
   // Register user for personal notifications
   socket.on('register-user', (userId: string) => {
     if (!userSockets.has(userId)) {

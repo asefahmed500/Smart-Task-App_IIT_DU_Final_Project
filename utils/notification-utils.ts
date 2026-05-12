@@ -13,12 +13,15 @@ type NotifType =
   | 'DUE_DATE_REMINDER'
   | 'OVERDUE'
   | 'NEW_USER_SIGNUP'
+  | 'BOARD_MEMBER_ADDED'
+  | 'BOARD_MEMBER_REMOVED'
 
 const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   import('@/lib/prisma').NotificationPreference,
   'taskAssigned' | 'statusChanged' | 'commentMention' |
   'automationTriggered' | 'dueDateReminder' | 'overdueReminder' |
-  'reviewRequested' | 'reviewCompleted' | 'newUserSignup'
+  'reviewRequested' | 'reviewCompleted' | 'newUserSignup' |
+  'boardMemberAdded' | 'boardMemberRemoved'
 >>> = {
   TASK_ASSIGNED: 'taskAssigned',
   TASK_STATUS_CHANGED: 'statusChanged',
@@ -29,12 +32,15 @@ const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   DUE_DATE_REMINDER: 'dueDateReminder',
   OVERDUE: 'overdueReminder',
   NEW_USER_SIGNUP: 'newUserSignup',
+  BOARD_MEMBER_ADDED: 'boardMemberAdded',
+  BOARD_MEMBER_REMOVED: 'boardMemberRemoved',
 }
 
 const booleanPrefKeys = new Set([
   'taskAssigned', 'statusChanged', 'commentMention',
   'automationTriggered', 'dueDateReminder', 'overdueReminder',
   'reviewRequested', 'reviewCompleted', 'newUserSignup',
+  'boardMemberAdded', 'boardMemberRemoved',
 ]) as Set<string & keyof import('@/lib/prisma').NotificationPreference>
 
 export async function sendNotification(input: {

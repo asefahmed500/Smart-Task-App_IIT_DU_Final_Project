@@ -163,6 +163,13 @@ export async function createTask(input: any): Promise<ActionResult> {
     }).catch(err => console.error('[AUTOMATION_ERROR]', err))
 
     if (task.assigneeId && task.assigneeId !== session.id) {
+      await sendNotification({
+        userId: task.assigneeId,
+        type: 'TASK_ASSIGNED',
+        message: `You have been assigned to task: ${task.title}`,
+        link: `/dashboard/board/${column.boardId}`,
+      })
+
       evaluateAutomationRules('TASK_ASSIGNED', {
         taskId: task.id,
         taskTitle: task.title,

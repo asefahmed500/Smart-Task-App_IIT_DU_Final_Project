@@ -129,6 +129,9 @@ export interface NotificationPreference {
   overdueReminder: boolean;
   reviewRequested: boolean;
   reviewCompleted: boolean;
+  newUserSignup: boolean;
+  boardMemberAdded: boolean;
+  boardMemberRemoved: boolean;
   emailEnabled: boolean;
   pushEnabled: boolean;
 }
