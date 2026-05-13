@@ -28,7 +28,15 @@ const allowedOrigins = process.env.ALLOWED_ORIGIN
   ? process.env.ALLOWED_ORIGIN.split(',').map(s => s.trim())
   : ['*']
 
-const httpServer = createServer()
+const httpServer = createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }))
+  } else {
+    res.writeHead(200, { 'Content-Type': 'text/plain' })
+    res.end('Socket.IO server running')
+  }
+})
 const io = new Server(httpServer, {
   cors: {
     origin: allowedOrigins,
