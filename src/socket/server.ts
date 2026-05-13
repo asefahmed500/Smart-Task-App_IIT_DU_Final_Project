@@ -399,7 +399,7 @@ setTimeout(runBackgroundChecks, 5000)
 setInterval(runBackgroundChecks, 60000)
 // --------------------------------------
 
-const PORT = process.env.SOCKET_PORT || 3001
+const PORT = parseInt(process.env.PORT || process.env.SOCKET_PORT || '3001', 10)
 
 httpServer.listen(PORT, () => {
   console.log(`Socket.io server running on port ${PORT}`)

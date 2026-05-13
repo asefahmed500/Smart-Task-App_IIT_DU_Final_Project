@@ -32,15 +32,17 @@ Real-time Kanban board with RBAC, WIP limits, offline support, undo via audit lo
 
 Optional: `ALLOWED_ORIGIN`, `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `http://localhost:3001`), `NEXT_PUBLIC_APP_URL`, `SOCKET_PORT` (default 3001)
 
+For Supabase production: use `?pgbouncer=true` on `DATABASE_URL` (pooled) and separate `DIRECT_URL` (port 5432, no pgbouncer). Both require `ssl: { rejectUnauthorized: false }` — handled automatically in `lib/prisma.ts` and `src/socket/server.ts`.
+
 ## Architecture
 
 **Port 3002, not 3000.** Next.js dev server on 3002. Socket.io standalone on 3001 (configurable via `SOCKET_PORT`).
 
 **ESM project** (`"type": "module"`). All config files use `.mjs`. Never create `.cjs` configs.
 
-**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` reads `DATABASE_URL` from `.env.local` via dotenv. `postinstall` runs `prisma generate`. **`generated/` is gitignored** — always run `prisma generate` after pulling schema changes.
+**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` uses `DIRECT_URL` for schema operations (falls back to `DATABASE_URL`). Reads `.env.local` in dev, `.env` in production. `postinstall` runs `prisma generate`. **`generated/` is gitignored** — always run `prisma generate` after pulling schema changes.
 
-**Socket.io is standalone** (`src/socket/server.ts` on 3001), not Next.js built-in. Also runs background jobs: due date reminders/overdue checks every 60s, 90-day audit log cleanup at midnight. `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit events through it to the standalone server.
+**Socket.io is standalone** (`src/socket/server.ts` on 3001), not Next.js built-in. Self-contained: has its own Prisma+pg pool, does NOT import from `@/` paths or `utils/notification-utils.ts`. Background jobs run inline (due date reminders/overdue checks every 60s, 90-day audit log cleanup at midnight). `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit events through it to the standalone server.
 
 **Middleware is `proxy.ts`** at project root — not `middleware.ts`. Next.js 16 auto-detects it. Handles auth guards + RBAC redirects.
 
@@ -64,6 +66,7 @@ Optional: `ALLOWED_ORIGIN`, `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKE
 - `createAuditLog()` in `lib/create-audit-log.ts` auto-injects IP address — use for all mutations
 - Prisma enum returns need casting (`as string`, `as Priority`) when crossing server/client boundary
 - Import enums via `@/lib/prisma` (re-exports from `generated/prisma`)
+- `tsconfig.json` excludes `scripts/` and `scratch/` from compilation — utility scripts go in `scripts/`, temp files in `scratch/`
 
 ## RBAC
 
@@ -122,6 +125,24 @@ Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/so
 
 **GEMINI.md is partially outdated** — server actions are in `actions/`, not `lib/`. Trust AGENTS.md over GEMINI.md where they conflict.
 
+**Node.js 22+ required.** Prisma v7 and Next.js 16 need Node `^20.19 || ^22.12 || >=24.0`. The `.nvmrc` pins Node 22. Railway (`railway.toml`) sets `NIXPACKS_NODE_VERSION=22`.
+
+**Railway socket server MUST read `process.env.PORT`.** Railway auto-injects a `PORT` env var for health checks. The socket server reads `PORT` first, then `SOCKET_PORT`, then defaults to `3001`. Do NOT manually set `PORT` in Railway env vars.
+
+**`scripts/` is excluded from TypeScript compilation** (`tsconfig.json`). Files there use `npx tsx` to run directly — don't import from them in app code.
+
+## Production Deployment
+
+**See [VERCEL.md](./VERCEL.md) and [RAILWAY.md](./RAILWAY.md) for full deployment guides.**
+
+### Quick Reference
+
+- **Vercel** (Next.js app): `vercel --prod` — env vars in dashboard, `.env.production` is gitignored
+- **Railway** (Socket.IO server): `railway up` — uses `railway.toml`, env vars in dashboard or `railway variables set`
+- **Supabase** (PostgreSQL): `DATABASE_URL` with `?pgbouncer=true` (port 6543) for queries, `DIRECT_URL` (port 5432) for schema ops
+- SSL for Supabase is auto-applied in `lib/prisma.ts`, `src/socket/server.ts`, `prisma/seed.ts`, `scripts/db-check.ts` when URL contains `supabase.com`
+- Socket server is self-contained — no `@/` imports, own Prisma+pg pool
+
 ## Key Files
 
 | Purpose | Path |
@@ -130,9 +151,10 @@ Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/so
 | Auth (JWT) | `lib/auth.ts`, `lib/auth-server.ts` |
 | Middleware | `proxy.ts` (project root) |
 | Prisma schema | `prisma/schema.prisma` |
+| Prisma config | `prisma.config.ts` (uses `DIRECT_URL` for schema ops) |
 | Zod schemas | `lib/schemas.ts` |
 | Server actions | `actions/*-actions.ts` |
-| Socket server | `src/socket/server.ts` |
+| Socket server | `src/socket/server.ts` (standalone, no `@/` imports) |
 | Socket client (emitter) | `utils/socket-emitter.ts` |
 | Notification utils | `utils/notification-utils.ts` |
 | Kanban board hook | `hooks/use-kanban-board.ts` |
@@ -142,6 +164,8 @@ Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/so
 | Offline DB | `lib/offline-db.ts` |
 | Offline UI provider | `components/providers/offline-provider.tsx` |
 | Audit log helper | `lib/create-audit-log.ts` |
+| Railway config | `railway.toml` |
+| Node version pin | `.nvmrc` (Node 22) |
 
 ## Seed Accounts
 
