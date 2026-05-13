@@ -169,7 +169,7 @@ export const loginSchema = z.object({
 
 export const signupSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
   name: z.string().min(1, 'Name is required').max(50),
 });
 
@@ -179,10 +179,10 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   token: z.string(),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 export const updateProfileSchema = z.object({
   name: z.string().min(1).max(50).optional(),
-  password: z.string().min(8).optional(),
+  password: z.string().min(6).optional(),
 });
