@@ -9,4 +9,4 @@ restartPolicyMaxRetries = 10
 
 [[deploy.envVars]]
 name = "NIXPACKS_NODE_VERSION"
-value = "20"
+value = "22"
