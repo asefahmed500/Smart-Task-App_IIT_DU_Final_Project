@@ -15,11 +15,14 @@ declare global {
 
 let prisma: PrismaClient
 
-const poolConfig = {
+const isSupabase = connectionString.includes('supabase.com')
+
+const poolConfig: pg.PoolConfig = {
   connectionString,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
+  ...(isSupabase ? { ssl: { rejectUnauthorized: false } as any } : {}),
 }
 
 if (process.env.NODE_ENV === 'production') {

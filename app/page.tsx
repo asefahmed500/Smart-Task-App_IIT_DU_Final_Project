@@ -59,7 +59,7 @@ export default async function LandingPage() {
                 <span className="text-primary italic">Faster</span> than ever.
               </h1>
               <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl lg:text-2xl font-medium leading-relaxed">
-                SmartTask helps teams organize, collaborate, and execute with AI-powered task prioritization and real-time updates.
+                SmartTask helps teams organize, collaborate, and execute  task prioritization and real-time updates.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">

@@ -1,6 +1,11 @@
 import { config } from 'dotenv'
-config({ path: '.env.local' })
 import { defineConfig, env } from 'prisma/config'
+
+if (process.env.NODE_ENV === 'production') {
+  config()
+} else {
+  config({ path: '.env.local' })
+}
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -8,6 +13,6 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url: env('DATABASE_URL'),
+    url: env('DIRECT_URL') || env('DATABASE_URL'),
   },
 })

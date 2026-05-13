@@ -4,10 +4,18 @@ import pg from 'pg'
 import bcrypt from 'bcryptjs'
 import dotenv from 'dotenv'
 
-dotenv.config({ path: '.env.local' })
+if (process.env.NODE_ENV === 'production') {
+  dotenv.config()
+} else {
+  dotenv.config({ path: '.env.local' })
+}
 
 const connectionString = process.env.DATABASE_URL!
-const pool = new pg.Pool({ connectionString })
+const isSupabase = connectionString.includes('supabase.com')
+const pool = new pg.Pool({
+  connectionString,
+  ...(isSupabase ? { ssl: { rejectUnauthorized: false } as any } : {}),
+})
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 

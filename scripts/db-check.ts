@@ -11,9 +11,11 @@ async function checkConnection() {
     process.exit(1)
   }
 
-  const pool = new pg.Pool({ 
+  const isSupabase = connectionString.includes('supabase.com')
+  const pool = new pg.Pool({
     connectionString,
     connectionTimeoutMillis: 5000,
+    ...(isSupabase ? { ssl: { rejectUnauthorized: false } as any } : {}),
   })
 
   console.log('🔍 Checking database connection...')

@@ -1,12 +1,39 @@
+import dotenv from 'dotenv'
+
+if (process.env.NODE_ENV === 'production') {
+  dotenv.config()
+} else {
+  dotenv.config({ path: '.env.local' })
+}
+
 import { Server, Socket } from 'socket.io'
 import { createServer } from 'http'
+import { PrismaClient } from '../../generated/prisma'
+import { PrismaPg } from '@prisma/adapter-pg'
+import pg from 'pg'
+
+const connectionString = process.env.DATABASE_URL!
+const isSupabase = connectionString.includes('supabase.com')
+const pgPool = new pg.Pool({
+  connectionString,
+  max: 5,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  ...(isSupabase ? { ssl: { rejectUnauthorized: false } as any } : {}),
+})
+const pgAdapter = new PrismaPg(pgPool)
+const prisma = new PrismaClient({ adapter: pgAdapter })
+
+const allowedOrigins = process.env.ALLOWED_ORIGIN
+  ? process.env.ALLOWED_ORIGIN.split(',').map(s => s.trim())
+  : ['*']
 
 const httpServer = createServer()
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+  },
 })
 
 interface PresenceUser {
@@ -259,26 +286,99 @@ io.on('connection', (socket: Socket) => {
 })
 
 // --- Background Notification Worker ---
-// This runs every minute to check for due date reminders and overdue tasks
 async function runBackgroundChecks() {
   try {
-    const { runNotificationChecks } = await import('../../utils/notification-utils')
     console.log('[Worker] Running background notification checks...')
-    const results = await runNotificationChecks()
-    if (results.dueDateReminders > 0 || results.overdueTasks > 0) {
-      console.log(`[Worker] Notifications sent: ${results.dueDateReminders} reminders, ${results.overdueTasks} overdue`)
+    const now = new Date()
+
+    const overdueTasks = await prisma.task.findMany({
+      where: {
+        dueDate: { lt: now },
+        column: { name: { not: 'Done' } },
+      },
+      include: { assignee: true, column: true },
+    })
+
+    let overdueCount = 0
+    for (const task of overdueTasks) {
+      if (!task.assignee) continue
+      const existing = await prisma.notification.findFirst({
+        where: {
+          userId: task.assignee.id,
+          type: 'OVERDUE',
+          link: `/dashboard/board/${task.column.boardId}`,
+          createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+        },
+      })
+      if (!existing) {
+        await prisma.notification.create({
+          data: {
+            userId: task.assignee.id,
+            type: 'OVERDUE',
+            message: `Task "${task.title}" is overdue!`,
+            link: `/dashboard/board/${task.column.boardId}`,
+          },
+        })
+        io.to(`user:${task.assignee.id}`).emit('notification', {
+          userId: task.assignee.id,
+          type: 'OVERDUE',
+          message: `Task "${task.title}" is overdue!`,
+          link: `/dashboard/board/${task.column.boardId}`,
+        })
+        overdueCount++
+      }
+    }
+
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+    const upcomingTasks = await prisma.task.findMany({
+      where: {
+        dueDate: { gte: now, lt: tomorrow },
+        column: { name: { not: 'Done' } },
+      },
+      include: { assignee: true, column: true },
+    })
+
+    let reminderCount = 0
+    for (const task of upcomingTasks) {
+      if (!task.assignee) continue
+      const existing = await prisma.notification.findFirst({
+        where: {
+          userId: task.assignee.id,
+          type: 'DUE_DATE_REMINDER',
+          link: `/dashboard/board/${task.column.boardId}`,
+          createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+        },
+      })
+      if (!existing) {
+        await prisma.notification.create({
+          data: {
+            userId: task.assignee.id,
+            type: 'DUE_DATE_REMINDER',
+            message: `Task "${task.title}" is due soon!`,
+            link: `/dashboard/board/${task.column.boardId}`,
+          },
+        })
+        io.to(`user:${task.assignee.id}`).emit('notification', {
+          userId: task.assignee.id,
+          type: 'DUE_DATE_REMINDER',
+          message: `Task "${task.title}" is due soon!`,
+          link: `/dashboard/board/${task.column.boardId}`,
+        })
+        reminderCount++
+      }
+    }
+
+    if (reminderCount > 0 || overdueCount > 0) {
+      console.log(`[Worker] Notifications: ${reminderCount} reminders, ${overdueCount} overdue`)
     }
   } catch (error) {
     console.error('[Worker] Error running background checks:', error)
   }
 
-  // 90-day audit log cleanup (run once per day at midnight)
   try {
     const now = new Date()
     const isMidnight = now.getHours() === 0 && now.getMinutes() === 0
     if (isMidnight) {
-      const { PrismaClient } = await import('../../generated/prisma')
-      const prisma = new PrismaClient()
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
       const { count } = await prisma.auditLog.deleteMany({
         where: { createdAt: { lt: ninetyDaysAgo } },
@@ -286,7 +386,6 @@ async function runBackgroundChecks() {
       if (count > 0) {
         console.log(`[Worker] Cleaned up ${count} audit logs older than 90 days`)
       }
-      await prisma.$disconnect()
     }
   } catch (error) {
     console.error('[Worker] Error cleaning up audit logs:', error)

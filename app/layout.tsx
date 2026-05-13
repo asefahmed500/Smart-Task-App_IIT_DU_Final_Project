@@ -27,7 +27,7 @@ const monoFont = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "SmartTask - Intelligent Task Management",
-  description: "Experience the next generation of task management with AI-powered insights and real-time collaboration.",
+  description: "Experience the next generation of task management  insights and real-time collaboration.",
 };
 
 import { Toaster } from "sonner";
