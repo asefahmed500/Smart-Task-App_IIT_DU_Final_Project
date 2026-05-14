@@ -5,6 +5,19 @@ const nextConfig = {
       ? "'self' 'unsafe-inline'"
       : "'self' 'unsafe-eval' 'unsafe-inline'"
 
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'
+    const connectSources = [
+      "'self'",
+      "https://*.neon.tech",
+      "https://*.supabase.com",
+      "https://*.vercel.app",
+      socketUrl.replace(/\/$/, ''),
+      new URL(socketUrl).origin.replace(/^http/, 'ws'),
+      new URL(socketUrl).origin.replace(/^https/, 'wss'),
+      "ws://localhost:3001",
+      "wss://*",
+    ].join(' ')
+
     return [
       {
         source: '/:path*',
@@ -17,7 +30,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline';",
               "img-src 'self' data: blob: https://*.githubusercontent.com;",
               "font-src 'self' data:;",
-              "connect-src 'self' https://*.neon.tech https://*.vercel.app http://localhost:3001 ws://localhost:3001 wss://*;",
+              `connect-src ${connectSources};`,
               "frame-src 'none';",
               "object-src 'none';",
               "base-uri 'self';",

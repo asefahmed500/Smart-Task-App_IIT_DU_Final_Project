@@ -7,36 +7,43 @@ if (!process.env.DATABASE_URL) {
   dotenv.config({ path: '.env.local' })
 }
 
-const connectionString = process.env.DATABASE_URL!
-
 declare global {
   var prisma: PrismaClient | undefined
 }
 
-let prisma: PrismaClient
+const isSupabase = (process.env.DATABASE_URL || '').includes('supabase.com')
 
-const isSupabase = connectionString.includes('supabase.com')
+let _prisma: PrismaClient | undefined
 
-const poolConfig: pg.PoolConfig = {
-  connectionString,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-  ...(isSupabase ? { ssl: { rejectUnauthorized: false } as any } : {}),
+function getPrismaClient(): PrismaClient {
+  const connectionString = process.env.DATABASE_URL!
+  if (!connectionString) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+
+  const poolConfig: pg.PoolConfig = {
+    connectionString,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+    ...(isSupabase ? { ssl: { rejectUnauthorized: false } as any } : {}),
+  }
+
+  const pool = new pg.Pool(poolConfig)
+  const adapter = new PrismaPg(pool)
+  return new PrismaClient({ adapter })
 }
 
 if (process.env.NODE_ENV === 'production') {
-  const pool = new pg.Pool(poolConfig)
-  const adapter = new PrismaPg(pool)
-  prisma = new PrismaClient({ adapter })
+  _prisma = getPrismaClient()
 } else {
   if (!global.prisma) {
-    const pool = new pg.Pool(poolConfig)
-    const adapter = new PrismaPg(pool)
-    global.prisma = new PrismaClient({ adapter })
+    global.prisma = getPrismaClient()
   }
-  prisma = global.prisma
+  _prisma = global.prisma
 }
+
+const prisma = _prisma!
 
 export default prisma
 export * from '../generated/prisma'
