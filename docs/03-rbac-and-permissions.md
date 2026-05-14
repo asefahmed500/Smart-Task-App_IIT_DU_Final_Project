@@ -131,14 +131,14 @@ graph TB
     subgraph "Database"
         USER["User table (role, teamId)"]
         BOARD["Board table (ownerId)"]
-        MEMBER_REL["Board <-> User (many-to-many)"]
+        MEMBER_REL["Board - User (many-to-many)"]
     end
 
     PROXY -->|"cookie decrypt"| USER
     LAYOUT -->|"getSession()"| USER
 
     CA -->|"session.role === 'ADMIN'"| USER
-    CM -->|"role in {ADMIN, MANAGER}"| USER
+    CM -->|"role is ADMIN or MANAGER"| USER
     CBP -->|"isAdmin OR owner OR member"| BOARD
     CBP -->|"member check"| MEMBER_REL
     CTP -->|"board membership + role"| BOARD
@@ -153,10 +153,10 @@ graph TB
 
 ```mermaid
 flowchart TD
-    START["checkBoardPermission({boardId, allowedRoles})"] --> SESSION["getSession()"]
+    START["checkBoardPermission(boardId, allowedRoles)"] --> SESSION["getSession"]
     SESSION --> NO_SESSION{"Session exists?"}
     NO_SESSION -->|No| ERR_UNAUTH["401: Unauthorized"]
-    NO_SESSION -->|Yes| FIND["prisma.board.findUnique({include: { members }})"]
+    NO_SESSION -->|Yes| FIND["prisma.board.findUnique with members"]
     FIND --> NOT_FOUND{"Board exists?"}
     NOT_FOUND -->|No| ERR_404["404: Board not found"]
     NOT_FOUND -->|Yes| IS_ADMIN{"role === ADMIN?"}
@@ -196,10 +196,10 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    START["checkTaskPermission({taskId, allowedRoles})"] --> SESSION["getSession()"]
+    START["checkTaskPermission(taskId, allowedRoles)"] --> SESSION["getSession"]
     SESSION --> NO_SESSION{"Session?"}
     NO_SESSION -->|No| ERR["401: Unauthorized"]
-    NO_SESSION -->|Yes| FIND["prisma.task.findUnique({include: { column: { include: { board: { include: { members } } } } }})"]
+    NO_SESSION -->|Yes| FIND["prisma.task.findUnique with deep includes"]
     FIND --> NOT_FOUND{"Task?"}
     NOT_FOUND -->|No| ERR_404["404: Task not found"]
     NOT_FOUND -->|Yes| ADMIN{"Is ADMIN?"}
@@ -236,12 +236,12 @@ flowchart LR
     PARSE --> PROTECTED{"Starts with /dashboard, /admin, /manager, /member, /settings, /boards?"}
     PROTECTED -->|No| PUBLIC["Public route: check if logged in"]
     PUBLIC --> LOGGED_IN{"Has session + /login or /signup?"}
-    LOGGED_IN -->|Yes| REDIRECT_DASH["-> /dashboard"]
+    LOGGED_IN -->|Yes| REDIRECT_DASH["Redirect to /dashboard"]
     LOGGED_IN -->|No| ALLOW["Allow"]
     PROTECTED -->|Yes| HAS_SESSION{"Has session?"}
-    HAS_SESSION -->|No| REDIRECT_LOGIN["-> /login"]
+    HAS_SESSION -->|No| REDIRECT_LOGIN["Redirect to /login"]
     HAS_SESSION -->|Yes| RBAC{"Path-based role check"}
-    RBAC -->|"/admin" != ADMIN| REDIRECT_DASH2["-> /dashboard"]
+    RBAC -->|"/admin" != ADMIN| REDIRECT_DASH2["Redirect to /dashboard"]
     RBAC -->|"/manager" not in ADMIN,MANAGER| REDIRECT_DASH2
     RBAC -->|"/member" not in any role| REDIRECT_DASH2
     RBAC -->|Authorized| ALLOW2["Allow"]
@@ -259,7 +259,7 @@ sequenceDiagram
 
     Note over Browser: MEMBER creates a task
 
-    Browser->>Action: createTask({title, assigneeId: "other-user", ...})
+    Browser->>Action: createTask(title, assigneeId: other-user)
     Action->>Action: checkBoardPermission()
     Action->>Action: session.role === "MEMBER"?
     alt Is MEMBER
@@ -271,7 +271,7 @@ sequenceDiagram
 
     Note over Browser: MEMBER updates task assignee
 
-    Browser->>Action: updateTask({assigneeId: "other-user"})
+    Browser->>Action: updateTask(assigneeId: other-user)
     Action->>Action: session.role === "MEMBER" && assigneeId !== session.id?
     alt Assigning to someone else
         Action-->>Browser: "Members can only assign tasks to themselves"
@@ -286,14 +286,14 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    START["updateTaskStatus({taskId, columnId, version})"] --> PERM["checkTaskPermission()"]
+    START["updateTaskStatus(taskId, columnId, version)"] --> PERM["checkTaskPermission"]
     PERM --> FAILED{"Authorized?"}
     FAILED -->|No| ERR["Error"]
     FAILED -->|Yes| VERSION["Version conflict check"]
     VERSION --> STALE{"clientVersion === serverVersion?"}
     STALE -->|No| CONFLICT["409: Conflict"]
     STALE -->|Yes| COL["Find target column"]
-    COL --> WIP{"wipLimit > 0 AND NOT (ADMIN or MANAGER)?"}
+    COL --> WIP{"WIP limit active and user is MEMBER?"}
 
     WIP -->|No| MOVE["Move task"]
     WIP -->|Yes| COUNT["Count tasks in column (excluding current task)"]

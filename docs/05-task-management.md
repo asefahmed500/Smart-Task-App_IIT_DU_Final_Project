@@ -31,9 +31,9 @@ stateDiagram-v2
     [*] --> Created: Executive/Manager creates task
     Created --> InProgress: Drag to "In Progress"
     InProgress --> ReviewPending: Submit for review
-    ReviewPending --> Approved: Reviewer approves -> auto-move to "Done"
-    ReviewPending --> ChangesRequested: Reviewer requests changes -> auto-move to "In Progress"
-    ReviewPending --> Rejected: Reviewer rejects -> auto-move to "To Do"
+    ReviewPending --> Approved: Reviewer approves, auto-move to Done
+    ReviewPending --> ChangesRequested: Reviewer requests changes, auto-move to In Progress
+    ReviewPending --> Rejected: Reviewer rejects, auto-move to To Do
     ChangesRequested --> InProgress: Fix and resubmit
     AnyState --> Updated: Edit title/description/priority/assignee
     AnyState --> Deleted: Delete task
@@ -151,24 +151,24 @@ sequenceDiagram
 
     Note over DB: Task version = 3
 
-    UserA->>Server: updateTask({id, title: "New Title", version: 3})
-    Server->>DB: Find task -> version = 3
+    UserA->>Server: updateTask(id, title: "New Title", version: 3)
+    Server->>DB: Find task, version = 3
     Server->>Server: clientVersion(3) === serverVersion(3) OK
     Server->>DB: UPDATE task SET title="New Title", version=4
-    Server-->>UserA: {success: true}
+    Server-->>UserA: (success: true)
 
     Note over DB: Task version = 4
 
-    UserB->>Server: updateTask({id, priority: "HIGH", version: 3})
-    Server->>DB: Find task -> version = 4
+    UserB->>Server: updateTask(id, priority: "HIGH", version: 3)
+    Server->>DB: Find task, version = 4
     Server->>Server: clientVersion(3) !== serverVersion(4) FAIL
     Server-->>UserB: "Conflict: Task was modified by another user"
 
     UserB->>Browser: Conflict dialog shown
-    UserB->>Server: updateTask({id, priority: "HIGH", version: undefined})
+    UserB->>Server: updateTask(id, priority: "HIGH", version: undefined)
     Note over Server: version=undefined bypasses conflict check
     Server->>DB: UPDATE task SET priority="HIGH", version=5
-    Server-->>UserB: {success: true}
+    Server-->>UserB: (success: true)
 ```
 
 **How it works:**
@@ -254,7 +254,7 @@ flowchart TD
     FIND_USERS --> SEND_NOTIF["sendNotification (COMMENT_MENTION)"]
 
     EDIT --> TIME_CHECK{"Time since creation"}
-    TIME_CHECK -->|"<= 5 min OR admin/manager"| ALLOW["Allow edit"]
+    TIME_CHECK -->|"Within 5 min or admin/manager"| ALLOW["Allow edit"]
     TIME_CHECK -->|"> 5 min AND member"| REJECT["Reject"]
 ```
 
@@ -301,7 +301,7 @@ flowchart LR
     ADD_TAG["addTagToTask (connect tag)"]
     RM_TAG["removeTagFromTask (disconnect tag)"]
 
-    ADD_TAG --> VERSION["version: {increment: 1}"]
+    ADD_TAG --> VERSION["version: increment by 1"]
     RM_TAG --> VERSION
 ```
 
@@ -315,7 +315,7 @@ flowchart TD
     UPDATE["Update Time Entry (duration, description)"]
     DELETE["Delete Time Entry (owner, admin, or manager)"]
 
-    LOG --> VALIDATE["duration > 0"]
+    LOG --> VALIDATE["duration must be positive"]
     VALIDATE --> CREATE["prisma.timeEntry.create()"]
     DELETE --> OWNER_CHECK{"Is owner, admin, or manager?"}
     OWNER_CHECK -->|No| ERR["Forbidden"]
@@ -335,34 +335,34 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant Socket as Socket Emitter
 
-    Creator->>Action: submitForReview({taskId, reviewerId})
-    Action->>DB: review.create({status: 'PENDING'})
-    Action->>DB: task.update({version: increment})
-    Action->>DB: createAuditLog({SUBMIT_REVIEW})
+    Creator->>Action: submitForReview(taskId, reviewerId)
+    Action->>DB: review.create(status: PENDING)
+    Action->>DB: task.update(version: increment)
+    Action->>DB: createAuditLog(SUBMIT_REVIEW)
     Action->>Socket: emit task:updated
     Action->>Reviewer: sendNotification(REVIEW_REQUESTED)
 
-    Reviewer->>Complete: completeReview({reviewId, status, feedback})
+    Reviewer->>Complete: completeReview(reviewId, status, feedback)
     Complete->>Complete: Check: is reviewer OR admin/manager?
-    Complete->>DB: review.update({status, feedback})
+    Complete->>DB: review.update(status, feedback)
 
     Note over Complete: Auto-move task based on status
 
     alt status === APPROVED
         Complete->>DB: Find column named "Done" (case-insensitive)
-        Complete->>DB: task.update({columnId: doneColumn.id})
+        Complete->>DB: task.update(columnId to doneColumn)
         Complete->>Socket: emit task:moved
     else status === CHANGES_REQUESTED
         Complete->>DB: Find column named "In Progress"
-        Complete->>DB: task.update({columnId: inProgressColumn.id})
+        Complete->>DB: task.update(columnId to inProgressColumn)
         Complete->>Socket: emit task:moved
     else status === REJECTED
         Complete->>DB: Find column named "To Do"
-        Complete->>DB: task.update({columnId: todoColumn.id})
+        Complete->>DB: task.update(columnId to todoColumn)
         Complete->>Socket: emit task:moved
     end
 
-    Complete->>DB: createAuditLog({COMPLETE_REVIEW})
+    Complete->>DB: createAuditLog(COMPLETE_REVIEW)
     Complete->>Creator: sendNotification(REVIEW_COMPLETED)
 ```
 

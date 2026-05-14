@@ -212,7 +212,7 @@ sequenceDiagram
     participant SocketSrv as Socket.IO Server (Port 3001)
     participant OtherBrowsers
 
-    Browser->>NextJS: updateTaskStatus({taskId, columnId, version})
+    Browser->>NextJS: updateTaskStatus(taskId, columnId, version)
     NextJS->>NextJS: checkTaskPermission()
     NextJS->>NextJS: Version conflict check
     NextJS->>NextJS: WIP limit check (members only)
@@ -223,7 +223,7 @@ sequenceDiagram
     SocketSrv->>OtherBrowsers: socket.to(room).emit('task:moved')
     NextJS->>NextJS: evaluateAutomationRules()
     NextJS->>NextJS: sendNotification() if assignee changed
-    NextJS-->>Browser: { success: true, data: task }
+    NextJS-->>Browser: (success: true, data: task)
     Browser->>Browser: router.refresh()
     OtherBrowsers->>OtherBrowsers: Optimistic state update via hook
 ```
@@ -242,7 +242,7 @@ sequenceDiagram
     Proxy->>Proxy: Decrypt session cookie
     Proxy->>Proxy: Check auth + RBAC
     Proxy->>Layout: Authorized request
-    Layout->>Action: getBoardData({boardId})
+    Layout->>Action: getBoardData(boardId)
     Action->>Action: getSession() + permission check
     Action->>DB: prisma.board.findUnique() with columns, tasks, members, tags
     Action-->>Layout: Board data

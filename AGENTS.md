@@ -42,13 +42,13 @@ For Supabase production: use `?pgbouncer=true` on `DATABASE_URL` (pooled) and se
 
 **ESM project** (`"type": "module"`). All config files use `.mjs`. Never create `.cjs` configs.
 
-**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` uses `DIRECT_URL` for schema operations (falls back to `DATABASE_URL`). Loads `.env.local` in dev, `.env` in production. `postinstall` runs `prisma generate`. **`generated/` is gitignored** — always run `prisma generate` after pulling schema changes.
+**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` uses `DIRECT_URL` for schema operations (falls back to `DATABASE_URL`). Loads `.env.local` in dev, `.env` in production. `postinstall` runs `prisma generate`. **`generated/` is gitignored** — always run `prisma generate` after pulling schema changes. Connection pool is created lazily via `getPrismaClient()` — not eagerly at module scope, so the build won't crash if `DATABASE_URL` is temporarily unavailable.
 
 **Socket.io is standalone** (`src/socket/server.ts`), not Next.js built-in. Self-contained: has its own Prisma+pg pool, does NOT import from `@/` paths or `utils/notification-utils.ts`. Background jobs run inline (due date reminders/overdue checks every 60s, 90-day audit log cleanup at midnight). Has HTTP endpoints: `GET /health` → `{"status":"ok","uptime":...}` for Railway health checks, and `GET /` → `"Socket.IO server running"`. `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit events through it to the standalone server.
 
 **Middleware is `proxy.ts`** at project root — not `middleware.ts`. Next.js 16 auto-detects it. Handles auth guards + RBAC redirects.
 
-**Auth:** Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API route (`POST /api/auth/login`), not a server action. `lib/auth.ts` has encrypt/decrypt; `lib/auth-server.ts` is a `'use server'` module for login/logout/getSession cookie management.
+**Auth:** Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API route (`POST /api/auth/login`), not a server action. `lib/auth.ts` has encrypt/decrypt; `lib/auth-server.ts` is a `'use server'` module for login/logout/getSession cookie management. `JWT_SECRET` has a dev fallback in `lib/auth.ts` — **must be set in production** or sessions will be invalid.
 
 **Roles:** `ADMIN`, `MANAGER`, `MEMBER` (UPPERCASE in DB).
 
@@ -133,6 +133,8 @@ Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/so
 
 **Socket server `process.env.PORT` for Railway.** Railway auto-injects `PORT` and health-checks it. The socket server reads `PORT` first, then `SOCKET_PORT`, then defaults to `3001`. Do NOT manually set `PORT` in Railway env vars. The server has a `/health` endpoint at `GET /health` returning `{"status":"ok","uptime":...}` — this is required for Railway to mark the deployment as healthy.
 
+**Vercel build fails with exit 1 and no logs if env vars are missing.** The `lib/prisma.ts` connection pool and `lib/auth.ts` JWT key are created lazily/at-module-scope — if `DATABASE_URL` or `JWT_SECRET` is missing, the build crashes silently. Both files now have fallbacks for dev, but **production deployments must set all env vars in the Vercel dashboard** (not in `.env.production` which is gitignored).
+
 ## Business Logic Constraints
 
 - **Task version conflict detection:** Tasks have a `version` field incremented on every update. If `clientVersion !== serverVersion`, the server returns a conflict error. Pass `version: undefined` to bypass (used by the conflict resolution dialog).
@@ -152,6 +154,8 @@ Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/so
 - **Supabase** (PostgreSQL): `DATABASE_URL` with `?pgbouncer=true` (port 6543) for queries, `DIRECT_URL` (port 5432) for schema ops
 - SSL for Supabase is auto-applied in `lib/prisma.ts`, `src/socket/server.ts`, `prisma/seed.ts`, `scripts/db-check.ts` when URL contains `supabase.com`
 - Socket server is self-contained — no `@/` imports, own Prisma+pg pool, `/health` endpoint for Railway
+- **Vercel build env vars required:** `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `NEXT_PUBLIC_SOCKET_URL`, `NEXT_PUBLIC_APP_URL`, `ALLOWED_ORIGIN`, `PORT=3002`. Without these, `next build` exits with code 1 and no useful logs.
+- CSP `connect-src` in `next.config.mjs` is built dynamically from `NEXT_PUBLIC_SOCKET_URL` — must include the Railway Socket.IO URL for WebSocket connections to work
 
 ### Test Accounts
 

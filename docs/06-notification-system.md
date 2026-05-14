@@ -87,11 +87,11 @@ sequenceDiagram
     participant Browser as useNotificationListener
     participant Bell as NotificationBell
 
-    Action->>NotifUtils: sendNotification({userId, type, message, link})
+    Action->>NotifUtils: sendNotification(userId, type, message, link)
 
     Note over NotifUtils: Step 1: Check preferences
 
-    NotifUtils->>DB: notificationPreference.findUnique({userId})
+    NotifUtils->>DB: notificationPreference.findUnique(userId)
     DB-->>NotifUtils: preferences
 
     alt Preference disabled
@@ -100,12 +100,12 @@ sequenceDiagram
 
     Note over NotifUtils: Step 2: Write to database
 
-    NotifUtils->>DB: notification.create({userId, type, message, link})
+    NotifUtils->>DB: notification.create(userId, type, message, link)
     DB-->>NotifUtils: notification (with id)
 
     Note over NotifUtils: Step 3: Emit via Socket.IO
 
-    NotifUtils->>Emitter: emitNotification({userId, type, message, notificationId})
+    NotifUtils->>Emitter: emitNotification(userId, type, message, notificationId)
     Emitter->>SocketSrv: socket.emit('notification', data)
     SocketSrv->>Browser: io.to('user:123').emit('notification', data)
 
@@ -142,13 +142,13 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    INPUT["sendNotification({userId: 'u1', type: 'TASK_ASSIGNED', message: '...'})"]
+    INPUT["sendNotification(userId, type, message)"]
 
-    LOOKUP["notifTypeToPrefKey['TASK_ASSIGNED'] -> 'taskAssigned'"]
+    LOOKUP["notifTypeToPrefKey maps TASK_ASSIGNED to taskAssigned"]
 
     CHECK_BOOLEAN{"booleanPrefKeys has 'taskAssigned'?"}
 
-    FETCH["notificationPreference.findUnique({userId: 'u1'})"]
+    FETCH["notificationPreference.findUnique(userId)"]
 
     EVAL{"prefs['taskAssigned'] === false?"}
 
@@ -192,13 +192,13 @@ The Socket.IO server runs a background worker every **60 seconds** that:
 ```mermaid
 flowchart TD
     START["Every 60 seconds"] --> OVERDUE_CHECK["Find overdue tasks"]
-    OVERDUE_CHECK --> OVERDUE_TASKS["Tasks where: dueDate < now, column.name != 'Done', assigneeId != null"]
+    OVERDUE_CHECK --> OVERDUE_TASKS["Tasks where: dueDate past, column.name not Done, assigneeId not null"]
     OVERDUE_TASKS --> DEDUP_O["Already sent OVERDUE today? (check notification table)"]
     DEDUP_O -->|No| CREATE_O["notification.create(OVERDUE) + emit via socket"]
     DEDUP_O -->|Yes| SKIP_O["Skip"]
 
     START --> DUE_CHECK["Find tasks due within 24h"]
-    DUE_CHECK --> DUE_TASKS["Tasks where: dueDate >= now AND <= now+24h, assigneeId != null"]
+    DUE_CHECK --> DUE_TASKS["Tasks where: dueDate within 24h, assigneeId not null"]
     DUE_TASKS --> DEDUP_D["Already sent DUE_DATE_REMINDER for this task?"]
     DEDUP_D -->|No| CREATE_D["notification.create(DUE_DATE_REMINDER) + emit via socket"]
     DEDUP_D -->|Yes| SKIP_D["Skip"]

@@ -170,8 +170,8 @@ flowchart TD
     EVAL --> LOOKUP{conditionMap has key?}
     LOOKUP -->|Yes| RUN[Run evaluator function]
     LOOKUP -->|No| DEFAULT[Match (default: true)]
-    RUN --> |true| MATCH
-    RUN --> |false| SKIP[Skip rule]
+    RUN -->|true| MATCH
+    RUN -->|false| SKIP[Skip rule]
     EVAL -->|Exception| DEFAULT
 ```
 

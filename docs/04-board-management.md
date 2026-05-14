@@ -43,16 +43,16 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant Socket as Socket Emitter
 
-    Browser->>Action: createBoard({name, description})
+    Browser->>Action: createBoard(name, description)
     Action->>Action: getSession() + role check
     alt role === MEMBER
         Action-->>Browser: "Only Admins and Managers can create boards"
     end
     Action->>Action: createBoardSchema.validate(input)
-    Action->>DB: prisma.board.create({ownerId: session.id, members: {connect: session.id}, columns: {create: [{name: "To Do", order: 0}, {name: "In Progress", order: 1}, {name: "Done", order: 2}]}})
-    Action->>DB: createAuditLog({CREATE_BOARD})
+    Action->>DB: prisma.board.create with owner, members, default columns
+    Action->>DB: createAuditLog(CREATE_BOARD)
     Action->>Action: revalidatePath('/dashboard')
-    Action-->>Browser: {success: true, data: board}
+    Action-->>Browser: (success: true, data: board)
 ```
 
 **Key details:**
@@ -135,25 +135,25 @@ sequenceDiagram
 
     Note over Manager: Add Member
 
-    Manager->>Action: addBoardMember({boardId, userId})
+    Manager->>Action: addBoardMember(boardId, userId)
     Action->>Action: checkBoardPermission([ADMIN, MANAGER])
-    Action->>DB: prisma.board.update({members: {connect: {id: userId}}})
-    Action->>DB: createAuditLog({ADD_BOARD_MEMBER})
+    Action->>DB: prisma.board.update(members connect userId)
+    Action->>DB: createAuditLog(ADD_BOARD_MEMBER)
     Action->>Socket: emit board:member_added
-    Action->>Notif: sendNotification({type: BOARD_MEMBER_ADDED})
+    Action->>Notif: sendNotification(BOARD_MEMBER_ADDED)
 
     Note over Manager: Remove Member
 
-    Manager->>Action: removeBoardMember({boardId, userId})
+    Manager->>Action: removeBoardMember(boardId, userId)
     Action->>Action: checkBoardPermission([ADMIN, MANAGER])
     Action->>Action: Check: is userId the board owner?
     alt Is owner
         Action-->>Manager: "Cannot remove the board owner"
     end
-    Action->>DB: prisma.board.update({members: {disconnect: {id: userId}}})
-    Action->>DB: createAuditLog({REMOVE_BOARD_MEMBER})
+    Action->>DB: prisma.board.update(members disconnect userId)
+    Action->>DB: createAuditLog(REMOVE_BOARD_MEMBER)
     Action->>Socket: emit board:member_removed
-    Action->>Notif: sendNotification({type: BOARD_MEMBER_REMOVED})
+    Action->>Notif: sendNotification(BOARD_MEMBER_REMOVED)
 ```
 
 **Key rules:**
@@ -173,11 +173,11 @@ flowchart TD
     end
 
     subgraph "Tag Operations"
-        CREATE["createTag({name, color, boardId?})"]
-        DELETE["deleteTag({tagId})"]
-        GET["getTagsForBoard({boardId}) - Returns board tags + global tags"]
-        TASK_ADD["addTagToTask({taskId, tagId})"]
-        TASK_RM["removeTagFromTask({taskId, tagId})"]
+        CREATE["createTag(name, color, boardId?)"]
+        DELETE["deleteTag(tagId)"]
+        GET["getTagsForBoard(boardId) - Returns board tags + global tags"]
+        TASK_ADD["addTagToTask(taskId, tagId)"]
+        TASK_RM["removeTagFromTask(taskId, tagId)"]
     end
 
     CREATE --> GLOBAL
@@ -213,28 +213,28 @@ sequenceDiagram
     Note over Action: Reverse the action based on type
 
     alt CREATE_TASK
-        Action->>DB: task.delete({id: details.taskId})
+        Action->>DB: task.delete(details.taskId)
         Action->>Socket: emit task:deleted
     else DELETE_TASK
         Action->>DB: Recreate task from stored fullTask data
         Action->>Socket: emit task:created
     else UPDATE_TASK
-        Action->>DB: task.update({restore previousState fields})
+        Action->>DB: task.update(restore previousState fields)
         Action->>Socket: emit task:updated
     else UPDATE_TASK_STATUS
-        Action->>DB: task.update({columnId: previousColumnId})
+        Action->>DB: task.update(columnId: previousColumnId)
         Action->>Socket: emit task:moved
     else CREATE_COLUMN
-        Action->>DB: column.delete({id: details.columnId})
+        Action->>DB: column.delete(details.columnId)
         Action->>Socket: emit column:deleted
     else DELETE_COLUMN
         Action->>DB: Recreate column + move back tasks
         Action->>Socket: emit column:created
     end
 
-    Action->>DB: createAuditLog({UNDO})
+    Action->>DB: createAuditLog(UNDO)
     Action->>Action: revalidatePath(board page)
-    Action-->>Browser: {success: true}
+    Action-->>Browser: (success: true)
 ```
 
 ### Undoable Actions (30-second window)

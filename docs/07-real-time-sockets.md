@@ -74,19 +74,19 @@ flowchart TD
         DOTENV["Load .env.local (dev) or .env (prod)"]
         POOL["Create pg.Pool (max: 5 connections)"]
         PRISMA["Create PrismaClient (with PrismaPg adapter)"]
-        HTTP["Create HTTP server: GET / -> status, GET /health -> {status, uptime}"]
+        HTTP["Create HTTP server with status and health endpoints"]
         IO["Create Socket.IO Server (CORS from ALLOWED_ORIGIN)"]
 
         START --> DOTENV --> POOL --> PRISMA --> HTTP --> IO
 
         subgraph "Connection Handling"
             CONNECT["io.on('connection')"]
-            JOIN["join-board -> join room, update presence"]
-            LEAVE["leave-board -> leave room, update presence"]
-            REGISTER["register-user -> join user room"]
+            JOIN["join-board - join room, update presence"]
+            LEAVE["leave-board - leave room, update presence"]
+            REGISTER["register-user - join user room"]
             RELAY["Relay board events to board room"]
             NOTIF["Relay notifications to user room"]
-            DISCONNECT["disconnect -> cleanup"]
+            DISCONNECT["disconnect - cleanup"]
         end
 
         subgraph "Background Jobs"
@@ -127,7 +127,7 @@ There are **two Socket.IO clients** in the system:
 
 ```mermaid
 flowchart LR
-    ACTION["Server Action"] -->|"calls"| EMIT["emitBoardEvent() or emitNotification()"]
+    ACTION["Server Action"] -->|"calls"| EMIT["emitBoardEvent / emitNotification"]
     EMIT --> SOCKET["Singleton Socket.IO Client"]
     SOCKET -->|"connects to"| SERVER["Socket.IO Server :3001"]
 ```
@@ -141,7 +141,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    HOOK["useSocket()"] -->|"creates"| CLIENT["Module-level Socket.IO Client"]
+    HOOK["useSocket"] -->|"creates"| CLIENT["Module-level Socket.IO Client"]
     CLIENT -->|"WebSocket"| SERVER["Socket.IO Server :3001"]
 
     HOOK -->|"returns"| API["socket, isConnected, presence, editingTasks"]
@@ -162,22 +162,22 @@ sequenceDiagram
     participant UserB as User B
     participant Server as Socket.IO Server
 
-    UserA->>Server: join-board {boardId: "abc", user: {id, name, image}}
+    UserA->>Server: join-board (boardId, user)
     Server->>Server: socket.join("board:abc")
     Server->>Server: Store socket.data.user = user
-    Server->>UserA: presence:update [{id: "u1", name: "User A"}]
+    Server->>UserA: presence:update (User A present)
     Server->>UserA: presence:update (broadcast to room)
 
-    UserB->>Server: join-board {boardId: "abc", user: {id, name, image}}
+    UserB->>Server: join-board (boardId, user)
     Server->>Server: socket.join("board:abc")
-    Server->>UserA: presence:update [{id: "u1"}, {id: "u2"}]
-    Server->>UserB: presence:update [{id: "u1"}, {id: "u2"}]
+    Server->>UserA: presence:update (User A, User B)
+    Server->>UserB: presence:update (User A, User B)
 
     Note over UserA: User A navigates away
 
     UserA->>Server: leave-board "abc"
     Server->>Server: socket.leave("board:abc")
-    Server->>UserB: presence:update [{id: "u2"}]
+    Server->>UserB: presence:update (User B present)
 ```
 
 ### Presence Tracking
@@ -253,11 +253,11 @@ The server tracks who is editing which task in memory:
 
 ```mermaid
 flowchart TD
-    START["task:editing {taskId, user}"] --> MAP["editingTasks Map: taskId to Map of userId to PresenceUser"]
+    START["task:editing (taskId, user)"] --> MAP["editingTasks Map: taskId to Map of userId to PresenceUser"]
     MAP --> EMIT["Emit editing:update to board room"]
     EMIT --> UI["Other browsers show 'User X is editing...'"]
 
-    STOP["task:stop-editing {taskId, userId}"] --> RM["Remove user from map"]
+    STOP["task:stop-editing (taskId, userId)"] --> RM["Remove user from map"]
     RM --> CLEANUP{"Map empty?"}
     CLEANUP -->|Yes| DELETE["Delete taskId key"]
     CLEANUP -->|No| KEEP["Keep key"]
@@ -277,7 +277,7 @@ flowchart TD
 flowchart TD
     TIMER["setInterval(60,000ms)"] --> RUN["runBackgroundChecks()"]
 
-    RUN --> OVERDUE["Find overdue tasks (dueDate < now, NOT in Done column)"]
+    RUN --> OVERDUE["Find overdue tasks (dueDate past, NOT in Done column)"]
     OVERDUE --> O_LOOP["For each task with assignee"]
     O_LOOP --> O_DEDUP["Already sent OVERDUE today?"]
     O_DEDUP -->|No| O_CREATE["Create notification + emit"]

@@ -66,7 +66,7 @@ sequenceDiagram
     Note over Provider: On mount
 
     Provider->>Zustand: setOnline(navigator.onLine)
-    Provider->>IndexedDB: initQueue() -> load pending actions
+    Provider->>IndexedDB: initQueue - load pending actions
     Provider->>Zustand: Set queue from IndexedDB
 
     Note over Provider: User goes offline
@@ -96,9 +96,9 @@ sequenceDiagram
     participant Socket as Local Socket
 
     User->>Hook: Drag task to new column
-    Hook->>Hook: isOnline? -> false
+    Hook->>Hook: isOnline = false
 
-    Hook->>Store: addAction({type: 'MOVE_TASK', payload: {taskId, columnId, version}})
+    Hook->>Store: addAction(type: MOVE_TASK, payload)
     Store->>IDB: addOfflineAction(action)
     IDB-->>Store: Saved action
     Store->>Store: Add to queue state
@@ -138,8 +138,8 @@ interface OfflineAction {
 ```mermaid
 flowchart TD
     subgraph "State"
-        QUEUE["queue: OfflineAction[] (retryCount < 3)"]
-        FAILED["failedActions: OfflineAction[] (retryCount >= 3)"]
+        QUEUE["queue: OfflineAction (retryCount under 3)"]
+        FAILED["failedActions: OfflineAction (retryCount 3+)"]
         ONLINE["isOnline: boolean"]
     end
 
@@ -189,7 +189,7 @@ flowchart TD
 
     RESULT --> SUCCESS{"success?"}
     SUCCESS -->|Yes| DELETE["deleteOfflineAction(id)"]
-    SUCCESS -->|No| INCREMENT["updateAction(id, {retryCount: +1, errorMsg: result.error})"]
+    SUCCESS -->|No| INCREMENT["updateAction(id, retryCount+1, errorMsg)"]
 ```
 
 ### Sync Flow
@@ -212,14 +212,14 @@ sequenceDiagram
         Sync->>Server: Call appropriate server action
 
         alt Success
-            Server-->>Sync: {success: true}
+            Server-->>Sync: (success: true)
             Sync-->>Provider: Success
             Provider->>Store: removeAction(id)
             Store->>IDB: Delete from store
         else Failure
-            Server-->>Sync: {success: false, error: "..."}
+            Server-->>Sync: (success: false, error)
             Sync-->>Provider: Failure
-            Provider->>Store: updateAction(id, {retryCount: +1})
+            Provider->>Store: updateAction(id, retryCount+1)
             Store->>IDB: Update in store
         end
     end

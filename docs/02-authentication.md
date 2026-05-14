@@ -47,8 +47,8 @@ graph TB
     end
 
     subgraph "Server Modules"
-        AUTH_LIB["lib/auth.ts - encrypt() / decrypt()"]
-        AUTH_SERVER["lib/auth-server.ts (use server) - login() / logout() / getSession()"]
+        AUTH_LIB["lib/auth.ts - encrypt/decrypt"]
+        AUTH_SERVER["lib/auth-server.ts (use server) - login/logout/getSession"]
     end
 
     subgraph "Middleware"
@@ -64,8 +64,8 @@ graph TB
         MAILER["Nodemailer - Gmail SMTP"]
     end
 
-    LOGIN_FORM -->|"POST {email, password}"| LOGIN_ROUTE
-    SIGNUP_FORM -->|"POST {name, email, password}"| SIGNUP_ROUTE
+    LOGIN_FORM -->|"POST (email, password)"| LOGIN_ROUTE
+    SIGNUP_FORM -->|"POST (name, email, password)"| SIGNUP_ROUTE
     LOGIN_ROUTE -->|"bcrypt.compare()"| USER_TABLE
     LOGIN_ROUTE -->|"login(payload)"| AUTH_SERVER
     AUTH_SERVER -->|"encrypt() -> set cookie"| AUTH_LIB
@@ -75,7 +75,7 @@ graph TB
     FORGOT_FORM -->|"server action - requestPasswordReset()"| TOKEN_TABLE
     TOKEN_TABLE -->|"sendPasswordResetEmail()"| MAILER
     MAILER -->|"email with reset link"| RESET_FORM
-    RESET_FORM -->|"POST {email, token, password}"| CONFIRM_ROUTE
+    RESET_FORM -->|"POST (email, token, password)"| CONFIRM_ROUTE
     CONFIRM_ROUTE -->|"validate + hash + update"| USER_TABLE
 
     PROXY -->|"decrypt(cookie)"| AUTH_LIB
@@ -97,18 +97,18 @@ sequenceDiagram
 
     Note over Browser,DB: === LOGIN ===
 
-    Browser->>+AuthLib: POST /api/auth/login {email, password}
-    AuthLib->>DB: prisma.user.findUnique({email})
+    Browser->>+AuthLib: POST /api/auth/login (email, password)
+    AuthLib->>DB: prisma.user.findUnique(email)
     AuthLib->>AuthLib: bcrypt.compare(password, hash)
-    AuthLib->>AuthServer: login({id, email, name, role})
+    AuthLib->>AuthServer: login(id, email, name, role)
     AuthServer->>AuthLib: encrypt(payload) -- JWT string
-    AuthLib-->>-Browser: Set-Cookie: session=<jwt>; HttpOnly; SameSite=Lax; 7-day expiry
+    AuthLib-->>-Browser: Set-Cookie: session=(jwt) (HttpOnly, SameSite=Lax, 7-day expiry)
 
     Note over Browser,DB: === SUBSEQUENT REQUEST ===
 
     Browser->>Proxy: GET /dashboard (with session cookie)
     Proxy->>AuthLib: decrypt(cookie)
-    AuthLib-->>Proxy: {id, email, name, role}
+    AuthLib-->>Proxy: (id, email, name, role)
     Proxy->>Proxy: Check RBAC rules
     Proxy-->>Browser: Allow or redirect
 
@@ -116,7 +116,7 @@ sequenceDiagram
 
     Proxy->>AuthServer: updateSession(request)
     AuthServer->>AuthLib: decrypt(session) -- re-encrypt with new expiry
-    AuthServer-->>Browser: Set-Cookie: session=<new-jwt>
+    AuthServer-->>Browser: Set-Cookie: session=(new-jwt)
 ```
 
 ### JWT Payload Structure
@@ -152,17 +152,17 @@ interface JWTPayload {
 
 ```mermaid
 flowchart TD
-    START["POST /api/auth/login {email, password}"] --> VALIDATE{"email and password provided?"}
+    START["POST /api/auth/login"] --> VALIDATE{"email and password provided?"}
     VALIDATE -->|No| ERR_400["400: Email and password required"]
-    VALIDATE -->|Yes| FIND["prisma.user.findUnique({email})"]
+    VALIDATE -->|Yes| FIND["prisma.user.findUnique(email)"]
     FIND --> NOT_FOUND{"User exists?"}
     NOT_FOUND -->|No| ERR_401["401: Invalid credentials"]
-    NOT_FOUND -->|Yes| COMPARE["bcrypt.compare(password, user.password)"]
+    NOT_FOUND -->|Yes| COMPARE["bcrypt.compare(password, hash)"]
     COMPARE --> MISMATCH{"Password match?"}
     MISMATCH -->|No| ERR_401
     MISMATCH -->|Yes| LOGIN["login(payload) - Set session cookie"]
-    LOGIN --> AUDIT["createAuditLog({LOGIN})"]
-    AUDIT --> SUCCESS["200: {user: {id, email, name, role}}"]
+    LOGIN --> AUDIT["createAuditLog(LOGIN)"]
+    AUDIT --> SUCCESS["200: user data"]
 ```
 
 **Why an API route and not a server action?** Turbopack's dev server fails to resolve `cookies()` at runtime in server action files in certain edge cases. API routes with `'use server'` imports from `auth-server.ts` work reliably.
@@ -175,17 +175,17 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    START["POST /api/auth/signup {name, email, password}"] --> VALIDATE{"Valid input? email, password >= 6 chars, name"}
+    START["POST /api/auth/signup"] --> VALIDATE{"Valid input?"}
     VALIDATE -->|Invalid| ERR["400: Validation error"]
-    VALIDATE -->|Valid| EXISTS["prisma.user.findUnique({email})"]
+    VALIDATE -->|Valid| EXISTS["prisma.user.findUnique(email)"]
     EXISTS --> TAKEN{"User exists?"}
     TAKEN -->|Yes| ERR_EXISTS["400: User already exists"]
     TAKEN -->|No| HASH["bcrypt.hash(password, 12)"]
-    HASH --> CREATE["prisma.user.create({role: 'MEMBER', password: hashed})"]
-    CREATE --> PREFS["prisma.notificationPreference.create({userId})"]
+    HASH --> CREATE["prisma.user.create(role: MEMBER, password: hashed)"]
+    CREATE --> PREFS["prisma.notificationPreference.create(userId)"]
     PREFS --> NOTIFY["notifyAdminsNewUser()"]
     NOTIFY --> AUTO_LOGIN["login(payload) - Auto-login after signup"]
-    AUTO_LOGIN --> SUCCESS["201: {user}"]
+    AUTO_LOGIN --> SUCCESS["201: user data"]
 ```
 
 ### Signup Defaults
@@ -210,13 +210,13 @@ sequenceDiagram
     participant API as /api/auth/reset-password/confirm
 
     Browser->>Action: requestPasswordReset(email)
-    Action->>DB: user.findUnique({email})
+    Action->>DB: user.findUnique(email)
 
     alt User not found
         Action-->>Browser: "If an account exists, a reset link has been sent."
         Note over Action: Returns success even if no user (security)
     else User found
-        Action->>DB: passwordResetToken.upsert({email, token, expires: +1hr})
+        Action->>DB: passwordResetToken.upsert(email, token, expires in 1hr)
         Action->>Mailer: sendPasswordResetEmail(email, token)
         Mailer->>Mailer: Construct reset link: /reset-password?token=...&email=...
         Note over Mailer: In dev: logs link to console. In prod: sends via SMTP
@@ -225,10 +225,10 @@ sequenceDiagram
 
     Note over Browser: User clicks link in email
 
-    Browser->>API: POST /api/auth/reset-password/confirm {email, token, password}
-    API->>DB: passwordResetToken.findUnique({token})
+    Browser->>API: POST /api/auth/reset-password/confirm (email, token, password)
+    API->>DB: passwordResetToken.findUnique(token)
     API->>API: Verify email match + not expired
-    API->>DB: $transaction([user.update({password: hash}), token.delete()])
+    API->>DB: $transaction(user.update, token.delete)
     API-->>Browser: "Password has been successfully reset"
 ```
 
@@ -297,7 +297,7 @@ flowchart TD
 
     DECRYPT --> FAIL{"Decrypt success?"}
     FAIL -->|Error| REDIRECT_LOGIN
-    FAIL -->|Success| SESSION["session = {id, email, role}"]
+    FAIL -->|Success| SESSION["session = (id, email, role)"]
 
     SESSION --> ROUTE{"Route check"}
     ROUTE -->|"/admin" + role != ADMIN| REDIRECT_DASH["Redirect to /dashboard"]
