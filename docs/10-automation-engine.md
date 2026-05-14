@@ -29,7 +29,7 @@ Rules live in the `AutomationRule` table (`prisma/schema.prisma`). Evaluation lo
 ```mermaid
 sequenceDiagram
     participant User
-    participant ServerAction as Server Action<br/>(task-actions.ts)
+    participant ServerAction as Server Action (task-actions.ts)
     participant Engine as evaluateAutomationRules()
     participant DB as Prisma (PostgreSQL)
     participant Executor as executeAction()
@@ -62,10 +62,10 @@ sequenceDiagram
 ```mermaid
 graph TB
     subgraph "Trigger Sources (task-actions.ts)"
-        TC["TASK_CREATED<br/>createTask()"]
-        TM["TASK_MOVED<br/>moveTask() / updateTaskStatus()"]
-        TU["TASK_UPDATED<br/>updateTask()"]
-        TA["TASK_ASSIGNED<br/>createTask() / updateTask()"]
+        TC["TASK_CREATED - createTask()"]
+        TM["TASK_MOVED - moveTask() / updateTaskStatus()"]
+        TU["TASK_UPDATED - updateTask()"]
+        TA["TASK_ASSIGNED - createTask() / updateTask()"]
     end
 
     subgraph "Engine (automation-actions.ts)"
@@ -83,7 +83,7 @@ graph TB
 
     subgraph "Side Effects"
         DB["Prisma DB"]
-        SOCKET["Socket.IO<br/>emitBoardEvent()"]
+        SOCKET["Socket.IO - emitBoardEvent()"]
         AUDIT["createAuditLog()"]
         NOTIF["sendNotification()"]
     end
@@ -165,13 +165,13 @@ Column conditions use **fuzzy matching** (`toLowerCase().includes()`) so they wo
 
 ```mermaid
 flowchart TD
-    START[Rule has condition?] -->|No| MATCH[✅ Match]
+    START[Rule has condition?] -->|No| MATCH[Match]
     START -->|Yes| EVAL[evaluateCondition]
-    EVAL --> LOOKUP{conditionMap<br/>has key?}
+    EVAL --> LOOKUP{conditionMap has key?}
     LOOKUP -->|Yes| RUN[Run evaluator function]
-    LOOKUP -->|No| DEFAULT[✅ Match (default: true)]
+    LOOKUP -->|No| DEFAULT[Match (default: true)]
     RUN --> |true| MATCH
-    RUN --> |false| SKIP[❌ Skip rule]
+    RUN --> |false| SKIP[Skip rule]
     EVAL -->|Exception| DEFAULT
 ```
 
@@ -242,16 +242,16 @@ Creates the tag if it doesn't exist on the board (default color `#888888`), then
 ```mermaid
 flowchart TD
     START[checkAutomationPermission] --> SESSION{Has session?}
-    SESSION -->|No| DENY[❌ Unauthorized]
+    SESSION -->|No| DENY[Unauthorized]
     SESSION -->|Yes| ADMIN{Role = ADMIN?}
-    ADMIN -->|Yes| ALLOW[✅ Allowed]
+    ADMIN -->|Yes| ALLOW[Allowed]
     ADMIN -->|No| SCOPE{boardId = null?}
-    SCOPE -->|Yes| DENY2[❌ Only admins manage<br/>system-wide rules]
+    SCOPE -->|Yes| DENY2[Only admins manage system-wide rules]
     SCOPE -->|No| BOARD{Is board member or owner?}
-    BOARD -->|No| DENY3[❌ Forbidden]
-    BOARD -->|Yes| ROLE{Effective role =<br/>MANAGER or ADMIN?}
+    BOARD -->|No| DENY3[Forbidden]
+    BOARD -->|Yes| ROLE{Effective role = MANAGER or ADMIN?}
     ROLE -->|Yes| ALLOW
-    ROLE -->|No| DENY4[❌ Insufficient permissions]
+    ROLE -->|No| DENY4[Insufficient permissions]
 ```
 
 | Scope | Who Can Manage |

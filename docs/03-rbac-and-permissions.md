@@ -28,12 +28,12 @@ SmartTask implements **three roles** with hierarchical permissions: ADMIN > MANA
 
 ```mermaid
 graph TD
-    ADMIN["ADMIN<br/>Full system access<br/>User management, audit logs,<br/>automation, system settings"]
-    MANAGER["MANAGER<br/>Board management<br/>Team analytics, automation,<br/>WIP limit override"]
-    MEMBER["MEMBER<br/>Task collaboration<br/>View boards, create/edit tasks,<br/>manage own profile"]
+    ADMIN["ADMIN - Full system access: User management, audit logs, automation, system settings"]
+    MANAGER["MANAGER - Board management: Team analytics, automation, WIP limit override"]
+    MEMBER["MEMBER - Task collaboration: View boards, create/edit tasks, manage own profile"]
 
-    ADMIN -->|"includes all<br/>MANAGER perms"| MANAGER
-    MANAGER -->|"includes all<br/>MEMBER perms"| MEMBER
+    ADMIN -->|"includes all MANAGER perms"| MANAGER
+    MANAGER -->|"includes all MEMBER perms"| MEMBER
 
     style ADMIN fill:#dbeafe,stroke:#2563eb
     style MANAGER fill:#fef3c7,stroke:#d97706
@@ -114,31 +114,31 @@ All roles share `/dashboard` (redirects to role-specific dashboard) and `/profil
 ```mermaid
 graph TB
     subgraph "Route Level"
-        PROXY["proxy.ts<br/>Middleware"]
+        PROXY["proxy.ts - Middleware"]
     end
 
     subgraph "Layout Level"
-        LAYOUT["Dashboard Layout<br/>getSession() → redirect if null"]
+        LAYOUT["Dashboard Layout - getSession() then redirect if null"]
     end
 
     subgraph "Action Level"
-        CA["checkAdmin()<br/>actions/admin-actions.ts"]
-        CM["checkManager()<br/>actions/manager-actions.ts"]
-        CBP["checkBoardPermission()<br/>actions/board-actions.ts"]
-        CTP["checkTaskPermission()<br/>actions/task-actions.ts"]
+        CA["checkAdmin() in admin-actions.ts"]
+        CM["checkManager() in manager-actions.ts"]
+        CBP["checkBoardPermission() in board-actions.ts"]
+        CTP["checkTaskPermission() in task-actions.ts"]
     end
 
     subgraph "Database"
-        USER["User table<br/>(role, teamId)"]
-        BOARD["Board table<br/>(ownerId)"]
-        MEMBER_REL["Board ↔ User<br/>(many-to-many)"]
+        USER["User table (role, teamId)"]
+        BOARD["Board table (ownerId)"]
+        MEMBER_REL["Board <-> User (many-to-many)"]
     end
 
     PROXY -->|"cookie decrypt"| USER
     LAYOUT -->|"getSession()"| USER
 
     CA -->|"session.role === 'ADMIN'"| USER
-    CM -->|"role ∈ {ADMIN, MANAGER}"| USER
+    CM -->|"role in {ADMIN, MANAGER}"| USER
     CBP -->|"isAdmin OR owner OR member"| BOARD
     CBP -->|"member check"| MEMBER_REL
     CTP -->|"board membership + role"| BOARD
@@ -156,15 +156,15 @@ flowchart TD
     START["checkBoardPermission({boardId, allowedRoles})"] --> SESSION["getSession()"]
     SESSION --> NO_SESSION{"Session exists?"}
     NO_SESSION -->|No| ERR_UNAUTH["401: Unauthorized"]
-    NO_SESSION -->|Yes| FIND["prisma.board.findUnique({<br/>  include: { members }<br/>})"]
+    NO_SESSION -->|Yes| FIND["prisma.board.findUnique({include: { members }})"]
     FIND --> NOT_FOUND{"Board exists?"}
     NOT_FOUND -->|No| ERR_404["404: Board not found"]
     NOT_FOUND -->|Yes| IS_ADMIN{"role === ADMIN?"}
-    IS_ADMIN -->|Yes| ALLOW["✅ Authorized"]
+    IS_ADMIN -->|Yes| ALLOW["Authorized"]
     IS_ADMIN -->|No| IS_MEMBER_OR_OWNER{"isMember OR isOwner?"}
     IS_MEMBER_OR_OWNER -->|Neither| ERR_FORBIDDEN["403: Not a member"]
     IS_MEMBER_OR_OWNER -->|Is Owner| ALLOW
-    IS_MEMBER_OR_OWNER -->|Is Member| IS_OWNER["Board owners get<br/>full management perms"]
+    IS_MEMBER_OR_OWNER -->|Is Member| IS_OWNER["Board owners get full management perms"]
     IS_OWNER -->|Allowed role match| ALLOW
     IS_OWNER -->|Role not in allowedRoles| ERR_ROLE["403: Role not permitted"]
 
@@ -199,18 +199,18 @@ flowchart TD
     START["checkTaskPermission({taskId, allowedRoles})"] --> SESSION["getSession()"]
     SESSION --> NO_SESSION{"Session?"}
     NO_SESSION -->|No| ERR["401: Unauthorized"]
-    NO_SESSION -->|Yes| FIND["prisma.task.findUnique({<br/>  include: { column: {<br/>    include: { board: {<br/>      include: { members }<br/>    }}<br/>  }}<br/>})"]
+    NO_SESSION -->|Yes| FIND["prisma.task.findUnique({include: { column: { include: { board: { include: { members } } } } }})"]
     FIND --> NOT_FOUND{"Task?"}
     NOT_FOUND -->|No| ERR_404["404: Task not found"]
     NOT_FOUND -->|Yes| ADMIN{"Is ADMIN?"}
-    ADMIN -->|Yes| ALLOW["✅ Full access"]
+    ADMIN -->|Yes| ALLOW["Full access"]
     ADMIN -->|No| MEMBER_CHECK{"isMember OR isOwner?"}
     MEMBER_CHECK -->|Neither| ERR_403["403: Not a board member"]
     MEMBER_CHECK -->|Yes| OWNER_MGR{"isOwner OR isManager?"}
     OWNER_MGR -->|Yes| ALLOW
-    OWNER_MGR -->|No| ROLE_CHECK{"allowedRoles includes<br/>MEMBER or MEMBER_ALL?"}
+    OWNER_MGR -->|No| ROLE_CHECK{"allowedRoles includes MEMBER or MEMBER_ALL?"}
     ROLE_CHECK -->|No| ERR_MGR["403: Manager required"]
-    ROLE_CHECK -->|Yes| ALLOW_MEM["✅ Member access<br/>(collaboration model)"]
+    ROLE_CHECK -->|Yes| ALLOW_MEM["Member access (collaboration model)"]
 
     style ALLOW fill:#d1fae5,stroke:#059669
     style ALLOW_MEM fill:#d1fae5,stroke:#059669
@@ -233,17 +233,17 @@ Members operate under a **collaboration model**: any board member can edit, dele
 ```mermaid
 flowchart LR
     REQ["Request"] --> PARSE["Parse path"]
-    PARSE --> PROTECTED{"Starts with<br/>/dashboard, /admin,<br/>/manager, /member,<br/>/settings, /boards?"}
-    PROTECTED -->|No| PUBLIC["Public route:<br/>check if logged in"]
-    PUBLIC --> LOGGED_IN{"Has session<br/>+ /login or /signup?"}
-    LOGGED_IN -->|Yes| REDIRECT_DASH["→ /dashboard"]
+    PARSE --> PROTECTED{"Starts with /dashboard, /admin, /manager, /member, /settings, /boards?"}
+    PROTECTED -->|No| PUBLIC["Public route: check if logged in"]
+    PUBLIC --> LOGGED_IN{"Has session + /login or /signup?"}
+    LOGGED_IN -->|Yes| REDIRECT_DASH["-> /dashboard"]
     LOGGED_IN -->|No| ALLOW["Allow"]
     PROTECTED -->|Yes| HAS_SESSION{"Has session?"}
-    HAS_SESSION -->|No| REDIRECT_LOGIN["→ /login"]
-    HAS_SESSION -->|Yes| RBAC{"Path-based<br/>role check"}
-    RBAC -->|"/admin" ≠ ADMIN| REDIRECT_DASH2["→ /dashboard"]
-    RBAC -->|"/manager" ∉ ADMIN,MANAGER| REDIRECT_DASH2
-    RBAC -->|"/member" ∉ any role| REDIRECT_DASH2
+    HAS_SESSION -->|No| REDIRECT_LOGIN["-> /login"]
+    HAS_SESSION -->|Yes| RBAC{"Path-based role check"}
+    RBAC -->|"/admin" != ADMIN| REDIRECT_DASH2["-> /dashboard"]
+    RBAC -->|"/manager" not in ADMIN,MANAGER| REDIRECT_DASH2
+    RBAC -->|"/member" not in any role| REDIRECT_DASH2
     RBAC -->|Authorized| ALLOW2["Allow"]
 ```
 
@@ -263,7 +263,7 @@ sequenceDiagram
     Action->>Action: checkBoardPermission()
     Action->>Action: session.role === "MEMBER"?
     alt Is MEMBER
-        Action->>Action: createData.assigneeId = session.id<br/>(override, force self-assign)
+        Action->>Action: createData.assigneeId = session.id (override, force self-assign)
     else Is ADMIN or MANAGER
         Action->>Action: keep original assigneeId
     end
@@ -293,17 +293,17 @@ flowchart TD
     VERSION --> STALE{"clientVersion === serverVersion?"}
     STALE -->|No| CONFLICT["409: Conflict"]
     STALE -->|Yes| COL["Find target column"]
-    COL --> WIP{"wipLimit > 0 AND<br/>NOT (ADMIN or MANAGER)?"}
+    COL --> WIP{"wipLimit > 0 AND NOT (ADMIN or MANAGER)?"}
 
     WIP -->|No| MOVE["Move task"]
-    WIP -->|Yes| COUNT["Count tasks in column<br/>(excluding current task)"]
+    WIP -->|Yes| COUNT["Count tasks in column (excluding current task)"]
     COUNT --> EXCEEDED{"count >= wipLimit?"}
     EXCEEDED -->|Yes| REJECT["Reject: WIP limit exceeded"]
     EXCEEDED -->|No| MOVE
 
-    MOVE --> CHECK_OVERRIDE{"After move:<br/>count > wipLimit?"}
-    CHECK_OVERRIDE -->|Yes| LOG_OVERRIDE["Log as<br/>UPDATE_TASK_STATUS_OVERRIDE"]
-    CHECK_OVERRIDE -->|No| LOG_NORMAL["Log as<br/>UPDATE_TASK_STATUS"]
+    MOVE --> CHECK_OVERRIDE{"After move: count > wipLimit?"}
+    CHECK_OVERRIDE -->|Yes| LOG_OVERRIDE["Log as UPDATE_TASK_STATUS_OVERRIDE"]
+    CHECK_OVERRIDE -->|No| LOG_NORMAL["Log as UPDATE_TASK_STATUS"]
 
     style REJECT fill:#fee2e2,stroke:#dc2626
     style CONFLICT fill:#fef3c7,stroke:#d97706

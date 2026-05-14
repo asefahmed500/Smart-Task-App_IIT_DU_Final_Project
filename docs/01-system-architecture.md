@@ -45,23 +45,23 @@ SmartTask is a **real-time Kanban board** application with role-based access con
 ```mermaid
 graph TB
     subgraph "Browser (Client)"
-        UI["React UI<br/>Components + Hooks"]
-        ZUSTAND["Zustand Store<br/>(offline queue state)"]
-        IDB["IndexedDB<br/>(offline action queue)"]
-        SOCKET_CLIENT["Socket.IO Client<br/>(socket-hooks.ts)"]
+        UI["React UI - Components + Hooks"]
+        ZUSTAND["Zustand Store (offline state)"]
+        IDB["IndexedDB (offline action queue)"]
+        SOCKET_CLIENT["Socket.IO Client (socket-hooks.ts)"]
     end
 
     subgraph "Next.js Server (Port 3002)"
-        PAGES["App Router Pages<br/>(Server Components)"]
-        ACTIONS["Server Actions<br/>(actions/*-actions.ts)"]
-        API["API Routes<br/>(app/api/)"]
-        MIDDLEWARE["Middleware<br/>(proxy.ts)"]
-        EMITTER["Socket Emitter<br/>(utils/socket-emitter.ts)"]
+        PAGES["App Router Pages (Server Components)"]
+        ACTIONS["Server Actions (actions/*-actions.ts)"]
+        API["API Routes (app/api/)"]
+        MIDDLEWARE["Middleware (proxy.ts)"]
+        EMITTER["Socket Emitter (utils/socket-emitter.ts)"]
     end
 
     subgraph "Socket.IO Server (Port 3001)"
-        SOCKET_SERVER["Socket.IO Server<br/>(src/socket/server.ts)"]
-        BG_WORKER["Background Worker<br/>(due date / overdue)"]
+        SOCKET_SERVER["Socket.IO Server (src/socket/server.ts)"]
+        BG_WORKER["Background Worker (due date / overdue)"]
     end
 
     subgraph "PostgreSQL (Supabase)"
@@ -100,9 +100,9 @@ graph LR
     end
 
     subgraph "Production"
-        VERCEL["Vercel<br/>(Next.js app)"]
-        RAILWAY["Railway<br/>(Socket.IO server)"]
-        SUPA["Supabase<br/>(PostgreSQL)"]
+        VERCEL["Vercel (Next.js app)"]
+        RAILWAY["Railway (Socket.IO server)"]
+        SUPA["Supabase (PostgreSQL)"]
     end
 
     NX -->|"API calls"| SKT
@@ -206,10 +206,10 @@ smart-task/
 ```mermaid
 sequenceDiagram
     participant Browser
-    participant NextJS as Next.js Server<br/>(Server Action)
+    participant NextJS as Next.js Server (Server Action)
     participant DB as PostgreSQL
-    participant Emitter as Socket Emitter<br/>(Client)
-    participant SocketSrv as Socket.IO Server<br/>(Port 3001)
+    participant Emitter as Socket Emitter (Client)
+    participant SocketSrv as Socket.IO Server (Port 3001)
     participant OtherBrowsers
 
     Browser->>NextJS: updateTaskStatus({taskId, columnId, version})
@@ -233,9 +233,9 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Browser
-    participant Proxy as Middleware<br/>(proxy.ts)
-    participant Layout as Dashboard Layout<br/>(Server Component)
-    participant Action as getBoardData()<br/>(Server Action)
+    participant Proxy as Middleware (proxy.ts)
+    participant Layout as Dashboard Layout (Server Component)
+    participant Action as getBoardData() (Server Action)
     participant DB as PostgreSQL
 
     Browser->>Proxy: GET /dashboard/board/abc123
@@ -244,7 +244,7 @@ sequenceDiagram
     Proxy->>Layout: Authorized request
     Layout->>Action: getBoardData({boardId})
     Action->>Action: getSession() + permission check
-    Action->>DB: prisma.board.findUnique()<br/>(include columns, tasks, members, tags)
+    Action->>DB: prisma.board.findUnique() with columns, tasks, members, tags
     Action-->>Layout: Board data
     Layout-->>Browser: Rendered HTML + props
 ```
@@ -255,7 +255,7 @@ sequenceDiagram
 
 ```mermaid
 graph TD
-    REQ["Incoming Request"] --> PROXY["proxy.ts<br/>(Middleware)"]
+    REQ["Incoming Request"] --> PROXY["proxy.ts (Middleware)"]
     PROXY -->|No session + protected| REDIRECT["Redirect to /login"]
     PROXY -->|Has session + public| DASHBOARD["Redirect to role dashboard"]
     PROXY -->|Has session + authorized| PAGE["Server Component Page"]

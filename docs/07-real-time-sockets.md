@@ -26,27 +26,27 @@ SmartTask uses a **standalone Socket.IO server** running on a separate process (
 ```mermaid
 graph TB
     subgraph "Browser Tabs"
-        TAB1["Tab 1<br/>Board abc123"]
-        TAB2["Tab 2<br/>Board abc123"]
-        TAB3["Tab 3<br/>Board xyz789"]
+        TAB1["Tab 1 - Board abc123"]
+        TAB2["Tab 2 - Board abc123"]
+        TAB3["Tab 3 - Board xyz789"]
     end
 
     subgraph "Next.js Server (Port 3002)"
-        ACTIONS["Server Actions<br/>(mutations)"]
-        EMITTER["socket-emitter.ts<br/>(Socket.IO client)"]
+        ACTIONS["Server Actions (mutations)"]
+        EMITTER["socket-emitter.ts (Socket.IO client)"]
     end
 
     subgraph "Socket.IO Server (Port 3001)"
-        IO["Socket.IO Server<br/>src/socket/server.ts"]
-        ROOMS["Board Rooms<br/>board:abc123<br/>board:xyz789"]
-        USER_ROOMS["User Rooms<br/>user:u1<br/>user:u2"]
-        PRESENCE_MAP["Presence Tracking<br/>(boardId → users[])"]
-        EDITING_MAP["Editing Tracking<br/>(taskId → editors[])"]
-        WORKER["Background Worker<br/>(60s interval)"]
+        IO["Socket.IO Server - src/socket/server.ts"]
+        ROOMS["Board Rooms - board:abc123, board:xyz789"]
+        USER_ROOMS["User Rooms - user:u1, user:u2"]
+        PRESENCE_MAP["Presence Tracking (boardId to users[])"]
+        EDITING_MAP["Editing Tracking (taskId to editors[])"]
+        WORKER["Background Worker (60s interval)"]
     end
 
     subgraph "Database"
-        DB[("PostgreSQL<br/>(own Prisma + pg.Pool)")]
+        DB[("PostgreSQL (own Prisma + pg.Pool)")]
     end
 
     TAB1 -->|"WebSocket"| IO
@@ -71,29 +71,29 @@ graph TB
 flowchart TD
     subgraph "src/socket/server.ts (Standalone Process)"
         START["Startup"]
-        DOTENV["Load .env.local (dev)<br/>or .env (prod)"]
-        POOL["Create pg.Pool<br/>(max: 5 connections)"]
-        PRISMA["Create PrismaClient<br/>(with PrismaPg adapter)"]
-        HTTP["Create HTTP server<br/>GET / → 'Socket.IO server running'<br/>GET /health → {status, uptime}"]
-        IO["Create Socket.IO Server<br/>(CORS from ALLOWED_ORIGIN)"]
+        DOTENV["Load .env.local (dev) or .env (prod)"]
+        POOL["Create pg.Pool (max: 5 connections)"]
+        PRISMA["Create PrismaClient (with PrismaPg adapter)"]
+        HTTP["Create HTTP server: GET / -> status, GET /health -> {status, uptime}"]
+        IO["Create Socket.IO Server (CORS from ALLOWED_ORIGIN)"]
 
         START --> DOTENV --> POOL --> PRISMA --> HTTP --> IO
 
         subgraph "Connection Handling"
             CONNECT["io.on('connection')"]
-            JOIN["join-board → join room,<br/>update presence"]
-            LEAVE["leave-board → leave room,<br/>update presence"]
-            REGISTER["register-user → join user room"]
-            RELAY["Relay board events<br/>to board room"]
-            NOTIF["Relay notifications<br/>to user room"]
-            DISCONNECT["disconnect → cleanup"]
+            JOIN["join-board -> join room, update presence"]
+            LEAVE["leave-board -> leave room, update presence"]
+            REGISTER["register-user -> join user room"]
+            RELAY["Relay board events to board room"]
+            NOTIF["Relay notifications to user room"]
+            DISCONNECT["disconnect -> cleanup"]
         end
 
         subgraph "Background Jobs"
             INTERVAL["setInterval(60s)"]
             OVERDUE["Overdue check"]
             DUE["Due date reminder"]
-            CLEANUP["90-day audit log cleanup<br/>(at midnight only)"]
+            CLEANUP["90-day audit log cleanup (at midnight only)"]
         end
 
         IO --> CONNECT
@@ -127,9 +127,9 @@ There are **two Socket.IO clients** in the system:
 
 ```mermaid
 flowchart LR
-    ACTION["Server Action"] -->|"calls"| EMIT["emitBoardEvent()<br/>or emitNotification()"]
+    ACTION["Server Action"] -->|"calls"| EMIT["emitBoardEvent() or emitNotification()"]
     EMIT --> SOCKET["Singleton Socket.IO Client"]
-    SOCKET -->|"connects to"| SERVER["Socket.IO Server<br/>:3001"]
+    SOCKET -->|"connects to"| SERVER["Socket.IO Server :3001"]
 ```
 
 - Used by server actions to emit events after database commits
@@ -141,10 +141,10 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    HOOK["useSocket()"] -->|"creates"| CLIENT["Module-level<br/>Socket.IO Client"]
-    CLIENT -->|"WebSocket"| SERVER["Socket.IO Server<br/>:3001"]
+    HOOK["useSocket()"] -->|"creates"| CLIENT["Module-level Socket.IO Client"]
+    CLIENT -->|"WebSocket"| SERVER["Socket.IO Server :3001"]
 
-    HOOK -->|"returns"| API["socket, isConnected,<br/>presence, editingTasks"]
+    HOOK -->|"returns"| API["socket, isConnected, presence, editingTasks"]
 ```
 
 - **Module-level singleton** — one connection shared across all hook instances
@@ -253,9 +253,9 @@ The server tracks who is editing which task in memory:
 
 ```mermaid
 flowchart TD
-    START["task:editing {taskId, user}"] --> MAP["editingTasks Map<br/>taskId → Map&lt;userId, PresenceUser&gt;"]
-    MAP --> EMIT["Emit editing:update<br/>to board room"]
-    EMIT --> UI["Other browsers show<br/>'User X is editing...'"]
+    START["task:editing {taskId, user}"] --> MAP["editingTasks Map: taskId to Map of userId to PresenceUser"]
+    MAP --> EMIT["Emit editing:update to board room"]
+    EMIT --> UI["Other browsers show 'User X is editing...'"]
 
     STOP["task:stop-editing {taskId, userId}"] --> RM["Remove user from map"]
     RM --> CLEANUP{"Map empty?"}
@@ -264,9 +264,9 @@ flowchart TD
     DELETE --> EMIT2["Emit updated editors"]
     KEEP --> EMIT2
 
-    DISCONNECT["Socket disconnect"] --> SCAN["Scan all editingTasks<br/>for this user"]
+    DISCONNECT["Socket disconnect"] --> SCAN["Scan all editingTasks for this user"]
     SCAN --> REMOVE["Remove user from all tasks"]
-    REMOVE --> NOTIFY["Emit editing:update<br/>for each affected task"]
+    REMOVE --> NOTIFY["Emit editing:update for each affected task"]
 ```
 
 ---
@@ -277,7 +277,7 @@ flowchart TD
 flowchart TD
     TIMER["setInterval(60,000ms)"] --> RUN["runBackgroundChecks()"]
 
-    RUN --> OVERDUE["Find overdue tasks<br/>(dueDate < now, NOT in Done column)"]
+    RUN --> OVERDUE["Find overdue tasks (dueDate < now, NOT in Done column)"]
     OVERDUE --> O_LOOP["For each task with assignee"]
     O_LOOP --> O_DEDUP["Already sent OVERDUE today?"]
     O_DEDUP -->|No| O_CREATE["Create notification + emit"]
@@ -303,13 +303,13 @@ The worker runs inline on the Socket.IO server process. No external cron service
 ```mermaid
 graph LR
     subgraph "Vercel"
-        NEXT["Next.js App<br/>(serverless functions)"]
-        EMIT["socket-emitter.ts<br/>(Socket.IO client)"]
+        NEXT["Next.js App (serverless functions)"]
+        EMIT["socket-emitter.ts (Socket.IO client)"]
     end
 
     subgraph "Railway"
-        SOCKET["Socket.IO Server<br/>src/socket/server.ts"]
-        HEALTH["GET /health<br/>(Railway health check)"]
+        SOCKET["Socket.IO Server - src/socket/server.ts"]
+        HEALTH["GET /health (Railway health check)"]
     end
 
     subgraph "Supabase"
@@ -320,7 +320,7 @@ graph LR
     EMIT -->|"WebSocket"| SOCKET
     NEXT -->|"Prisma queries"| DB
     SOCKET -->|"Prisma queries"| DB
-    RAILWAY_CHECK["Railway<br/>Health Check"] -->|"HTTP GET"| HEALTH
+    RAILWAY_CHECK["Railway Health Check"] -->|"HTTP GET"| HEALTH
 ```
 
 **Railway configuration:**

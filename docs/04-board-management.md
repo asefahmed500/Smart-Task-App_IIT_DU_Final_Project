@@ -24,7 +24,7 @@ Boards are the primary organizational unit. Each board has an **owner**, multipl
 ```mermaid
 stateDiagram-v2
     [*] --> Created: ADMIN/MANAGER creates board
-    Created --> Active: Default columns created<br/>(To Do, In Progress, Done)
+    Created --> Active: Default columns created (To Do, In Progress, Done)
     Active --> Active: Edit name/description
     Active --> Active: Add/remove columns
     Active --> Active: Add/remove members
@@ -39,7 +39,7 @@ stateDiagram-v2
 ```mermaid
 sequenceDiagram
     participant Browser
-    participant Action as createBoard()<br/>(board-actions.ts)
+    participant Action as createBoard() (board-actions.ts)
     participant DB as PostgreSQL
     participant Socket as Socket Emitter
 
@@ -49,7 +49,7 @@ sequenceDiagram
         Action-->>Browser: "Only Admins and Managers can create boards"
     end
     Action->>Action: createBoardSchema.validate(input)
-    Action->>DB: prisma.board.create({<br/>  ownerId: session.id,<br/>  members: {connect: session.id},<br/>  columns: {create: [<br/>    {name: "To Do", order: 0},<br/>    {name: "In Progress", order: 1},<br/>    {name: "Done", order: 2}<br/>  ]}<br/>})
+    Action->>DB: prisma.board.create({ownerId: session.id, members: {connect: session.id}, columns: {create: [{name: "To Do", order: 0}, {name: "In Progress", order: 1}, {name: "Done", order: 2}]}})
     Action->>DB: createAuditLog({CREATE_BOARD})
     Action->>Action: revalidatePath('/dashboard')
     Action-->>Browser: {success: true, data: board}
@@ -68,28 +68,28 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     subgraph "Column Operations"
-        CREATE["Create Column<br/>allowedRoles: [ADMIN, MANAGER]"]
-        UPDATE["Update Column<br/>(name, wipLimit, order)"]
-        DELETE["Delete Column<br/>with task rehoming"]
-        REORDER["Reorder Columns<br/>bulk update via transaction"]
+        CREATE["Create Column - allowedRoles: ADMIN, MANAGER"]
+        UPDATE["Update Column (name, wipLimit, order)"]
+        DELETE["Delete Column with task rehoming"]
+        REORDER["Reorder Columns - bulk update via transaction"]
     end
 
     subgraph "Delete Flow"
         DELETE --> HAS_TASKS{"Has tasks?"}
-        HAS_TASKS --> TARGET{"Target column<br/>specified?"}
+        HAS_TASKS --> TARGET{"Target column specified?"}
         TARGET -->|Yes| MOVE["Move tasks to target column"]
-        TARGET -->|No| OTHER{"Other column<br/>exists?"}
-        OTHER -->|Yes| FIRST["Move tasks to<br/>first other column"]
+        TARGET -->|No| OTHER{"Other column exists?"}
+        OTHER -->|Yes| FIRST["Move tasks to first other column"]
         OTHER -->|No| EMPTY{"Tasks remain?"}
-        EMPTY -->|Yes| ERR["Cannot delete only<br/>column with tasks"]
+        EMPTY -->|Yes| ERR["Cannot delete only column with tasks"]
         EMPTY -->|No| DEL["Delete column"]
         MOVE --> DEL
         FIRST --> DEL
     end
 
     subgraph "Reorder Flow"
-        REORDER --> FETCH["Fetch current order<br/>(for undo)"]
-        FETCH --> TX["prisma.$transaction(<br/>  update each column order<br/>)"]
+        REORDER --> FETCH["Fetch current order (for undo)"]
+        FETCH --> TX["prisma.$transaction(update each column order)"]
         TX --> EMIT["emit columns:reordered"]
     end
 ```
@@ -110,10 +110,10 @@ Each column has a `wipLimit` field (default: 0, meaning unlimited).
 
 ```mermaid
 flowchart LR
-    COL["Column<br/>wipLimit: 3"] --> COUNT["Task count: 4"]
-    COUNT --> MEMBER{"User is<br/>MEMBER?"}
-    MEMBER -->|Yes| BLOCK["Block: WIP limit<br/>exceeded"]
-    MEMBER -->|No| OVERRIDE["Allow + log<br/>UPDATE_TASK_STATUS_OVERRIDE"]
+    COL["Column wipLimit: 3"] --> COUNT["Task count: 4"]
+    COUNT --> MEMBER{"User is MEMBER?"}
+    MEMBER -->|Yes| BLOCK["Block: WIP limit exceeded"]
+    MEMBER -->|No| OVERRIDE["Allow + log UPDATE_TASK_STATUS_OVERRIDE"]
 ```
 
 - **WIP limit of 0** = unlimited (no restriction)
@@ -128,7 +128,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     participant Manager as ADMIN/MANAGER
-    participant Action as addBoardMember()<br/>removeBoardMember()
+    participant Action as addBoardMember() / removeBoardMember()
     participant DB as PostgreSQL
     participant Notif as Notification System
     participant Socket as Socket Emitter
@@ -137,10 +137,10 @@ sequenceDiagram
 
     Manager->>Action: addBoardMember({boardId, userId})
     Action->>Action: checkBoardPermission([ADMIN, MANAGER])
-    Action->>DB: prisma.board.update({<br/>  members: {connect: {id: userId}}<br/>})
+    Action->>DB: prisma.board.update({members: {connect: {id: userId}}})
     Action->>DB: createAuditLog({ADD_BOARD_MEMBER})
     Action->>Socket: emit board:member_added
-    Action->>Notif: sendNotification({<br/>  type: BOARD_MEMBER_ADDED<br/>})
+    Action->>Notif: sendNotification({type: BOARD_MEMBER_ADDED})
 
     Note over Manager: Remove Member
 
@@ -150,10 +150,10 @@ sequenceDiagram
     alt Is owner
         Action-->>Manager: "Cannot remove the board owner"
     end
-    Action->>DB: prisma.board.update({<br/>  members: {disconnect: {id: userId}}<br/>})
+    Action->>DB: prisma.board.update({members: {disconnect: {id: userId}}})
     Action->>DB: createAuditLog({REMOVE_BOARD_MEMBER})
     Action->>Socket: emit board:member_removed
-    Action->>Notif: sendNotification({<br/>  type: BOARD_MEMBER_REMOVED<br/>})
+    Action->>Notif: sendNotification({type: BOARD_MEMBER_REMOVED})
 ```
 
 **Key rules:**
@@ -168,14 +168,14 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     subgraph "Tag Scopes"
-        GLOBAL["Global Tag<br/>(boardId: null)<br/>Only ADMIN can create/delete"]
-        BOARD["Board Tag<br/>(boardId: board.id)<br/>ADMIN/MANAGER can create/delete"]
+        GLOBAL["Global Tag (boardId: null) - Only ADMIN can create/delete"]
+        BOARD["Board Tag (boardId: board.id) - ADMIN/MANAGER can create/delete"]
     end
 
     subgraph "Tag Operations"
         CREATE["createTag({name, color, boardId?})"]
         DELETE["deleteTag({tagId})"]
-        GET["getTagsForBoard({boardId})<br/>Returns board tags + global tags"]
+        GET["getTagsForBoard({boardId}) - Returns board tags + global tags"]
         TASK_ADD["addTagToTask({taskId, tagId})"]
         TASK_RM["removeTagFromTask({taskId, tagId})"]
     end
@@ -197,7 +197,7 @@ The undo system uses the **audit log as a reversible operation log**. It works w
 ```mermaid
 sequenceDiagram
     participant Browser
-    participant Action as undoLastAction()<br/>(board-actions.ts)
+    participant Action as undoLastAction() (board-actions.ts)
     participant DB as PostgreSQL
     participant Socket as Socket Emitter
 
@@ -216,7 +216,7 @@ sequenceDiagram
         Action->>DB: task.delete({id: details.taskId})
         Action->>Socket: emit task:deleted
     else DELETE_TASK
-        Action->>DB: Recreate task from stored fullTask data<br/>(includes checklists, comments, attachments, reviews, time entries)
+        Action->>DB: Recreate task from stored fullTask data
         Action->>Socket: emit task:created
     else UPDATE_TASK
         Action->>DB: task.update({restore previousState fields})

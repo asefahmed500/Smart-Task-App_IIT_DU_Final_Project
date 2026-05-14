@@ -24,32 +24,32 @@ SmartTask has a **dual-path notification system**: real-time delivery via Socket
 ```mermaid
 graph TB
     subgraph "Server Action (Mutation)"
-        MUTATION["e.g., createTask,<br/>updateTaskStatus,<br/>addComment"]
+        MUTATION["e.g., createTask, updateTaskStatus, addComment"]
     end
 
     subgraph "Notification Utils"
-        PREF_CHECK["Preference Check<br/>notification-utils.ts"]
-        DB_WRITE["DB Write<br/>prisma.notification.create()"]
-        SOCKET_EMIT["Socket Emit<br/>emitNotification()"]
+        PREF_CHECK["Preference Check (notification-utils.ts)"]
+        DB_WRITE["DB Write - prisma.notification.create()"]
+        SOCKET_EMIT["Socket Emit - emitNotification()"]
     end
 
     subgraph "Socket.IO Server (Port 3001)"
-        RELAY["Relay to user room<br/>io.to('user:123').emit()"]
+        RELAY["Relay to user room - io.to('user:123').emit()"]
     end
 
     subgraph "Browser"
-        LISTENER["useNotificationListener<br/>(socket-hooks.ts)"]
-        BELL["NotificationBell<br/>(badge + dropdown)"]
-        ACTIONS["Notification Actions<br/>(mark read, delete)"]
+        LISTENER["useNotificationListener (socket-hooks.ts)"]
+        BELL["NotificationBell (badge + dropdown)"]
+        ACTIONS["Notification Actions (mark read, delete)"]
     end
 
     subgraph "Database"
-        NOTIF_TABLE["Notification table<br/>(userId, type, message, link, isRead)"]
-        PREF_TABLE["NotificationPreference table<br/>(11 boolean toggles)"]
+        NOTIF_TABLE["Notification table (userId, type, message, link, isRead)"]
+        PREF_TABLE["NotificationPreference table (11 boolean toggles)"]
     end
 
     subgraph "Background Worker"
-        WORKER["Socket.IO Server Worker<br/>(every 60s)"]
+        WORKER["Socket.IO Server Worker (every 60s)"]
         DUE["Due Date Reminders"]
         OVERDUE["Overdue Checks"]
     end
@@ -79,10 +79,10 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant Action as Server Action<br/>(e.g., updateTaskStatus)
-    participant NotifUtils as sendNotification()<br/>(notification-utils.ts)
+    participant Action as Server Action (e.g., updateTaskStatus)
+    participant NotifUtils as sendNotification() (notification-utils.ts)
     participant DB as PostgreSQL
-    participant Emitter as emitNotification()<br/>(socket-emitter.ts)
+    participant Emitter as emitNotification() (socket-emitter.ts)
     participant SocketSrv as Socket.IO Server
     participant Browser as useNotificationListener
     participant Bell as NotificationBell
@@ -142,17 +142,17 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    INPUT["sendNotification({<br/>  userId: 'u1',<br/>  type: 'TASK_ASSIGNED',<br/>  message: '...'<br/>})"]
+    INPUT["sendNotification({userId: 'u1', type: 'TASK_ASSIGNED', message: '...'})"]
 
-    LOOKUP["notifTypeToPrefKey['TASK_ASSIGNED']<br/>→ 'taskAssigned'"]
+    LOOKUP["notifTypeToPrefKey['TASK_ASSIGNED'] -> 'taskAssigned'"]
 
-    CHECK_BOOLEAN{"booleanPrefKeys<br/>has 'taskAssigned'?"}
+    CHECK_BOOLEAN{"booleanPrefKeys has 'taskAssigned'?"}
 
-    FETCH["notificationPreference<br/>.findUnique({userId: 'u1'})"]
+    FETCH["notificationPreference.findUnique({userId: 'u1'})"]
 
-    EVAL{"prefs['taskAssigned']<br/>=== false?"}
+    EVAL{"prefs['taskAssigned'] === false?"}
 
-    SKIP["Skip notification<br/>(user opted out)"]
+    SKIP["Skip notification (user opted out)"]
 
     CREATE["notification.create()"]
 
@@ -192,19 +192,19 @@ The Socket.IO server runs a background worker every **60 seconds** that:
 ```mermaid
 flowchart TD
     START["Every 60 seconds"] --> OVERDUE_CHECK["Find overdue tasks"]
-    OVERDUE_CHECK --> OVERDUE_TASKS["Tasks where:<br/>dueDate < now<br/>column.name ≠ 'Done'<br/>assigneeId ≠ null"]
-    OVERDUE_TASKS --> DEDUP_O["Already sent OVERDUE today?<br/>(check notification table)"]
-    DEDUP_O -->|No| CREATE_O["notification.create(OVERDUE)<br/>+ emit via socket"]
+    OVERDUE_CHECK --> OVERDUE_TASKS["Tasks where: dueDate < now, column.name != 'Done', assigneeId != null"]
+    OVERDUE_TASKS --> DEDUP_O["Already sent OVERDUE today? (check notification table)"]
+    DEDUP_O -->|No| CREATE_O["notification.create(OVERDUE) + emit via socket"]
     DEDUP_O -->|Yes| SKIP_O["Skip"]
 
     START --> DUE_CHECK["Find tasks due within 24h"]
-    DUE_CHECK --> DUE_TASKS["Tasks where:<br/>dueDate ≥ now AND ≤ now+24h<br/>assigneeId ≠ null"]
-    DUE_TASKS --> DEDUP_D["Already sent DUE_DATE_REMINDER<br/>for this task?"]
-    DEDUP_D -->|No| CREATE_D["notification.create(DUE_DATE_REMINDER)<br/>+ emit via socket"]
+    DUE_CHECK --> DUE_TASKS["Tasks where: dueDate >= now AND <= now+24h, assigneeId != null"]
+    DUE_TASKS --> DEDUP_D["Already sent DUE_DATE_REMINDER for this task?"]
+    DEDUP_D -->|No| CREATE_D["notification.create(DUE_DATE_REMINDER) + emit via socket"]
     DEDUP_D -->|Yes| SKIP_D["Skip"]
 
-    START --> MIDNIGHT{"Is it midnight<br/>(hour=0, min=0)?"}
-    MIDNIGHT -->|Yes| CLEANUP["Delete audit logs<br/>older than 90 days"]
+    START --> MIDNIGHT{"Is it midnight (hour=0, min=0)?"}
+    MIDNIGHT -->|Yes| CLEANUP["Delete audit logs older than 90 days"]
     MIDNIGHT -->|No| DONE["Done"]
     CLEANUP --> DONE
 ```
@@ -222,11 +222,11 @@ To add a new notification type (e.g., `TASK_DELETED`), you must update **5 locat
 
 ```mermaid
 flowchart LR
-    A["1. NotifType union<br/>(notification-utils.ts)"] --> B["2. notifTypeToPrefKey<br/>(notification-utils.ts)"]
-    B --> C["3. booleanPrefKeys<br/>(notification-utils.ts)"]
-    C --> D["4. NotificationPreference<br/>(prisma/schema.prisma)"]
-    D --> E["5. NotificationPreference<br/>(types/kanban.ts)"]
-    E --> F["6. Run prisma db push<br/>+ prisma generate"]
+    A["1. NotifType union (notification-utils.ts)"] --> B["2. notifTypeToPrefKey (notification-utils.ts)"]
+    B --> C["3. booleanPrefKeys (notification-utils.ts)"]
+    C --> D["4. NotificationPreference (prisma/schema.prisma)"]
+    D --> E["5. NotificationPreference (types/kanban.ts)"]
+    E --> F["6. Run prisma db push + prisma generate"]
 ```
 
 ### Step-by-Step

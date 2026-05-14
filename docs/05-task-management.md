@@ -31,9 +31,9 @@ stateDiagram-v2
     [*] --> Created: Executive/Manager creates task
     Created --> InProgress: Drag to "In Progress"
     InProgress --> ReviewPending: Submit for review
-    ReviewPending --> Approved: Reviewer approves → auto-move to "Done"
-    ReviewPending --> ChangesRequested: Reviewer requests changes → auto-move to "In Progress"
-    ReviewPending --> Rejected: Reviewer rejects → auto-move to "To Do"
+    ReviewPending --> Approved: Reviewer approves -> auto-move to "Done"
+    ReviewPending --> ChangesRequested: Reviewer requests changes -> auto-move to "In Progress"
+    ReviewPending --> Rejected: Reviewer rejects -> auto-move to "To Do"
     ChangesRequested --> InProgress: Fix and resubmit
     AnyState --> Updated: Edit title/description/priority/assignee
     AnyState --> Deleted: Delete task
@@ -152,16 +152,16 @@ sequenceDiagram
     Note over DB: Task version = 3
 
     UserA->>Server: updateTask({id, title: "New Title", version: 3})
-    Server->>DB: Find task → version = 3
-    Server->>Server: clientVersion(3) === serverVersion(3) ✓
+    Server->>DB: Find task -> version = 3
+    Server->>Server: clientVersion(3) === serverVersion(3) OK
     Server->>DB: UPDATE task SET title="New Title", version=4
     Server-->>UserA: {success: true}
 
     Note over DB: Task version = 4
 
     UserB->>Server: updateTask({id, priority: "HIGH", version: 3})
-    Server->>DB: Find task → version = 4
-    Server->>Server: clientVersion(3) !== serverVersion(4) ✗
+    Server->>DB: Find task -> version = 4
+    Server->>Server: clientVersion(3) !== serverVersion(4) FAIL
     Server-->>UserB: "Conflict: Task was modified by another user"
 
     UserB->>Browser: Conflict dialog shown
@@ -187,19 +187,19 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     subgraph "Browser (use-kanban-board)"
-        DRAG_START["onDragStart<br/>Set active task/column"]
-        DRAG_OVER["onDragOver<br/>Optimistic reorder<br/>(visual only)"]
-        DRAG_END["onDragEnd<br/>Persist to server"]
+        DRAG_START["onDragStart - Set active task/column"]
+        DRAG_OVER["onDragOver - Optimistic reorder (visual only)"]
+        DRAG_END["onDragEnd - Persist to server"]
 
         DRAG_START --> DRAG_OVER
         DRAG_OVER --> DRAG_END
     end
 
     subgraph "Task Move"
-        DRAG_END --> MOVE{"Task moved to<br/>different column?"}
+        DRAG_END --> MOVE{"Task moved to different column?"}
         MOVE -->|Yes| ONLINE{"isOnline?"}
         ONLINE -->|Yes| API["updateTaskStatus()"]
-        ONLINE -->|No| OFFLINE["addAction(MOVE_TASK)<br/>emitTaskMoved() local"]
+        ONLINE -->|No| OFFLINE["addAction(MOVE_TASK) + emitTaskMoved() local"]
         API --> SUCCESS{"Success?"}
         SUCCESS -->|Yes| EMIT["emitTaskMoved()"]
         SUCCESS -->|Conflict| CONFLICT_DLG["Open conflict dialog"]
@@ -242,19 +242,19 @@ When offline (`isOnline === false`):
 ```mermaid
 flowchart TD
     subgraph "Comment Lifecycle"
-        ADD["Add Comment<br/>(any board member)"]
-        EDIT["Edit Comment<br/>(owner: 5 min window<br/>admin/manager: any time)"]
-        DELETE["Delete Comment<br/>(owner or admin/manager)"]
-        REACT["Toggle Reaction<br/>(emoji on/off)"]
-        MENTION["@ Mention<br/>(regex: @name)"]
+        ADD["Add Comment (any board member)"]
+        EDIT["Edit Comment (owner: 5 min window, admin/manager: any time)"]
+        DELETE["Delete Comment (owner or admin/manager)"]
+        REACT["Toggle Reaction (emoji on/off)"]
+        MENTION["@ Mention (regex: @name)"]
     end
 
     ADD --> MENTION
     MENTION --> FIND_USERS["findUsers by name"]
-    FIND_USERS --> SEND_NOTIF["sendNotification<br/>(COMMENT_MENTION)"]
+    FIND_USERS --> SEND_NOTIF["sendNotification (COMMENT_MENTION)"]
 
     EDIT --> TIME_CHECK{"Time since creation"}
-    TIME_CHECK -->|"≤ 5 min OR admin/manager"| ALLOW["Allow edit"]
+    TIME_CHECK -->|"<= 5 min OR admin/manager"| ALLOW["Allow edit"]
     TIME_CHECK -->|"> 5 min AND member"| REJECT["Reject"]
 ```
 
@@ -266,14 +266,14 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    ADD_CL["Add Checklist<br/>(title + taskId)"]
-    ADD_ITEM["Add Checklist Item<br/>(content + taskId + checklistId?)"]
-    TOGGLE["Toggle Item<br/>(isCompleted)"]
+    ADD_CL["Add Checklist (title + taskId)"]
+    ADD_ITEM["Add Checklist Item (content + taskId + checklistId?)"]
+    TOGGLE["Toggle Item (isCompleted)"]
     UPDATE_ITEM["Update Item Content"]
     DELETE_ITEM["Delete Item"]
 
     ADD_ITEM --> HAS_CL{"Has checklist?"}
-    HAS_CL -->|No| AUTO_CREATE["Auto-create 'Checklist'<br/>(default title)"]
+    HAS_CL -->|No| AUTO_CREATE["Auto-create 'Checklist' (default title)"]
     HAS_CL -->|Yes| USE_CL["Use specified checklist"]
     AUTO_CREATE --> CREATE_ITEM["Create item in new checklist"]
     USE_CL --> CREATE_ITEM
@@ -285,10 +285,10 @@ If no `checklistId` is provided when adding an item, the system auto-creates a c
 
 ```mermaid
 flowchart LR
-    ADD["Add Attachment<br/>(name, url, type, size)"]
+    ADD["Add Attachment (name, url, type, size)"]
     DELETE["Delete Attachment"]
 
-    ADD --> VALIDATE["Max size: 10MB<br/>url: valid URL"]
+    ADD --> VALIDATE["Max size: 10MB, url: valid URL"]
     VALIDATE --> CREATE["prisma.attachment.create()"]
 ```
 
@@ -298,8 +298,8 @@ Attachments store a URL (typically from client-side upload to a file service). M
 
 ```mermaid
 flowchart LR
-    ADD_TAG["addTagToTask<br/>(connect tag)"]
-    RM_TAG["removeTagFromTask<br/>(disconnect tag)"]
+    ADD_TAG["addTagToTask (connect tag)"]
+    RM_TAG["removeTagFromTask (disconnect tag)"]
 
     ADD_TAG --> VERSION["version: {increment: 1}"]
     RM_TAG --> VERSION
@@ -311,13 +311,13 @@ Tag operations on tasks increment the task version to trigger real-time updates.
 
 ```mermaid
 flowchart TD
-    LOG["Log Time<br/>(duration in minutes,<br/>optional description)"]
-    UPDATE["Update Time Entry<br/>(duration, description)"]
-    DELETE["Delete Time Entry<br/>(owner, admin, or manager)"]
+    LOG["Log Time (duration in minutes, optional description)"]
+    UPDATE["Update Time Entry (duration, description)"]
+    DELETE["Delete Time Entry (owner, admin, or manager)"]
 
     LOG --> VALIDATE["duration > 0"]
     VALIDATE --> CREATE["prisma.timeEntry.create()"]
-    DELETE --> OWNER_CHECK{"Is owner,<br/>admin, or manager?"}
+    DELETE --> OWNER_CHECK{"Is owner, admin, or manager?"}
     OWNER_CHECK -->|No| ERR["Forbidden"]
     OWNER_CHECK -->|Yes| DEL["Delete entry"]
 ```

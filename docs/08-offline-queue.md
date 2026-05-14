@@ -24,15 +24,15 @@ SmartTask supports **offline-first task operations**. When the browser loses con
 ```mermaid
 graph TB
     subgraph "Browser"
-        PROVIDER["OfflineProvider<br/>(online/offline events)"]
-        ZUSTAND["useOfflineStore<br/>(Zustand)"]
-        IDB["IndexedDB<br/>'smart-task-db'<br/>'action-queue' store"]
-        UI["Kanban Board UI<br/>(use-kanban-board.ts)"]
+        PROVIDER["OfflineProvider (online/offline events)"]
+        ZUSTAND["useOfflineStore (Zustand)"]
+        IDB["IndexedDB 'smart-task-db' 'action-queue' store"]
+        UI["Kanban Board UI (use-kanban-board.ts)"]
     end
 
     subgraph "Sync Engine"
-        SYNC["offline-sync.ts<br/>(maps queue to server actions)"]
-        ACTIONS["Server Actions<br/>(createTask, updateTaskStatus, etc.)"]
+        SYNC["offline-sync.ts (maps queue to server actions)"]
+        ACTIONS["Server Actions (createTask, updateTaskStatus, etc.)"]
     end
 
     subgraph "Server"
@@ -66,7 +66,7 @@ sequenceDiagram
     Note over Provider: On mount
 
     Provider->>Zustand: setOnline(navigator.onLine)
-    Provider->>IndexedDB: initQueue() → load pending actions
+    Provider->>IndexedDB: initQueue() -> load pending actions
     Provider->>Zustand: Set queue from IndexedDB
 
     Note over Provider: User goes offline
@@ -96,9 +96,9 @@ sequenceDiagram
     participant Socket as Local Socket
 
     User->>Hook: Drag task to new column
-    Hook->>Hook: isOnline? → false
+    Hook->>Hook: isOnline? -> false
 
-    Hook->>Store: addAction({<br/>  type: 'MOVE_TASK',<br/>  payload: {taskId, columnId, version}<br/>})
+    Hook->>Store: addAction({type: 'MOVE_TASK', payload: {taskId, columnId, version}})
     Store->>IDB: addOfflineAction(action)
     IDB-->>Store: Saved action
     Store->>Store: Add to queue state
@@ -138,19 +138,19 @@ interface OfflineAction {
 ```mermaid
 flowchart TD
     subgraph "State"
-        QUEUE["queue: OfflineAction[]<br/>(retryCount < 3)"]
-        FAILED["failedActions: OfflineAction[]<br/>(retryCount ≥ 3)"]
+        QUEUE["queue: OfflineAction[] (retryCount < 3)"]
+        FAILED["failedActions: OfflineAction[] (retryCount >= 3)"]
         ONLINE["isOnline: boolean"]
     end
 
     subgraph "Actions"
-        INIT["initQueue()<br/>Load from IndexedDB"]
-        ADD["addAction()<br/>Queue + persist to IndexedDB"]
-        REMOVE["removeAction()<br/>Delete from IndexedDB + state"]
-        UPDATE["updateAction()<br/>Update retryCount/errorMsg"]
-        CLEAR["clearQueue()<br/>Delete all from IndexedDB"]
-        RETRY["retryAction()<br/>Reset retryCount to 0"]
-        DISMISS["dismissFailed()<br/>Remove from failed list"]
+        INIT["initQueue() - Load from IndexedDB"]
+        ADD["addAction() - Queue + persist to IndexedDB"]
+        REMOVE["removeAction() - Delete from IndexedDB + state"]
+        UPDATE["updateAction() - Update retryCount/errorMsg"]
+        CLEAR["clearQueue() - Delete all from IndexedDB"]
+        RETRY["retryAction() - Reset retryCount to 0"]
+        DISMISS["dismissFailed() - Remove from failed list"]
         SET_ONLINE["setOnline()"]
     end
 
@@ -158,7 +158,7 @@ flowchart TD
     INIT --> FAILED
     ADD --> QUEUE
     REMOVE --> QUEUE
-    UPDATE -->|"retryCount ≥ 3"| FAILED
+    UPDATE -->|"retryCount >= 3"| FAILED
     RETRY -->|"move back to queue"| QUEUE
     DISMISS --> FAILED
 ```
@@ -189,7 +189,7 @@ flowchart TD
 
     RESULT --> SUCCESS{"success?"}
     SUCCESS -->|Yes| DELETE["deleteOfflineAction(id)"]
-    SUCCESS -->|No| INCREMENT["updateAction(id, {<br/>  retryCount: +1,<br/>  errorMsg: result.error<br/>})"]
+    SUCCESS -->|No| INCREMENT["updateAction(id, {retryCount: +1, errorMsg: result.error})"]
 ```
 
 ### Sync Flow
@@ -237,11 +237,11 @@ flowchart TD
     SUCCESS -->|Yes| REMOVE["Remove from queue"]
     SUCCESS -->|No| INCREMENT["retryCount++"]
 
-    INCREMENT --> CHECK{"retryCount ≥ 3?"}
-    CHECK -->|No| KEEP["Stay in queue<br/>(will retry on next online)"]
+    INCREMENT --> CHECK{"retryCount >= 3?"}
+    CHECK -->|No| KEEP["Stay in queue (will retry on next online)"]
     CHECK -->|Yes| FAIL["Move to failedActions"]
 
-    FAIL --> USER["User sees failed action<br/>in UI"]
+    FAIL --> USER["User sees failed action in UI"]
     USER --> RETRY_BTN["User clicks Retry"]
     RETRY_BTN --> RESET["retryCount = 0"]
     RESET --> ATTEMPT

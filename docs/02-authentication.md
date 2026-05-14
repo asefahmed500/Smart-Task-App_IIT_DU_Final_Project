@@ -31,37 +31,37 @@ Key principles:
 ```mermaid
 graph TB
     subgraph "Browser"
-        LOGIN_FORM["Login Form<br/>app/(auth)/login/page.tsx"]
-        SIGNUP_FORM["Signup Form<br/>app/(auth)/signup/page.tsx"]
+        LOGIN_FORM["Login Form - app/(auth)/login/page.tsx"]
+        SIGNUP_FORM["Signup Form - app/(auth)/signup/page.tsx"]
         FORGOT_FORM["Forgot Password Form"]
         RESET_FORM["Reset Password Form"]
     end
 
     subgraph "API Routes (app/api/auth/)"
-        LOGIN_ROUTE["POST /api/auth/login<br/>route.ts"]
-        SIGNUP_ROUTE["POST /api/auth/signup<br/>route.ts"]
-        LOGOUT_ROUTE["POST /api/auth/logout<br/>route.ts"]
-        ME_ROUTE["GET /api/auth/me<br/>route.ts"]
+        LOGIN_ROUTE["POST /api/auth/login"]
+        SIGNUP_ROUTE["POST /api/auth/signup"]
+        LOGOUT_ROUTE["POST /api/auth/logout"]
+        ME_ROUTE["GET /api/auth/me"]
         REQUEST_ROUTE["POST .../reset-password/request"]
         CONFIRM_ROUTE["POST .../reset-password/confirm"]
     end
 
     subgraph "Server Modules"
-        AUTH_LIB["lib/auth.ts<br/>encrypt() / decrypt()"]
-        AUTH_SERVER["lib/auth-server.ts<br/>(use server)<br/>login() / logout() / getSession()"]
+        AUTH_LIB["lib/auth.ts - encrypt() / decrypt()"]
+        AUTH_SERVER["lib/auth-server.ts (use server) - login() / logout() / getSession()"]
     end
 
     subgraph "Middleware"
-        PROXY["proxy.ts<br/>Decrypts cookie<br/>Auth guard + RBAC"]
+        PROXY["proxy.ts - Decrypts cookie, Auth guard + RBAC"]
     end
 
     subgraph "Database"
-        USER_TABLE["User model<br/>(email, password hash, role)"]
-        TOKEN_TABLE["PasswordResetToken model<br/>(email, token, expires)"]
+        USER_TABLE["User model (email, password hash, role)"]
+        TOKEN_TABLE["PasswordResetToken model (email, token, expires)"]
     end
 
     subgraph "Email"
-        MAILER["Nodemailer<br/>Gmail SMTP"]
+        MAILER["Nodemailer - Gmail SMTP"]
     end
 
     LOGIN_FORM -->|"POST {email, password}"| LOGIN_ROUTE
@@ -72,7 +72,7 @@ graph TB
     SIGNUP_ROUTE -->|"bcrypt.hash() + prisma.create"| USER_TABLE
     SIGNUP_ROUTE -->|"login(payload)"| AUTH_SERVER
 
-    FORGOT_FORM -->|"server action<br/>requestPasswordReset()"| TOKEN_TABLE
+    FORGOT_FORM -->|"server action - requestPasswordReset()"| TOKEN_TABLE
     TOKEN_TABLE -->|"sendPasswordResetEmail()"| MAILER
     MAILER -->|"email with reset link"| RESET_FORM
     RESET_FORM -->|"POST {email, token, password}"| CONFIRM_ROUTE
@@ -90,9 +90,9 @@ graph TB
 ```mermaid
 sequenceDiagram
     participant Browser
-    participant Proxy as proxy.ts<br/>(Middleware)
-    participant AuthLib as lib/auth.ts<br/>(jose)
-    participant AuthServer as lib/auth-server.ts<br/>(use server)
+    participant Proxy as proxy.ts (Middleware)
+    participant AuthLib as lib/auth.ts (jose)
+    participant AuthServer as lib/auth-server.ts (use server)
     participant DB as PostgreSQL
 
     Note over Browser,DB: === LOGIN ===
@@ -101,7 +101,7 @@ sequenceDiagram
     AuthLib->>DB: prisma.user.findUnique({email})
     AuthLib->>AuthLib: bcrypt.compare(password, hash)
     AuthLib->>AuthServer: login({id, email, name, role})
-    AuthServer->>AuthLib: encrypt(payload) → JWT string
+    AuthServer->>AuthLib: encrypt(payload) -- JWT string
     AuthLib-->>-Browser: Set-Cookie: session=<jwt>; HttpOnly; SameSite=Lax; 7-day expiry
 
     Note over Browser,DB: === SUBSEQUENT REQUEST ===
@@ -115,7 +115,7 @@ sequenceDiagram
     Note over Browser,DB: === SESSION REFRESH ===
 
     Proxy->>AuthServer: updateSession(request)
-    AuthServer->>AuthLib: decrypt(session) → re-encrypt with new expiry
+    AuthServer->>AuthLib: decrypt(session) -- re-encrypt with new expiry
     AuthServer-->>Browser: Set-Cookie: session=<new-jwt>
 ```
 
@@ -152,7 +152,7 @@ interface JWTPayload {
 
 ```mermaid
 flowchart TD
-    START["POST /api/auth/login<br/>{email, password}"] --> VALIDATE{"email & password<br/>provided?"}
+    START["POST /api/auth/login {email, password}"] --> VALIDATE{"email and password provided?"}
     VALIDATE -->|No| ERR_400["400: Email and password required"]
     VALIDATE -->|Yes| FIND["prisma.user.findUnique({email})"]
     FIND --> NOT_FOUND{"User exists?"}
@@ -160,7 +160,7 @@ flowchart TD
     NOT_FOUND -->|Yes| COMPARE["bcrypt.compare(password, user.password)"]
     COMPARE --> MISMATCH{"Password match?"}
     MISMATCH -->|No| ERR_401
-    MISMATCH -->|Yes| LOGIN["login(payload)<br/>Set session cookie"]
+    MISMATCH -->|Yes| LOGIN["login(payload) - Set session cookie"]
     LOGIN --> AUDIT["createAuditLog({LOGIN})"]
     AUDIT --> SUCCESS["200: {user: {id, email, name, role}}"]
 ```
@@ -175,16 +175,16 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    START["POST /api/auth/signup<br/>{name, email, password}"] --> VALIDATE{"Valid input?<br/>email, password ≥ 6 chars, name"}
+    START["POST /api/auth/signup {name, email, password}"] --> VALIDATE{"Valid input? email, password >= 6 chars, name"}
     VALIDATE -->|Invalid| ERR["400: Validation error"]
     VALIDATE -->|Valid| EXISTS["prisma.user.findUnique({email})"]
     EXISTS --> TAKEN{"User exists?"}
     TAKEN -->|Yes| ERR_EXISTS["400: User already exists"]
     TAKEN -->|No| HASH["bcrypt.hash(password, 12)"]
-    HASH --> CREATE["prisma.user.create({<br/>  role: 'MEMBER',<br/>  password: hashed<br/>})"]
+    HASH --> CREATE["prisma.user.create({role: 'MEMBER', password: hashed})"]
     CREATE --> PREFS["prisma.notificationPreference.create({userId})"]
     PREFS --> NOTIFY["notifyAdminsNewUser()"]
-    NOTIFY --> AUTO_LOGIN["login(payload)<br/>Auto-login after signup"]
+    NOTIFY --> AUTO_LOGIN["login(payload) - Auto-login after signup"]
     AUTO_LOGIN --> SUCCESS["201: {user}"]
 ```
 
@@ -204,9 +204,9 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant Browser
-    participant Action as auth-actions.ts<br/>(requestPasswordReset)
+    participant Action as auth-actions.ts (requestPasswordReset)
     participant DB as PostgreSQL
-    participant Mailer as Nodemailer<br/>(Gmail SMTP)
+    participant Mailer as Nodemailer (Gmail SMTP)
     participant API as /api/auth/reset-password/confirm
 
     Browser->>Action: requestPasswordReset(email)
@@ -219,16 +219,16 @@ sequenceDiagram
         Action->>DB: passwordResetToken.upsert({email, token, expires: +1hr})
         Action->>Mailer: sendPasswordResetEmail(email, token)
         Mailer->>Mailer: Construct reset link: /reset-password?token=...&email=...
-        Note over Mailer: In dev: logs link to console<br/>In prod: sends via SMTP
+        Note over Mailer: In dev: logs link to console. In prod: sends via SMTP
         Action-->>Browser: "If an account exists, a reset link has been sent."
     end
 
     Note over Browser: User clicks link in email
 
-    Browser->>API: POST /api/auth/reset-password/confirm<br/>{email, token, password}
+    Browser->>API: POST /api/auth/reset-password/confirm {email, token, password}
     API->>DB: passwordResetToken.findUnique({token})
     API->>API: Verify email match + not expired
-    API->>DB: $transaction([<br/>  user.update({password: hash}),<br/>  token.delete()<br/>])
+    API->>DB: $transaction([user.update({password: hash}), token.delete()])
     API-->>Browser: "Password has been successfully reset"
 ```
 
@@ -261,9 +261,9 @@ All three methods resolve to the same flow:
 
 ```mermaid
 flowchart LR
-    CALLER["Server Action or<br/>Server Component"] -->|"getSession()"| AUTH_SERVER["lib/auth-server.ts"]
+    CALLER["Server Action or Server Component"] -->|"getSession()"| AUTH_SERVER["lib/auth-server.ts"]
     AUTH_SERVER -->|"cookies().get('session')"| COOKIE["Session Cookie"]
-    COOKIE -->|"decrypt(value)"| AUTH_LIB["lib/auth.ts<br/>(jose)"]
+    COOKIE -->|"decrypt(value)"| AUTH_LIB["lib/auth.ts (jose)"]
     AUTH_LIB -->|"JWT verify + decode"| PAYLOAD["JWTPayload or null"]
 ```
 
@@ -288,22 +288,22 @@ The middleware does NOT currently refresh the session on every request (the `upd
 
 ```mermaid
 flowchart TD
-    REQ["Incoming Request"] --> MATCH{"Matches route<br/>pattern?"}
+    REQ["Incoming Request"] --> MATCH{"Matches route pattern?"}
     MATCH -->|No| NEXT["NextResponse.next()"]
-    MATCH -->|Yes| COOKIE{"Session cookie<br/>present?"}
+    MATCH -->|Yes| COOKIE{"Session cookie present?"}
 
-    COOKIE -->|No cookie + protected route| REDIRECT_LOGIN["Redirect → /login"]
+    COOKIE -->|No cookie + protected route| REDIRECT_LOGIN["Redirect to /login"]
     COOKIE -->|Has cookie| DECRYPT["decrypt(cookie)"]
 
-    DECRYPT --> FAIL{"Decrypt<br/>success?"}
+    DECRYPT --> FAIL{"Decrypt success?"}
     FAIL -->|Error| REDIRECT_LOGIN
     FAIL -->|Success| SESSION["session = {id, email, role}"]
 
     SESSION --> ROUTE{"Route check"}
-    ROUTE -->|"/admin" + role ≠ ADMIN| REDIRECT_DASH["Redirect → /dashboard"]
-    ROUTE -->|"/manager" + role ∉ [ADMIN, MANAGER]| REDIRECT_DASH
-    ROUTE -->|"/member" + role ∉ [ADMIN, MANAGER, MEMBER]| REDIRECT_DASH
-    ROUTE -->|"/login" or "/signup" + has session| REDIRECT_DASH2["Redirect → /dashboard"]
+    ROUTE -->|"/admin" + role != ADMIN| REDIRECT_DASH["Redirect to /dashboard"]
+    ROUTE -->|"/manager" + role not in ADMIN or MANAGER| REDIRECT_DASH
+    ROUTE -->|"/member" + role not in ADMIN, MANAGER, MEMBER| REDIRECT_DASH
+    ROUTE -->|"/login" or "/signup" + has session| REDIRECT_DASH2["Redirect to /dashboard"]
     ROUTE -->|Authorized| NEXT
 
     style REDIRECT_LOGIN fill:#fee,stroke:#c00
