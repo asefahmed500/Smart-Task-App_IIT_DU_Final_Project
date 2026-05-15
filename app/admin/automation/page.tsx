@@ -51,8 +51,8 @@ export default async function AutomationPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.execCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">Average latency: 120ms</p>
+            <div className="text-2xl font-bold">{stats.automationExecCount ?? 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">Automated actions in the last 24h</p>
           </CardContent>
         </Card>
 
@@ -82,6 +82,11 @@ export default async function AutomationPage() {
         <CardContent className="p-0">
           <AutomationRuleList rules={rules} />
         </CardContent>
+        {rules.some(r => r.boardId) && (
+          <div className="px-6 py-3 border-t bg-muted/30 text-[10px] text-muted-foreground uppercase tracking-wider">
+            Board-specific rules are denoted with a board badge. Global rules apply to all boards.
+          </div>
+        )}
       </Card>
     </div>
   )

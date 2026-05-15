@@ -28,6 +28,40 @@ import {
 } from "@/components/ui/select"
 import { getAvailableTriggers, getAvailableConditions, getAvailableActions } from '@/utils/automation-utils'
 
+const TRIGGER_LABELS: Record<string, string> = {
+  TASK_CREATED: 'Task Created',
+  TASK_MOVED: 'Task Moved',
+  TASK_UPDATED: 'Task Updated',
+  TASK_ASSIGNED: 'Task Assigned',
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  'SEND_NOTIFICATION:manager': 'Notify Manager',
+  'SEND_NOTIFICATION:assignee': 'Notify Assignee',
+  'SEND_NOTIFICATION:creator': 'Notify Creator',
+  'SET_PRIORITY:HIGH': 'Set Priority: High',
+  'SET_PRIORITY:MEDIUM': 'Set Priority: Medium',
+  'SET_PRIORITY:LOW': 'Set Priority: Low',
+  'MOVE_TASK:column:Done': 'Move to Done',
+  'MOVE_TASK:column:In Progress': 'Move to In Progress',
+  'MOVE_TASK:column:To Do': 'Move to To Do',
+  'ADD_TAG:tag:urgent': 'Add Tag: Urgent',
+  'ADD_TAG:tag:review': 'Add Tag: Review',
+  'ADD_TAG:tag:bug': 'Add Tag: Bug',
+}
+
+const CONDITION_LABELS: Record<string, string> = {
+  'priority=HIGH': 'Priority is High',
+  'priority=URGENT': 'Priority is Urgent',
+  'priority=MEDIUM': 'Priority is Medium',
+  'priority=LOW': 'Priority is Low',
+  'assignee=null': 'Unassigned',
+  'assignee!=null': 'Has Assignee',
+  'column=In Progress': 'In In Progress',
+  'column=Done': 'In Done',
+  'column=To Do': 'In To Do',
+}
+
 interface AutomationRuleListProps {
   rules: AutomationRule[]
 }
@@ -122,6 +156,7 @@ export function AutomationRuleList({ rules: initialRules }: AutomationRuleListPr
           <TableHead>Trigger</TableHead>
           <TableHead>Condition</TableHead>
           <TableHead>Action</TableHead>
+          <TableHead>Scope</TableHead>
           <TableHead>Status</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
@@ -140,18 +175,25 @@ export function AutomationRuleList({ rules: initialRules }: AutomationRuleListPr
             </TableCell>
             <TableCell>
               <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
-                {rule.trigger}
+                {TRIGGER_LABELS[rule.trigger] || rule.trigger}
               </Badge>
             </TableCell>
             <TableCell>
               <span className="text-sm text-muted-foreground italic">
-                {rule.condition || "None"}
+                {rule.condition ? (CONDITION_LABELS[rule.condition] || rule.condition) : "None"}
               </span>
             </TableCell>
             <TableCell>
               <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/20">
-                {rule.action}
+                {ACTION_LABELS[rule.action] || rule.action}
               </Badge>
+            </TableCell>
+            <TableCell>
+              {rule.boardId ? (
+                <Badge variant="secondary" className="text-[10px]">Board</Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] text-primary border-primary/20 bg-primary/5">Global</Badge>
+              )}
             </TableCell>
             <TableCell>
               <Switch 

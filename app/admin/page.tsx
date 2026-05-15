@@ -9,6 +9,60 @@ import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/utils/utils'
 
+const ACTION_LABELS: Record<string, string> = {
+  CREATE_TASK: 'Created task',
+  UPDATE_TASK: 'Updated task',
+  DELETE_TASK: 'Deleted task',
+  UPDATE_TASK_STATUS: 'Moved task',
+  UPDATE_TASK_STATUS_OVERRIDE: 'Overrode task status',
+  CREATE_COLUMN: 'Created column',
+  UPDATE_COLUMN: 'Updated column',
+  DELETE_COLUMN: 'Deleted column',
+  REORDER_COLUMNS: 'Reordered columns',
+  ADD_COMMENT: 'Commented',
+  DELETE_COMMENT: 'Deleted comment',
+  ADD_ATTACHMENT: 'Added attachment',
+  DELETE_ATTACHMENT: 'Deleted attachment',
+  ADD_TAG: 'Added tag',
+  REMOVE_TAG: 'Removed tag',
+  CREATE_TAG: 'Created tag',
+  DELETE_TAG: 'Deleted tag',
+  LOG_TIME: 'Logged time',
+  UPDATE_TIME_ENTRY: 'Updated time entry',
+  DELETE_TIME_ENTRY: 'Deleted time entry',
+  SUBMIT_REVIEW: 'Submitted review',
+  COMPLETE_REVIEW: 'Completed review',
+  CREATE_BOARD: 'Created board',
+  UPDATE_BOARD: 'Updated board',
+  DELETE_BOARD: 'Deleted board',
+  ADD_BOARD_MEMBER: 'Added member',
+  REMOVE_BOARD_MEMBER: 'Removed member',
+  CREATE_AUTOMATION_RULE: 'Created rule',
+  UPDATE_AUTOMATION_RULE: 'Updated rule',
+  DELETE_AUTOMATION_RULE: 'Deleted rule',
+  TOGGLE_AUTOMATION_RULE: 'Toggled rule',
+  AUTOMATION_EXECUTED: 'Automation ran',
+  CREATE_USER: 'Created user',
+  UPDATE_USER_ROLE: 'Changed role',
+  UPDATE_USER_DETAILS: 'Updated details',
+  DELETE_USER: 'Deleted user',
+  LOGIN: 'Signed in',
+  LOGOUT: 'Signed out',
+  UNDO: 'Undid action',
+}
+
+function formatLogDescription(log: any): string {
+  const prefix = ACTION_LABELS[log.action] || log.action.replace(/_/g, ' ').toLowerCase()
+  const details = log.details || {}
+  const parts: string[] = [prefix]
+  if (details.taskTitle) parts.push(`"${details.taskTitle}"`)
+  if (details.boardName) parts.push(`on "${details.boardName}"`)
+  if (details.ruleName) parts.push(`"${details.ruleName}"`)
+  if (details.newRole) parts.push(`→ ${details.newRole}`)
+  if (details.email) parts.push(`(${details.email})`)
+  return parts.join(' ')
+}
+
 export default async function AdminPage() {
   const session = await getSession()
 
@@ -144,7 +198,7 @@ export default async function AdminPage() {
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Executed system action on target entities.
+                      {formatLogDescription(log)}
                     </p>
                     <span className="text-[10px] text-muted-foreground/60 font-medium">
                       {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}

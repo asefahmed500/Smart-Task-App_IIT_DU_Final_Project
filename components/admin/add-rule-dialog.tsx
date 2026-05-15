@@ -21,8 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createAutomationRule } from '@/actions/admin-actions'
-import { getManagerBoards } from '@/actions/manager-actions'
+import { createAutomationRule, getAllBoards } from '@/actions/admin-actions'
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { getAvailableTriggers, getAvailableConditions, getAvailableActions } from '@/utils/automation-utils'
@@ -44,7 +43,7 @@ export function AddRuleDialog() {
 
   useEffect(() => {
     if (open) {
-      getManagerBoards().then((res) => {
+      getAllBoards().then((res) => {
         if (res.success && res.data) {
           setBoards(res.data as BoardOption[])
         }
@@ -58,11 +57,12 @@ export function AddRuleDialog() {
 
     const formData = new FormData(e.currentTarget)
     const boardId = formData.get('boardId') as string
+    const condition = formData.get('condition') as string
     const data = {
       name: formData.get('name') as string,
       trigger: formData.get('trigger') as string,
       action: formData.get('action') as string,
-      condition: formData.get('condition') as string,
+      condition: condition && condition !== 'none' ? condition : null,
       boardId: boardId === 'global' ? null : boardId,
     }
 

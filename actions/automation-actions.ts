@@ -272,7 +272,7 @@ export async function getAutomationRules(input?: { boardId?: string }): Promise<
 
   try {
     const rules = await prisma.automationRule.findMany({
-      where: boardId ? { boardId } : { boardId: null },
+      where: boardId ? { boardId } : undefined,
       orderBy: { createdAt: 'desc' }
     })
     return { success: true, data: rules }
