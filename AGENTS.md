@@ -23,18 +23,18 @@ Real-time Kanban board with RBAC, WIP limits, offline support, undo via audit lo
 | `npm run dev` | `db:check` **(blocks startup if DB unreachable)**, then Socket.io (3001) + Next.js (3002) concurrently |
 | `npm run db:setup` | `prisma db push && prisma generate && npm run seed` — for Supabase, set `DATABASE_URL` and `DIRECT_URL` env vars first |
 | `npm run seed` | Seeds DB; reads `.env.local` via dotenv; password: `AdminPassword123!` |
-| `npm run socket:dev` | Standalone Socket.io server only |
+| `npm run socket:dev` | Standalone Socket.io server only (`npx tsx src/socket/server.ts`) |
 | `npm run db:check` | Verifies DB connectivity (run automatically by `dev`) |
 | `npm run check-users` | Diagnostic: verify user roles/credentials in DB |
 | `npm run check-boards` | Diagnostic: validate board memberships |
 
 ## Environment
 
-`.env.local` required: `DATABASE_URL`, `JWT_SECRET`, `PORT=3002`
+`.env.local` required: `DATABASE_URL`, `JWT_SECRET`
 
-Optional: `ALLOWED_ORIGIN`, `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `http://localhost:3001`), `NEXT_PUBLIC_APP_URL`, `SOCKET_PORT` (default 3001)
+Optional: `ALLOWED_ORIGIN`, `EMAIL_HOST/PORT/USER/PASS/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `http://localhost:3001`), `NEXT_PUBLIC_APP_URL`, `SOCKET_PORT` (default 3001), `PORT` (Railway auto-injects — do NOT set manually)
 
-For Supabase production: use `?pgbouncer=true` on `DATABASE_URL` (pooled) and separate `DIRECT_URL` (port 5432, no pgbouncer). Both require `ssl: { rejectUnauthorized: false }` — handled automatically in `lib/prisma.ts` and `src/socket/server.ts`.
+For Supabase production: use `?pgbouncer=true` on `DATABASE_URL` (pooled, port 6543) and separate `DIRECT_URL` (port 5432, no pgbouncer). Both require `ssl: { rejectUnauthorized: false }` — handled automatically in `lib/prisma.ts` and `src/socket/server.ts`.
 
 ## Architecture
 
@@ -42,9 +42,9 @@ For Supabase production: use `?pgbouncer=true` on `DATABASE_URL` (pooled) and se
 
 **ESM project** (`"type": "module"`). All config files use `.mjs`. Never create `.cjs` configs.
 
-**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` uses `DIRECT_URL` for schema operations (falls back to `DATABASE_URL`). Loads `.env.local` in dev, `.env` in production. `postinstall` runs `prisma generate`. **`generated/` is gitignored** — always run `prisma generate` after pulling schema changes. Connection pool is created lazily via `getPrismaClient()` — not eagerly at module scope, so the build won't crash if `DATABASE_URL` is temporarily unavailable.
+**Prisma v7** uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` uses `DIRECT_URL` for schema operations (falls back to `DATABASE_URL`). Loads `.env.local` in dev, `.env` in production. `postinstall` runs `prisma generate`. **`generated/` is gitignored** — always run `prisma generate` after pulling schema changes. Prisma client is created at module scope (eagerly in production, lazily in dev via `global.prisma` for hot-reload safety).
 
-**Socket.io is standalone** (`src/socket/server.ts`), not Next.js built-in. Self-contained: has its own Prisma+pg pool, does NOT import from `@/` paths or `utils/notification-utils.ts`. Background jobs run inline (due date reminders/overdue checks every 60s, 90-day audit log cleanup at midnight). Has HTTP endpoints: `GET /health` → `{"status":"ok","uptime":...}` for Railway health checks, and `GET /` → `"Socket.IO server running"`. `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit events through it to the standalone server.
+**Socket.io is standalone** (`src/socket/server.ts`), not Next.js built-in. Self-contained: has its own Prisma+pg pool, imports from relative `../../generated/prisma` (NOT `@/` paths or `utils/notification-utils.ts`). Background jobs run inline (due date reminders/overdue checks every 60s, 90-day audit log cleanup at midnight). Has HTTP endpoints: `GET /health` → `{"status":"ok","uptime":...}` for Railway health checks, and `GET /` → `"Socket.IO server running"`. `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit events through it to the standalone server.
 
 **Middleware is `proxy.ts`** at project root — not `middleware.ts`. Next.js 16 auto-detects it. Handles auth guards + RBAC redirects.
 
@@ -58,7 +58,7 @@ For Supabase production: use `?pgbouncer=true` on `DATABASE_URL` (pooled) and se
 
 **shadcn** style is `radix-nova`. UI components in `components/ui/`.
 
-**Offline:** IndexedDB-backed action queue (`lib/offline-db.ts`). Zustand store at `lib/store/use-offline-store.ts`. UI provider at `components/providers/offline-provider.tsx`.
+**Offline:** IndexedDB-backed action queue (`lib/offline-db.ts`). Zustand store at `lib/store/use-offline-store.ts`. UI provider at `components/providers/offline-provider.tsx`. Sync via `lib/offline-sync.ts` maps action types to server actions.
 
 ## Code Conventions
 
@@ -131,9 +131,9 @@ Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/so
 
 **`.env.production` is gitignored.** Never commit it. Production env vars go in Vercel/Railway dashboards only.
 
-**Socket server `process.env.PORT` for Railway.** Railway auto-injects `PORT` and health-checks it. The socket server reads `PORT` first, then `SOCKET_PORT`, then defaults to `3001`. Do NOT manually set `PORT` in Railway env vars. The server has a `/health` endpoint at `GET /health` returning `{"status":"ok","uptime":...}` — this is required for Railway to mark the deployment as healthy.
+**Socket server port resolution:** reads `PORT` first, then `SOCKET_PORT`, then defaults to `3001`. Railway auto-injects `PORT` — do NOT manually set it. The `/health` endpoint is required for Railway health checks.
 
-**Vercel build fails with exit 1 and no logs if env vars are missing.** The `lib/prisma.ts` connection pool and `lib/auth.ts` JWT key are created lazily/at-module-scope — if `DATABASE_URL` or `JWT_SECRET` is missing, the build crashes silently. Both files now have fallbacks for dev, but **production deployments must set all env vars in the Vercel dashboard** (not in `.env.production` which is gitignored).
+**Vercel build fails with exit 1 and no logs if env vars are missing.** The Prisma client (`lib/prisma.ts`) throws if `DATABASE_URL` is unset. **Production deployments must set all env vars in the Vercel dashboard.**
 
 ## Business Logic Constraints
 
@@ -177,7 +177,7 @@ Server actions emit via `emitBoardEvent()` and `emitNotification()` in `utils/so
 | Prisma schema | `prisma/schema.prisma` |
 | Prisma config | `prisma.config.ts` (uses `DIRECT_URL` for schema ops) |
 | Zod schemas | `lib/schemas.ts` |
-| Server actions | `actions/*-actions.ts` |
+| Server actions | `actions/*-actions.ts` (barrel export in `actions/index.ts`) |
 | Socket server | `src/socket/server.ts` (standalone, `/health` endpoint) |
 | Socket client (emitter) | `utils/socket-emitter.ts` |
 | Notification utils | `utils/notification-utils.ts` |
