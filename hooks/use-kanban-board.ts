@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   DragStartEvent,
@@ -32,28 +32,36 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
   
   const { isOnline, addAction } = useOfflineStore()
 
-  // Sync board state when initialBoard prop changes (e.g., after router.refresh())
+  const isDraggingRef = useRef(false)
+  const dragTargetRef = useRef<Record<string, string>>({})
+
   useEffect(() => {
     setBoard(initialBoard)
   }, [initialBoard.id, initialBoard.updatedAt])
 
-  const { isConnected, presence, editingTasks } = useSocket(initialBoard.id, {
+  const stableUser = useMemo(() => ({
     id: currentUser.id,
     name: currentUser.name || currentUser.email,
     image: currentUser.image
-  })
+  }), [currentUser.id, currentUser.name, currentUser.email])
+
+  const { isConnected, presence, editingTasks } = useSocket(initialBoard.id, stableUser)
 
   const handleBoardEvent = useCallback((event: string, data: Record<string, unknown>) => {
     if (event === 'task:moved') {
+      if (data.userId === currentUser.id || isDraggingRef.current) return
       const oldColId = (data.oldColumnId ?? data.previousColumnId) as string | undefined
       const newColId = (data.newColumnId ?? data.columnId) as string | undefined
       if (!oldColId || !newColId) return
       setBoard((prev: Board) => {
         const newColumns = prev.columns.map((col: Column) => {
           if (col.id === oldColId) {
-            return { ...col, tasks: col.tasks.filter((t: Task) => t.id !== data.taskId) }
+            const filtered = col.tasks.filter((t: Task) => t.id !== data.taskId)
+            if (filtered.length === col.tasks.length) return col
+            return { ...col, tasks: filtered }
           }
           if (col.id === newColId) {
+            if (col.tasks.some((t: Task) => t.id === data.taskId)) return col
             const task = prev.columns
               .flatMap((c: Column) => c.tasks)
               .find((t: Task) => t.id === data.taskId)
@@ -205,7 +213,10 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
     }
   }
 
-  const onDragStart = (event: DragStartEvent) => {
+  const onDragStart = useCallback((event: DragStartEvent) => {
+    isDraggingRef.current = true
+    dragTargetRef.current = {}
+
     if (event.active.data.current?.type === 'Column') {
       setActiveColumn(event.active.data.current.column)
       return
@@ -215,14 +226,14 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
       setActiveTask(event.active.data.current.task)
       return
     }
-  }
+  }, [])
 
-  const onDragOver = (event: DragOverEvent) => {
+  const onDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event
     if (!over) return
 
-    const activeId = active.id
-    const overId = over.id
+    const activeId = active.id as string
+    const overId = over.id as string
 
     if (activeId === overId) return
 
@@ -237,15 +248,19 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
         const overColumn = prev.columns.find((c: Column) => c.tasks.some((t: Task) => t.id === overId))
 
         if (activeColumn && overColumn && activeColumn.id !== overColumn.id) {
+          if (dragTargetRef.current[activeId] === overColumn.id) return prev
+          dragTargetRef.current[activeId] = overColumn.id
+
           const newColumns = prev.columns.map((col: Column) => {
             if (col.id === activeColumn.id) {
               return { ...col, tasks: col.tasks.filter((t: Task) => t.id !== activeId) }
             }
             if (col.id === overColumn.id) {
               const activeTask = activeColumn.tasks.find((t: Task) => t.id === activeId)
+              if (!activeTask) return col
               const newTasks = [...col.tasks]
               const targetIndex = col.tasks.findIndex((t: Task) => t.id === overId)
-              newTasks.splice(targetIndex, 0, activeTask!)
+              newTasks.splice(targetIndex, 0, activeTask)
               return { ...col, tasks: newTasks }
             }
             return col
@@ -259,9 +274,12 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
 
     const isOverAColumn = over.data.current?.type === 'Column'
     if (isActiveATask && isOverAColumn) {
+      const overColumnId = overId as string
+      if (dragTargetRef.current[activeId] === overColumnId) return
+
+      dragTargetRef.current[activeId] = overColumnId
       setBoard((prev: Board) => {
         const activeColumn = prev.columns.find((c: Column) => c.tasks.some((t: Task) => t.id === activeId))
-        const overColumnId = overId as string
 
         if (activeColumn && activeColumn.id !== overColumnId) {
           const newColumns = prev.columns.map((col: Column) => {
@@ -270,7 +288,8 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
             }
             if (col.id === overColumnId) {
               const activeTask = activeColumn.tasks.find((t: Task) => t.id === activeId)
-              return { ...col, tasks: [...col.tasks, activeTask!] }
+              if (!activeTask) return col
+              return { ...col, tasks: [...col.tasks, activeTask] }
             }
             return col
           })
@@ -279,9 +298,11 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
         return prev
       })
     }
-  }
+  }, [])
 
   const onDragEnd = async (event: DragEndEvent) => {
+    isDraggingRef.current = false
+    dragTargetRef.current = {}
     setActiveColumn(null)
     setActiveTask(null)
 
@@ -322,9 +343,9 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
 
     if (active.data.current?.type === 'Task') {
       const activeTask = active.data.current.task
-      const overColumnId = over.data.current?.type === 'Column' ? overId : over.data.current?.task.columnId
+      const overColumnId = over.data.current?.type === 'Column' ? overId as string : over.data.current?.task?.columnId
 
-      if (activeTask.columnId !== overColumnId) {
+      if (activeTask.columnId !== overColumnId && overColumnId) {
         const overColumn = board.columns.find((c: Column) => c.id === overColumnId)
         
         if (overColumn) {
@@ -344,7 +365,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
               
               emitTaskMoved(board.id, {
                 taskId: activeId as string,
-                newColumnId: overColumnId as string,
+                newColumnId: overColumnId,
                 oldColumnId,
                 userId: currentUser.id,
                 userName: currentUser.name || currentUser.email
@@ -364,7 +385,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
             if (result.success) {
               emitTaskMoved(board.id, {
                 taskId: activeId as string,
-                newColumnId: overColumnId as string,
+                newColumnId: overColumnId,
                 oldColumnId,
                 userId: currentUser.id,
                 userName: currentUser.name || currentUser.email
@@ -381,7 +402,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
               if (message.includes('Conflict')) {
                 setConflictTaskData({
                   taskId: activeId as string,
-                  columnId: overColumnId as string,
+                  columnId: overColumnId,
                   statusName: overColumn.name
                 })
                 setConflictModalOpen(true)
@@ -395,7 +416,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
             if (message.includes('Conflict')) {
               setConflictTaskData({
                 taskId: activeId as string,
-                columnId: overColumnId as string,
+                columnId: overColumnId,
                 statusName: overColumn.name
               })
               setConflictModalOpen(true)

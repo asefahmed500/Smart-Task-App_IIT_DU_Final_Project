@@ -67,6 +67,27 @@ async function main() {
     },
   })
 
+  const extraAdminHash = await bcrypt.hash('admin123', 10)
+  const extraManagerHash = await bcrypt.hash('manager123', 10)
+
+  await prisma.user.create({
+    data: {
+      email: 'admin@gmail.com',
+      password: extraAdminHash,
+      name: 'Admin',
+      role: 'ADMIN',
+    },
+  })
+
+  await prisma.user.create({
+    data: {
+      email: 'manager@gmail.com',
+      password: extraManagerHash,
+      name: 'Manager',
+      role: 'MANAGER',
+    },
+  })
+
   console.log('Users created.')
 
   // Create Boards

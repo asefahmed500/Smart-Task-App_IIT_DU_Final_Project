@@ -31,6 +31,16 @@ import { useKanbanBoard } from '@/hooks/use-kanban-board'
 
 import { Board, Task, Column, User, Tag } from '@/types/kanban'
 
+const DROP_ANIMATION: DropAnimation = {
+  sideEffects: defaultDropAnimationSideEffects({
+    styles: {
+      active: {
+        opacity: '0.5',
+      },
+    },
+  }),
+}
+
 interface KanbanBoardProps {
   board: Board
   currentUser: User
@@ -104,19 +114,11 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
     })
   )
 
-  const dropAnimation: DropAnimation = {
-    sideEffects: defaultDropAnimationSideEffects({
-      styles: {
-        active: {
-          opacity: '0.5',
-        },
-      },
-    }),
-  }
+  const dropAnimation = DROP_ANIMATION
 
   const handleCloseTaskDetails = useCallback(() => {
     setSelectedTaskId(null)
-  }, [])
+  }, [setSelectedTaskId])
 
   return (
     <>
