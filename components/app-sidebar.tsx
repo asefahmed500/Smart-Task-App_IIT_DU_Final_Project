@@ -1,16 +1,22 @@
 'use client'
 
+import { useState } from 'react'
 import {
   LayoutDashboard,
   Users,
   LogOut,
-  ClipboardList,
   BarChart3,
   ShieldCheck,
   ShieldAlert,
   Layout,
-  MessageSquare,
-  History
+  History,
+  CalendarDays,
+  Layers,
+  ListTodo,
+  LayoutTemplate,
+  ChevronRight,
+  Loader2,
+  Zap,
 } from "lucide-react"
 
 import {
@@ -23,10 +29,26 @@ import {
   SidebarMenuItem,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarGroupContent,
 } from "@/components/ui/sidebar"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { createBoardFromTemplate } from "@/actions/board-actions"
+import { BOARD_TEMPLATES } from "@/lib/board-templates"
+
+const TEMPLATE_ICONS: Record<string, React.ReactNode> = {
+  scrum: <Zap className="size-3.5" />,
+  kanban: <LayoutTemplate className="size-3.5" />,
+  'product-launch': <Layers className="size-3.5" />,
+  'bug-tracking': <BarChart3 className="size-3.5" />,
+}
 
 interface AppSidebarProps {
   user: {
@@ -39,6 +61,11 @@ interface AppSidebarProps {
 
 export function AppSidebar({ user, ...props }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const { role } = user
+  const router = useRouter()
+  const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [creating, setCreating] = useState<string | null>(null)
+
+  const showTemplates = role === 'ADMIN' || role === 'MANAGER'
 
   const adminItems = [
     { title: "Dashboard", icon: LayoutDashboard, url: "/admin" },
@@ -52,6 +79,9 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
   const managerItems = [
     { title: "Dashboard", icon: LayoutDashboard, url: "/manager" },
     { title: "Team Boards", icon: Layout, url: "/manager/boards" },
+    { title: "Backlog", icon: ListTodo, url: "/manager/backlog" },
+    { title: "Sprints", icon: CalendarDays, url: "/manager/sprints" },
+    { title: "Epics", icon: Layers, url: "/manager/epics" },
     { title: "Team Members", icon: Users, url: "/manager/team" },
     { title: "Analytics", icon: BarChart3, url: "/manager/analytics" },
     { title: "Audit Logs", icon: History, url: "/manager/logs" },
@@ -60,11 +90,26 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
   const memberItems = [
     { title: "My Dashboard", icon: LayoutDashboard, url: "/member" },
     { title: "Boards", icon: Layout, url: "/member/boards" },
+    { title: "My Sprints", icon: CalendarDays, url: "/member/sprints" },
+    { title: "My Backlog", icon: ListTodo, url: "/member/backlog" },
+    { title: "Epics", icon: Layers, url: "/member/epics" },
     { title: "Reports", icon: BarChart3, url: "/member/reports" },
     { title: "My Activity", icon: History, url: "/member/logs" },
   ]
 
   const items = role === 'ADMIN' ? adminItems : role === 'MANAGER' ? managerItems : memberItems
+
+  async function handleCreateFromTemplate(templateId: string) {
+    setCreating(templateId)
+    const res = await createBoardFromTemplate(templateId)
+    setCreating(null)
+    if (res.success && res.data) {
+      toast.success(`Board "${(res.data as any).name}" created from template`)
+      router.push(`/dashboard/board/${(res.data as any).id}`)
+    } else {
+      toast.error(res.error || 'Failed to create board from template')
+    }
+  }
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -94,7 +139,44 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
           </SidebarMenu>
         </SidebarGroup>
 
-
+        {showTemplates && (
+          <SidebarGroup>
+            <Collapsible open={templatesOpen} onOpenChange={setTemplatesOpen}>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center justify-between hover:bg-sidebar-accent rounded-md px-2 py-1.5 transition-colors">
+                  <span className="flex items-center gap-2">
+                    <LayoutTemplate className="size-4" />
+                    Templates
+                  </span>
+                  <ChevronRight className={`size-4 transition-transform ${templatesOpen ? 'rotate-90' : ''}`} />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {BOARD_TEMPLATES.map((template) => (
+                      <SidebarMenuItem key={template.id}>
+                        <SidebarMenuButton
+                          tooltip={template.description}
+                          disabled={creating === template.id}
+                          onClick={() => handleCreateFromTemplate(template.id)}
+                          className="cursor-pointer"
+                        >
+                          {creating === template.id ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            TEMPLATE_ICONS[template.id] || <LayoutTemplate className="size-3.5" />
+                          )}
+                          <span>{creating === template.id ? 'Creating...' : template.name}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="border-t p-4">
         <SidebarMenu>

@@ -1,5 +1,11 @@
 export type Role = 'ADMIN' | 'MANAGER' | 'MEMBER';
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type IssueType = 'BUG' | 'FEATURE' | 'STORY' | 'TASK' | 'EPIC' | 'SUBTASK';
+export type SprintStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+export type EpicStatus = 'BACKLOG' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type IssueLinkType = 'BLOCKS' | 'BLOCKED_BY' | 'RELATES_TO' | 'DUPLICATES' | 'DUPLICATED_BY';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
+export type IssueResolution = 'FIXED' | 'WONT_FIX' | 'DUPLICATE' | 'CANNOT_REPRODUCE' | 'LATER' | 'MOVED';
 
 export interface User {
   id: string;
@@ -56,6 +62,14 @@ export interface Task {
   version: number;
   createdAt: string | Date;
   updatedAt: string | Date;
+  // Sprint planning fields
+  issueType: IssueType | null;
+  status: TaskStatus | null;
+  storyPoints: number | null;
+  parentId: string | null;
+  sprintId: string | null;
+  resolution: IssueResolution | null;
+  epicId: string | null;
   column?: { id: string; name: string; boardId: string };
   creator?: User;
   assignee?: User | null;
@@ -65,10 +79,16 @@ export interface Task {
   tags?: Tag[];
   timeEntries?: TimeEntry[];
   reviews?: Review[];
+  sprint?: { id: string; name: string; status: SprintStatus };
+  epic?: { id: string; name: string; color: string };
+  parent?: { id: string; title: string };
+  subtasks?: Task[];
+  issueLinks?: IssueLink[];
   _count?: {
     comments: number;
     attachments: number;
     checklists: number;
+    subtasks: number;
   };
 }
 
@@ -144,6 +164,8 @@ export interface Board {
   members: User[];
   columns: Column[];
   updatedAt: string | Date;
+  sprints?: Sprint[];
+  epics?: Epic[];
 }
 
 export type ActionResult<T = any> = {
@@ -153,3 +175,39 @@ export type ActionResult<T = any> = {
   message?: string;
   fieldErrors?: Record<string, string[] | undefined>;
 };
+
+export interface Sprint {
+  id: string;
+  name: string;
+  goal: string | null;
+  startDate: string | Date;
+  endDate: string | Date;
+  status: SprintStatus;
+  boardId: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  board?: { id: string; name: string };
+  _count?: { tasks: number };
+}
+
+export interface Epic {
+  id: string;
+  name: string;
+  description: string | null;
+  status: EpicStatus;
+  color: string;
+  boardId: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  _count?: { tasks: number };
+}
+
+export interface IssueLink {
+  id: string;
+  sourceTaskId: string;
+  targetTaskId: string;
+  linkType: IssueLinkType;
+  createdAt: string | Date;
+  sourceTask?: { id: string; title: string; issueType: IssueType | null; priority: Priority; status: TaskStatus | null };
+  targetTask?: { id: string; title: string; issueType: IssueType | null; priority: Priority; status: TaskStatus | null };
+}

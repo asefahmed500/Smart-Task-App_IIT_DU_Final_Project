@@ -15,6 +15,12 @@ export const createTaskSchema = z.object({
   columnId: idSchema,
   assigneeId: idSchema.optional().nullable(),
   dueDate: z.string().optional().nullable(),
+  // Sprint planning fields
+  issueType: z.enum(['BUG', 'FEATURE', 'STORY', 'TASK', 'EPIC', 'SUBTASK']).optional().nullable(),
+  storyPoints: z.number().int().min(0).max(100).optional().nullable(),
+  parentId: idSchema.optional().nullable(),
+  sprintId: idSchema.optional().nullable(),
+  epicId: idSchema.optional().nullable(),
 });
 
 export const updateTaskSchema = z.object({
@@ -25,6 +31,13 @@ export const updateTaskSchema = z.object({
   assigneeId: idSchema.optional().nullable(),
   dueDate: z.string().optional().nullable(),
   version: z.number().int().min(1),
+  // Sprint planning fields
+  issueType: z.enum(['BUG', 'FEATURE', 'STORY', 'TASK', 'EPIC', 'SUBTASK']).optional().nullable(),
+  storyPoints: z.number().int().min(0).max(100).optional().nullable(),
+  parentId: idSchema.optional().nullable(),
+  sprintId: idSchema.optional().nullable(),
+  epicId: idSchema.optional().nullable(),
+  resolution: z.enum(['FIXED', 'WONT_FIX', 'DUPLICATE', 'CANNOT_REPRODUCE', 'LATER', 'MOVED']).optional().nullable(),
 });
 
 export const moveTaskSchema = z.object({
@@ -135,7 +148,7 @@ export const completeReviewSchema = z.object({
 // Automation Schemas
 export const createAutomationRuleSchema = z.object({
   name: z.string().min(1, 'Rule name is required').max(100),
-  trigger: z.enum(['TASK_CREATED', 'TASK_MOVED', 'TASK_UPDATED', 'TASK_ASSIGNED']),
+  trigger: z.enum(['TASK_CREATED', 'TASK_MOVED', 'TASK_UPDATED', 'TASK_ASSIGNED', 'SPRINT_STARTED', 'SPRINT_COMPLETED']),
   condition: z.string().max(255).optional().nullable(),
   action: z.string().min(1, 'Action is required').max(255),
   enabled: z.boolean().default(true),
@@ -145,7 +158,7 @@ export const createAutomationRuleSchema = z.object({
 export const updateAutomationRuleSchema = z.object({
   id: idSchema,
   name: z.string().min(1).max(100).optional(),
-  trigger: z.enum(['TASK_CREATED', 'TASK_MOVED', 'TASK_UPDATED', 'TASK_ASSIGNED']).optional(),
+  trigger: z.enum(['TASK_CREATED', 'TASK_MOVED', 'TASK_UPDATED', 'TASK_ASSIGNED', 'SPRINT_STARTED', 'SPRINT_COMPLETED']).optional(),
   condition: z.string().max(255).optional().nullable(),
   action: z.string().min(1).max(255).optional(),
   enabled: z.boolean().optional(),

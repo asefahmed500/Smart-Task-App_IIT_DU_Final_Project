@@ -19,6 +19,7 @@ import { ActionResult } from '@/types/kanban'
 import { emitBoardEvent } from '@/utils/socket-emitter'
 import { sendNotification } from '@/utils/notification-utils'
 import { createAuditLog } from '@/lib/create-audit-log'
+import { BOARD_TEMPLATES } from '@/lib/board-templates'
 
 /**
  * Helper to check board permissions
@@ -184,6 +185,73 @@ export async function createBoard(rawInput: any): Promise<ActionResult> {
       return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }
     }
     return { success: false, error: error.message || 'Failed to create board' }
+  }
+}
+
+export async function createBoardFromTemplate(templateId: string): Promise<ActionResult> {
+  try {
+    const session = await getSession()
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    if (session.role === 'MEMBER') {
+      return { success: false, error: 'Forbidden: Only Admins and Managers can create boards' }
+    }
+
+    const template = BOARD_TEMPLATES.find((t) => t.id === templateId)
+    if (!template) return { success: false, error: 'Template not found' }
+
+    const board = await prisma.board.create({
+      data: {
+        name: template.name,
+        description: template.description,
+        ownerId: session.id,
+        members: {
+          connect: { id: session.id },
+        },
+        columns: {
+          create: template.columns.map((col) => ({
+            name: col.name,
+            order: col.order,
+            wipLimit: col.wipLimit,
+          })),
+        },
+      },
+      include: { columns: true },
+    })
+
+    if (template.tasks.length > 0) {
+      const columnNameToId = new Map(board.columns.map((c) => [c.name, c.id]))
+
+      await prisma.task.createMany({
+        data: template.tasks
+          .filter((t) => columnNameToId.has(t.columnName))
+          .map((t) => ({
+            title: t.title,
+            description: t.description,
+            priority: t.priority,
+            columnId: columnNameToId.get(t.columnName)!,
+            creatorId: session.id,
+            issueType: t.issueType || null,
+            storyPoints: t.storyPoints || null,
+            version: 1,
+          })),
+      })
+    }
+
+    await createAuditLog({
+      userId: session.id,
+      action: 'CREATE_BOARD',
+      details: { boardId: board.id, name: board.name, templateId },
+    })
+
+    revalidatePath('/dashboard')
+    revalidatePath('/admin/boards')
+    revalidatePath('/manager/boards')
+
+    return { success: true, data: board }
+  } catch (error: any) {
+    console.error('[CREATE_BOARD_FROM_TEMPLATE_ERROR]', error)
+    return { success: false, error: error.message || 'Failed to create board from template' }
   }
 }
 

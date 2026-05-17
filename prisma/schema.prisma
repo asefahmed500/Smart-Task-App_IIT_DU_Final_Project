@@ -40,6 +40,58 @@ model Board {
   columns     Column[]
   tags        Tag[]
   members     User[]   @relation("BoardMembers")
+  sprints     Sprint[]
+  epics       Epic[]
+}
+
+model Sprint {
+  id          String      @id @default(cuid())
+  name        String
+  goal        String?
+  startDate   DateTime
+  endDate     DateTime
+  status      SprintStatus @default(PLANNED)
+  boardId     String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  board       Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks       Task[]      @relation("SprintTasks")
+
+  @@index([boardId])
+  @@index([status])
+}
+
+model Epic {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  status      EpicStatus  @default(BACKLOG)
+  color       String      @default("#6366F1")
+  boardId     String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  board       Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks       Task[]      @relation("EpicTasks")
+
+  @@index([boardId])
+  @@index([status])
+}
+
+model IssueLink {
+  id           String        @id @default(cuid())
+  sourceTaskId String
+  targetTaskId String
+  linkType     IssueLinkType
+  createdAt    DateTime      @default(now())
+
+  sourceTask   Task          @relation("IssueLinkSource", fields: [sourceTaskId], references: [id], onDelete: Cascade)
+  targetTask   Task          @relation("IssueLinkTarget", fields: [targetTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceTaskId, targetTaskId, linkType])
+  @@index([sourceTaskId])
+  @@index([targetTaskId])
 }
 
 model Column {
@@ -66,15 +118,31 @@ model Task {
   creatorId   String
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  attachments Attachment[]
-  checklists  Checklist[]
-  comments    Comment[]
-  reviews Review[]
-  tags     Tag[]
-  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  column      Column       @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
-  timeEntries TimeEntry[]
+
+  // Sprint planning fields
+  issueType   IssueType?
+  status      TaskStatus?
+  storyPoints Int?
+  parentId    String?
+  sprintId    String?
+  resolution  IssueResolution?
+  epicId      String?
+
+  attachments   Attachment[]
+  checklists    Checklist[]
+  comments      Comment[]
+  reviews       Review[]
+  tags          Tag[]
+  assignee      User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  column        Column       @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  creator       User         @relation("TaskCreator", fields: [creatorId], references: [id])
+  timeEntries   TimeEntry[]
+  parent        Task?        @relation("TaskSubtasks", fields: [parentId], references: [id])
+  subtasks      Task[]       @relation("TaskSubtasks")
+  sprint        Sprint?      @relation("SprintTasks", fields: [sprintId], references: [id])
+  epic          Epic?        @relation("EpicTasks", fields: [epicId], references: [id])
+  issueLinks    IssueLink[]  @relation("IssueLinkSource")
+  linkedIssues  IssueLink[]  @relation("IssueLinkTarget")
 }
 
 model Comment {
@@ -226,6 +294,53 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum IssueType {
+  BUG
+  FEATURE
+  STORY
+  TASK
+  EPIC
+  SUBTASK
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum EpicStatus {
+  BACKLOG
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum IssueLinkType {
+  BLOCKS
+  BLOCKED_BY
+  RELATES_TO
+  DUPLICATES
+  DUPLICATED_BY
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum IssueResolution {
+  FIXED
+  WONT_FIX
+  DUPLICATE
+  CANNOT_REPRODUCE
+  LATER
+  MOVED
 }
 
 

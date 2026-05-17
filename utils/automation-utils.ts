@@ -4,6 +4,8 @@ export function getAvailableTriggers(): { value: string; label: string }[] {
     { value: 'TASK_MOVED', label: 'When a task is moved to a column' },
     { value: 'TASK_UPDATED', label: 'When a task is updated' },
     { value: 'TASK_ASSIGNED', label: 'When a task is assigned to someone' },
+    { value: 'SPRINT_STARTED', label: 'When a sprint starts' },
+    { value: 'SPRINT_COMPLETED', label: 'When a sprint completes' },
   ]
 }
 
@@ -19,6 +21,11 @@ export function getAvailableConditions(): { value: string; label: string }[] {
     { value: 'column=In Progress', label: 'Moved to In Progress' },
     { value: 'column=Done', label: 'Moved to Done' },
     { value: 'column=To Do', label: 'Moved to To Do' },
+    { value: 'issueType=BUG', label: 'Issue type is Bug' },
+    { value: 'issueType=FEATURE', label: 'Issue type is Feature' },
+    { value: 'issueType=STORY', label: 'Issue type is Story' },
+    { value: 'hasSprint=true', label: 'Task is in a sprint' },
+    { value: 'hasSprint=false', label: 'Task is not in a sprint' },
   ]
 }
 

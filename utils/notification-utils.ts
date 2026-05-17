@@ -15,6 +15,9 @@ type NotifType =
   | 'NEW_USER_SIGNUP'
   | 'BOARD_MEMBER_ADDED'
   | 'BOARD_MEMBER_REMOVED'
+  | 'SPRINT_STARTED'
+  | 'SPRINT_COMPLETED'
+  | 'TASK_ADDED_TO_SPRINT'
 
 const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   import('@/lib/prisma').NotificationPreference,
@@ -34,6 +37,9 @@ const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   NEW_USER_SIGNUP: 'newUserSignup',
   BOARD_MEMBER_ADDED: 'boardMemberAdded',
   BOARD_MEMBER_REMOVED: 'boardMemberRemoved',
+  SPRINT_STARTED: 'taskAssigned',
+  SPRINT_COMPLETED: 'statusChanged',
+  TASK_ADDED_TO_SPRINT: 'taskAssigned',
 }
 
 const booleanPrefKeys = new Set([
