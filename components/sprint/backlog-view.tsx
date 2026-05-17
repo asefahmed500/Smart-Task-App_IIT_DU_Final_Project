@@ -60,7 +60,7 @@ interface Task {
   createdAt: string
   assignee: { id: string; name: string | null; image: string | null } | null
   tags: { id: string; name: string; color: string }[]
-  column: { id: string; name: string }
+  column: { id: string; name: string } | null
   _count: { comments: number; subtasks: number }
 }
 
@@ -297,7 +297,7 @@ export function BacklogView({
                         </Badge>
                       )}
                       <Badge variant="outline" className="text-xs">
-                        {task.column.name}
+                        {task.column?.name || "Unknown"}
                       </Badge>
                     </div>
                     <h3 className="font-medium group-hover:text-primary transition-colors">

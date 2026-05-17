@@ -500,6 +500,7 @@ export async function getSprintDetail(
           include: {
             assignee: { select: { id: true, name: true, image: true } },
             tags: true,
+            column: { select: { id: true, name: true } },
             _count: {
               select: { comments: true, attachments: true, checklists: true, subtasks: true },
             },

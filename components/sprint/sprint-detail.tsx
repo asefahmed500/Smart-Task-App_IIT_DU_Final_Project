@@ -67,7 +67,7 @@ interface SprintTask {
   storyPoints: number | null
   status: string | null
   assignee: { id: string; name: string | null; image: string | null } | null
-  column: { id: string; name: string }
+  column: { id: string; name: string } | null
   tags: { id: string; name: string; color: string }[]
   _count: { comments: number; subtasks: number }
 }
@@ -186,7 +186,7 @@ export function SprintDetail({
   const filteredTasks =
     taskFilter === 'all'
       ? sprint.tasks
-      : sprint.tasks.filter((t) => t.column.name.toLowerCase() === taskFilter.toLowerCase())
+      : sprint.tasks.filter((t) => t.column?.name?.toLowerCase() === taskFilter.toLowerCase())
 
   const getDuration = () => {
     const start = new Date(sprint.startDate)
@@ -290,7 +290,7 @@ export function SprintDetail({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Columns</SelectItem>
-            {Array.from(new Set(sprint.tasks.map((t) => t.column.name))).map((col) => (
+            {Array.from(new Set(sprint.tasks.map((t) => t.column?.name).filter(Boolean) as string[])).map((col) => (
               <SelectItem key={col} value={col}>
                 {col}
               </SelectItem>
@@ -331,7 +331,7 @@ export function SprintDetail({
                         </Badge>
                       )}
                       <Badge variant="outline" className="text-xs">
-                        {task.column.name}
+                        {task.column?.name || "Unknown"}
                       </Badge>
                     </div>
                     <h3
