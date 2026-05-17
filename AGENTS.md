@@ -140,8 +140,17 @@ Checks live inside server action files (not a shared lib):
 - **Routes:** `/manager/{backlog,sprints,sprints/[id],epics}` — CRUD. `/member/{backlog,sprints,sprints/[id],epics}` — read-only
 - **readOnly pattern:** Sprint components (`BacklogView`, `SprintList`, `SprintDetail`, `EpicList`) accept `readOnly?: boolean`
 - **Server actions:** `actions/sprint-actions.ts`, `actions/epic-actions.ts`, `actions/issue-link-actions.ts`
-- **Sprint lifecycle:** PLANNED → ACTIVE → COMPLETED (or CANCELLED). CANCELLED → PLANNED allowed. MANAGER/ADMIN only
+- **Sprint lifecycle:** PLANNED → ACTIVE → COMPLETED (or CANCELLED). CANCELLED → PLANNED allowed. MANAGER/ADMIN only. Cannot delete ACTIVE sprints
 - **Velocity:** `storyPoints` counts tasks in "done" column only (not all sprint tasks)
+
+## Board Templates
+
+- **4 predefined templates** in `lib/board-templates.ts`: Scrum Sprint, Kanban Board, Product Launch, Bug Tracking
+- Each template defines columns (name, order, WIP limit) and sample tasks (title, description, priority, columnName, issueType, storyPoints)
+- **Templates sidebar:** Collapsible group in `components/app-sidebar.tsx` — ADMIN and MANAGER only; MEMBER does not see it
+- `createBoardFromTemplate(templateId)` in `actions/board-actions.ts` — creates board + columns + tasks via `prisma.task.createMany`
+- Clicking a template in sidebar creates the board and redirects to `/dashboard/board/[id]`
+- Templates are code-defined (not DB-stored) — no Prisma schema changes needed to add/modify templates
 
 ## Production Deployment
 
@@ -151,6 +160,22 @@ See [VERCEL.md](./VERCEL.md) and [RAILWAY.md](./RAILWAY.md) for full guides.
 - **Railway** (Socket.IO): `railway up` — self-contained (own Prisma+pg pool, `/health` endpoint, no `@/` imports)
 - **Supabase** (PostgreSQL): `DATABASE_URL` with `?pgbouncer=true` (port 6543), `DIRECT_URL` (port 5432)
 - CSP `connect-src` in `next.config.mjs` built from `NEXT_PUBLIC_SOCKET_URL` — must include Railway URL
+
+### Syncing schema to production Supabase
+
+After schema changes, the production DB must be updated separately:
+
+```powershell
+# Set both env vars (from .env.production), then push schema
+$env:DIRECT_URL = "postgresql://user:pass@host.supabase.com:5432/postgres"
+$env:DATABASE_URL = "postgresql://user:pass@host.supabase.com:6543/postgres?pgbouncer=true"
+npx prisma db push
+```
+
+- **`DIRECT_URL` (port 5432)** is required for `prisma db push` — it needs a direct connection, not pgbouncer
+- **`DATABASE_URL` (port 6543, pgbouncer)** is only for app runtime queries
+- To seed production: `npx tsx -r dotenv/config prisma/seed.ts dotenv_config_path=.env.production`
+- Credentials are in `.env.production` (not gitignored — it's committed)
 
 ## Test Accounts
 
