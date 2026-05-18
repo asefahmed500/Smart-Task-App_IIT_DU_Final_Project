@@ -63,7 +63,7 @@ export function TaskTimeTab({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 flex items-center justify-between shadow-sm group hover:shadow-md transition-all">
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Total Time Spun</p>
+            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Total Time Spent</p>
             <p className="text-3xl font-bold tracking-tighter">
               {hours}h {minutes}m
             </p>

@@ -30,11 +30,11 @@ export function useTaskTags({ taskId, task, setTask, fetchTaskDetails }: UseTask
     if (!taskId) return
     try {
       const result = await addTagToTask({ taskId, tagId })
-      if (result.success) {
+        if (result.success) {
         if (task) {
           const newTag = boardTags.find(t => t.id === tagId)
           if (newTag) {
-            setTask({ ...task, tags: [...(task.tags || []), newTag] })
+            setTask({ ...task, tags: [...(task.tags || []), newTag], version: (result.data as any)?.version ?? task.version + 1 })
           } else {
             // Fallback to full fetch if tag not found in local list
             fetchTaskDetails()
@@ -66,9 +66,9 @@ export function useTaskTags({ taskId, task, setTask, fetchTaskDetails }: UseTask
     if (!taskId) return
     try {
       const result = await removeTagFromTask({ taskId, tagId })
-      if (result.success) {
+        if (result.success) {
         if (task) {
-          setTask({ ...task, tags: (task.tags || []).filter(t => t.id !== tagId) })
+          setTask({ ...task, tags: (task.tags || []).filter(t => t.id !== tagId), version: (result.data as any)?.version ?? task.version + 1 })
         }
         toast.success('Tag removed', {
           action: {

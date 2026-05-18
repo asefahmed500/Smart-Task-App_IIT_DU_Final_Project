@@ -235,6 +235,29 @@ io.on('connection', (socket: Socket) => {
     socket.to(`board:${data.boardId}`).emit('tag:deleted', data)
   })
 
+  // Sprint event relay
+  socket.on('sprint:created', (data: { boardId: string; sprint: any }) => {
+    socket.to(`board:${data.boardId}`).emit('sprint:created', data)
+  })
+  socket.on('sprint:updated', (data: { boardId: string; sprint: any }) => {
+    socket.to(`board:${data.boardId}`).emit('sprint:updated', data)
+  })
+  socket.on('sprint:deleted', (data: { boardId: string; sprintId: string }) => {
+    socket.to(`board:${data.boardId}`).emit('sprint:deleted', data)
+  })
+  socket.on('sprint:statusChanged', (data: { boardId: string; sprintId: string; status: string }) => {
+    socket.to(`board:${data.boardId}`).emit('sprint:statusChanged', data)
+  })
+  socket.on('task:sprintAssigned', (data: { boardId: string; taskId: string; sprintId: string }) => {
+    socket.to(`board:${data.boardId}`).emit('task:sprintAssigned', data)
+  })
+  socket.on('task:sprintRemoved', (data: { boardId: string; taskId: string }) => {
+    socket.to(`board:${data.boardId}`).emit('task:sprintRemoved', data)
+  })
+  socket.on('task:issueFieldsUpdated', (data: { boardId: string; taskId: string }) => {
+    socket.to(`board:${data.boardId}`).emit('task:issueFieldsUpdated', data)
+  })
+
   // Register user for personal notifications
   socket.on('register-user', (userId: string) => {
     if (!userSockets.has(userId)) {
@@ -310,16 +333,21 @@ async function runBackgroundChecks() {
     let overdueCount = 0
     for (const task of overdueTasks) {
       if (!task.assignee) continue
+      const prefs = await prisma.notificationPreference.findUnique({
+        where: { userId: task.assignee.id },
+      })
+      if (prefs?.overdueReminder === false) continue
+
       const existing = await prisma.notification.findFirst({
         where: {
           userId: task.assignee.id,
           type: 'OVERDUE',
-          link: `/dashboard/board/${task.column.boardId}`,
+          message: { contains: task.id },
           createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
         },
       })
       if (!existing) {
-        await prisma.notification.create({
+        const notification = await prisma.notification.create({
           data: {
             userId: task.assignee.id,
             type: 'OVERDUE',
@@ -332,6 +360,7 @@ async function runBackgroundChecks() {
           type: 'OVERDUE',
           message: `Task "${task.title}" is overdue!`,
           link: `/dashboard/board/${task.column.boardId}`,
+          notificationId: notification.id,
         })
         overdueCount++
       }
@@ -349,16 +378,21 @@ async function runBackgroundChecks() {
     let reminderCount = 0
     for (const task of upcomingTasks) {
       if (!task.assignee) continue
+      const prefs = await prisma.notificationPreference.findUnique({
+        where: { userId: task.assignee.id },
+      })
+      if (prefs?.dueDateReminder === false) continue
+
       const existing = await prisma.notification.findFirst({
         where: {
           userId: task.assignee.id,
           type: 'DUE_DATE_REMINDER',
-          link: `/dashboard/board/${task.column.boardId}`,
+          message: { contains: task.id },
           createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
         },
       })
       if (!existing) {
-        await prisma.notification.create({
+        const notification = await prisma.notification.create({
           data: {
             userId: task.assignee.id,
             type: 'DUE_DATE_REMINDER',
@@ -371,6 +405,7 @@ async function runBackgroundChecks() {
           type: 'DUE_DATE_REMINDER',
           message: `Task "${task.title}" is due soon!`,
           link: `/dashboard/board/${task.column.boardId}`,
+          notificationId: notification.id,
         })
         reminderCount++
       }

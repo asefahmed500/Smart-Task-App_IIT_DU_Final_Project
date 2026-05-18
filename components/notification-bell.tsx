@@ -101,10 +101,11 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
 
   const handleDelete = async (e: React.MouseEvent, notificationId: string) => {
     e.stopPropagation()
+    const wasUnread = notifications.find(n => n.id === notificationId)?.isRead === false
     const result = await deleteNotification({ notificationId })
     if (result.success) {
       setNotifications(prev => prev.filter(n => n.id !== notificationId))
-      setUnreadCount(prev => Math.max(0, prev - 1))
+      if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1))
     }
   }
 

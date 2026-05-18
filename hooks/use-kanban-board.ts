@@ -34,6 +34,8 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
 
   const isDraggingRef = useRef(false)
   const dragTargetRef = useRef<Record<string, string>>({})
+  const boardRef = useRef(initialBoard)
+  boardRef.current = board
 
   useEffect(() => {
     setBoard(initialBoard)
@@ -78,18 +80,22 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
     }
 
     if (event === 'task:updated') {
+      if (data.userId === currentUser.id) return
       if (data.task) {
         const updatedTask = data.task as Task
         setBoard((prev: Board) => {
           const newColumns = prev.columns.map((col: Column) => {
             const taskIndex = col.tasks.findIndex((t: Task) => t.id === updatedTask.id)
             if (taskIndex !== -1) {
-              const newTasks = [...col.tasks]
-              newTasks[taskIndex] = updatedTask
-              return { ...col, tasks: newTasks }
+              if (col.id === updatedTask.columnId) {
+                const newTasks = [...col.tasks]
+                newTasks[taskIndex] = updatedTask
+                return { ...col, tasks: newTasks }
+              } else {
+                return { ...col, tasks: col.tasks.filter((t: Task) => t.id !== updatedTask.id) }
+              }
             }
-            // Task may have moved columns
-            if (col.id === updatedTask.columnId && !col.tasks.some((t: Task) => t.id === updatedTask.id)) {
+            if (col.id === updatedTask.columnId) {
               return { ...col, tasks: [...col.tasks, updatedTask] }
             }
             return col
@@ -143,10 +149,24 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
 
     if (event === 'column:deleted') {
       if (data.columnId) {
-        setBoard((prev: Board) => ({
-          ...prev,
-          columns: prev.columns.filter((col: Column) => col.id !== data.columnId)
-        }))
+        const colId = data.columnId as string
+        const targetId = data.targetColumnId as string | undefined
+        const movedIds = data.movedTaskIds as string[] | undefined
+
+        setBoard((prev: Board) => {
+          const newColumns = prev.columns
+            .filter((col: Column) => col.id !== colId)
+            .map((col: Column) => {
+              if (targetId && col.id === targetId && movedIds && movedIds.length > 0) {
+                const tasksToMove = prev.columns
+                  .find((c: Column) => c.id === colId)?.tasks
+                  .filter((t: Task) => movedIds.includes(t.id)) || []
+                return { ...col, tasks: [...col.tasks, ...tasksToMove] }
+              }
+              return col
+            })
+          return { ...prev, columns: newColumns }
+        })
         toast.info('A column was deleted')
       }
     }
@@ -196,7 +216,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
     if (event === 'tag:created' || event === 'tag:deleted') {
       router.refresh()
     }
-  }, [])
+  }, [currentUser.id, router])
 
   useBoardEvents(initialBoard.id, handleBoardEvent)
 
@@ -282,13 +302,22 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
         const activeColumn = prev.columns.find((c: Column) => c.tasks.some((t: Task) => t.id === activeId))
 
         if (activeColumn && activeColumn.id !== overColumnId) {
+          const overColumn = prev.columns.find((c: Column) => c.id === overColumnId)
+          const activeTask = activeColumn.tasks.find((t: Task) => t.id === activeId)
+
+          if (overColumn?.wipLimit && overColumn.wipLimit > 0 && activeTask) {
+            const userRole = currentUser.role
+            if (userRole !== 'ADMIN' && userRole !== 'MANAGER') {
+              if (overColumn.tasks.length >= overColumn.wipLimit) return prev
+            }
+          }
+
+          if (!activeTask) return prev
           const newColumns = prev.columns.map((col: Column) => {
             if (col.id === activeColumn.id) {
               return { ...col, tasks: col.tasks.filter((t: Task) => t.id !== activeId) }
             }
             if (col.id === overColumnId) {
-              const activeTask = activeColumn.tasks.find((t: Task) => t.id === activeId)
-              if (!activeTask) return col
               return { ...col, tasks: [...col.tasks, activeTask] }
             }
             return col
@@ -315,14 +344,14 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
     if (activeId === overId) return
 
     if (active.data.current?.type === 'Column' && over.data.current?.type === 'Column') {
-      const activeIndex = board.columns.findIndex((c: Column) => c.id === activeId)
-      const overIndex = board.columns.findIndex((c: Column) => c.id === overId)
-      const newColumns = arrayMove(board.columns, activeIndex, overIndex)
+      const activeIndex = boardRef.current.columns.findIndex((c: Column) => c.id === activeId)
+      const overIndex = boardRef.current.columns.findIndex((c: Column) => c.id === overId)
+      const newColumns = arrayMove(boardRef.current.columns, activeIndex, overIndex)
       
       setBoard((prev: Board) => ({ ...prev, columns: newColumns }))
       
       try {
-        const result = await reorderColumns({ boardId: board.id, columnIds: newColumns.map((c: Column) => c.id) })
+        const result = await reorderColumns({ boardId: boardRef.current.id, columnIds: newColumns.map((c: Column) => c.id) })
         if (result.success) {
           toast.success('Columns reordered', {
             action: {
@@ -332,11 +361,11 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
           })
         } else {
           toast.error(result.error || 'Failed to save column order')
-          setBoard(initialBoard)
+          router.refresh()
         }
       } catch {
         toast.error('Failed to save column order')
-        setBoard(initialBoard)
+        router.refresh()
       }
       return
     }
@@ -346,7 +375,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
       const overColumnId = over.data.current?.type === 'Column' ? overId as string : over.data.current?.task?.columnId
 
       if (activeTask.columnId !== overColumnId && overColumnId) {
-        const overColumn = board.columns.find((c: Column) => c.id === overColumnId)
+        const overColumn = boardRef.current.columns.find((c: Column) => c.id === overColumnId)
         
         if (overColumn) {
           const oldColumnId = activeTask.columnId
@@ -409,7 +438,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
               } else {
                 toast.error(message)
               }
-              setBoard(initialBoard)
+              router.refresh()
             }
           } catch (error: unknown) {
             const message = error instanceof Error ? error.message : "Failed to move task"
@@ -423,7 +452,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
             } else {
               toast.error(message)
             }
-            setBoard(initialBoard)
+            router.refresh()
           }
         }
       }

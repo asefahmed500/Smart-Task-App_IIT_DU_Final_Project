@@ -46,6 +46,17 @@ const removeTaskFromSprintSchema = z.object({
 
 // --- Sprint CRUD ---
 
+async function findDoneColumnName(boardId: string): Promise<string> {
+  const columns = await prisma.column.findMany({
+    where: { boardId },
+    orderBy: { order: 'asc' },
+  })
+  const doneCol = columns.find(
+    (c) => c.name.toLowerCase() === 'done' || c.name.toLowerCase() === 'completed' || c.name.toLowerCase() === 'resolved'
+  )
+  return doneCol?.name || columns[columns.length - 1]?.name || 'Done'
+}
+
 export async function createSprint(
   rawInput: unknown
 ): Promise<ActionResult> {
@@ -63,8 +74,23 @@ export async function createSprint(
 
     const startDate = new Date(input.startDate)
     const endDate = new Date(input.endDate)
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return { success: false, error: 'Invalid date format' }
+    }
     if (endDate <= startDate) {
       return { success: false, error: 'End date must be after start date' }
+    }
+
+    const overlapping = await prisma.sprint.findFirst({
+      where: {
+        boardId: input.boardId,
+        status: { in: ['PLANNED', 'ACTIVE'] },
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+      },
+    })
+    if (overlapping) {
+      return { success: false, error: 'Sprint dates overlap with an existing sprint' }
     }
 
     const sprint = await prisma.sprint.create({
@@ -187,7 +213,7 @@ export async function deleteSprint(rawInput: unknown): Promise<ActionResult> {
     if (!perm.success) return perm
 
     if (existing._count.tasks > 0) {
-      return { success: false, error: 'Cannot delete sprint with tasks. Remove tasks first.' }
+      await prisma.task.updateMany({ where: { sprintId: input }, data: { sprintId: null } })
     }
 
     await prisma.sprint.delete({ where: { id: input } })
@@ -265,8 +291,16 @@ export async function updateSprintStatus(
 
     // Notify assignees when sprint becomes active
     if (input.status === 'ACTIVE') {
+      const activeSprint = await prisma.sprint.findFirst({
+        where: { boardId: existing.boardId, status: 'ACTIVE', id: { not: input.id } },
+      })
+      if (activeSprint) {
+        return { success: false, error: 'Another sprint is already active on this board' }
+      }
+
       const assigneeIds = [...new Set(existing.tasks.map((t) => t.assigneeId).filter(Boolean))]
       for (const uid of assigneeIds) {
+        if (uid === session.id) continue
         await sendNotification({
           userId: uid as string,
           type: 'SPRINT_STARTED',
@@ -288,6 +322,7 @@ export async function updateSprintStatus(
           ...(board.owner ? [board.owner.id] : []),
         ]
         for (const uid of memberIds) {
+          if (uid === session.id) continue
           await sendNotification({
             userId: uid,
             type: 'SPRINT_COMPLETED',
@@ -296,6 +331,17 @@ export async function updateSprintStatus(
           })
         }
       }
+    }
+
+    // Move incomplete tasks back to backlog when sprint completes
+    if (input.status === 'COMPLETED') {
+      await prisma.task.updateMany({
+        where: {
+          sprintId: input.id,
+          column: { name: { not: 'Done' } },
+        },
+        data: { sprintId: null },
+      })
     }
 
     emitBoardEvent('sprint:statusChanged', {
@@ -335,6 +381,10 @@ export async function assignTaskToSprint(
     })
     if (!sprint) return { success: false, error: 'Sprint not found' }
 
+    if (!['PLANNED', 'ACTIVE'].includes(sprint.status)) {
+      return { success: false, error: 'Cannot assign tasks to a completed or cancelled sprint' }
+    }
+
     const perm = await checkBoardPermission({
       boardId: sprint.boardId,
       allowedRoles: ['ADMIN', 'MANAGER'],
@@ -365,10 +415,10 @@ export async function assignTaskToSprint(
       details: { taskId: input.taskId, sprintId: input.sprintId },
     })
 
-    if (updated.assignee) {
+    if (updated.assignee && updated.assignee.id !== session.id) {
       await sendNotification({
         userId: updated.assignee.id,
-        type: 'TASK_ASSIGNED',
+        type: 'TASK_ADDED_TO_SPRINT',
         message: `Task "${task.title}" added to sprint "${sprint.name}"`,
         link: `/member/sprints/${input.sprintId}`,
       })
@@ -435,6 +485,8 @@ export async function removeTaskFromSprint(
 
     revalidatePath(`/manager/sprints/${task.sprintId}`)
     revalidatePath(`/member/sprints/${task.sprintId}`)
+    revalidatePath(`/manager/sprints`)
+    revalidatePath(`/member/sprints`)
     revalidatePath(`/manager/backlog`)
     revalidatePath(`/member/backlog`)
     revalidatePath(`/dashboard/board/${task.sprint.boardId}`)
@@ -546,12 +598,13 @@ export async function getBacklogTasks(
       where: {
         column: { boardId: input },
         sprintId: null,
+        parentId: null,
       },
       include: {
         assignee: { select: { id: true, name: true, image: true } },
         tags: true,
         column: { select: { id: true, name: true } },
-        _count: { select: { comments: true, subtasks: true } },
+        _count: { select: { comments: true, attachments: true, checklists: true, subtasks: true } },
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -595,16 +648,17 @@ export async function getSprintMetrics(
     })
     if (!perm.success) return perm
 
+    const doneColumnName = await findDoneColumnName(sprint.boardId)
     const totalTasks = sprint.tasks.length
     const completedTasks = sprint.tasks.filter((t) =>
-      t.column?.name?.toLowerCase() === 'done'
+      t.column?.name?.toLowerCase() === doneColumnName.toLowerCase()
     ).length
     const totalStoryPoints = sprint.tasks.reduce(
       (sum, t) => sum + (t.storyPoints || 0),
       0
     )
     const completedStoryPoints = sprint.tasks
-      .filter((t) => t.column?.name?.toLowerCase() === 'done')
+      .filter((t) => t.column?.name?.toLowerCase() === doneColumnName.toLowerCase())
       .reduce((sum, t) => sum + (t.storyPoints || 0), 0)
     const totalTimeLogged = sprint.tasks.reduce(
       (sum, t) => sum + t.timeEntries.reduce((s, e) => s + e.duration, 0),
@@ -664,9 +718,10 @@ export async function getVelocityData(
       take: 10,
     })
 
+    const doneCol = await findDoneColumnName(input)
     const velocity = completedSprints.map((s) => {
       const completedTasks = s.tasks.filter(
-        (t) => t.column?.name?.toLowerCase() === 'done'
+        (t) => t.column?.name?.toLowerCase() === doneCol.toLowerCase()
       )
       return {
         name: s.name,

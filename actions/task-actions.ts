@@ -204,14 +204,19 @@ export async function updateTask(input: { id: string } & any): Promise<ActionRes
     const session = perm.session!
 
     // Conflict detection
-    if (validation.data.version !== existingTask.version) {
+    if (validation.data.version !== undefined && validation.data.version !== existingTask.version) {
       return { success: false, error: "Conflict: Task was modified by another user" }
     }
 
-    // Members can only assign tasks to themselves
+    // Members can only assign tasks to themselves and cannot unassign others
     const { id, version, ...data } = validation.data
-    if (session.role === "MEMBER" && data.assigneeId && data.assigneeId !== session.id) {
-      return { success: false, error: "Members can only assign tasks to themselves" }
+    if (session.role === "MEMBER") {
+      if (data.assigneeId && data.assigneeId !== session.id) {
+        return { success: false, error: "Members can only assign tasks to themselves" }
+      }
+      if (data.assigneeId === null && existingTask.assigneeId && existingTask.assigneeId !== session.id) {
+        return { success: false, error: "Members cannot unassign other users' tasks" }
+      }
     }
 
     const task = await prisma.task.update({
@@ -236,7 +241,7 @@ export async function updateTask(input: { id: string } & any): Promise<ActionRes
     })
 
     // Real-time update
-    emitBoardEvent('task:updated', { boardId: task.column.boardId, task })
+    emitBoardEvent('task:updated', { boardId: task.column.boardId, task, userId: session.id, userName: session.name || session.email })
 
     // Assignment notification
     if (data.assigneeId && data.assigneeId !== existingTask.assigneeId && data.assigneeId !== session.id) {
@@ -288,6 +293,7 @@ export async function updateTaskStatus(input: { taskId: string, columnId: string
   if (!perm.success) return perm
 
   const session = perm.session!
+  let targetColumn: { id: string; name: string; wipLimit: number; boardId: string } | null = null
 
   try {
     const existingTask = perm.task!
@@ -295,7 +301,7 @@ export async function updateTaskStatus(input: { taskId: string, columnId: string
       return { success: false, error: 'Conflict: Task was modified by another user' }
     }
 
-    const targetColumn = await prisma.column.findUnique({
+    targetColumn = await prisma.column.findUnique({
       where: { id: newColumnId },
       include: { board: true }
     })
@@ -306,25 +312,37 @@ export async function updateTaskStatus(input: { taskId: string, columnId: string
     const role = session.role as Role
     const isManagerOrAdmin = role === 'ADMIN' || role === 'MANAGER'
 
-    if (targetColumn.wipLimit > 0 && !isManagerOrAdmin) {
-      const currentTaskCount = await prisma.task.count({
-        where: { columnId: newColumnId, id: { not: taskId } }
+    let task
+    if (targetColumn && targetColumn.wipLimit > 0 && !isManagerOrAdmin) {
+      const wipLimit = targetColumn.wipLimit
+      task = await prisma.$transaction(async (tx) => {
+        const currentTaskCount = await tx.task.count({
+          where: { columnId: newColumnId, id: { not: taskId } }
+        })
+        if (currentTaskCount >= wipLimit) {
+          throw new Error('WIP_EXCEEDED')
+        }
+        return tx.task.update({
+          where: { id: taskId },
+          data: {
+            columnId: newColumnId,
+            updatedAt: new Date(),
+            version: { increment: 1 }
+          },
+          include: { column: true }
+        })
       })
-
-      if (currentTaskCount >= targetColumn.wipLimit) {
-        return { success: false, error: `WIP limit exceeded in "${targetColumn.name}".` }
-      }
+    } else {
+      task = await prisma.task.update({
+        where: { id: taskId },
+        data: {
+          columnId: newColumnId,
+          updatedAt: new Date(),
+          version: { increment: 1 }
+        },
+        include: { column: true }
+      })
     }
-
-    const task = await prisma.task.update({
-      where: { id: taskId },
-      data: { 
-        columnId: newColumnId,
-        updatedAt: new Date(),
-        version: { increment: 1 }
-      },
-      include: { column: true }
-    })
 
     const wasOverride = targetColumn.wipLimit > 0 && (await prisma.task.count({ where: { columnId: newColumnId } })) > targetColumn.wipLimit
 
@@ -378,7 +396,10 @@ export async function updateTaskStatus(input: { taskId: string, columnId: string
 
     revalidatePath(`/dashboard/board/${task.column.boardId}`)
     return { success: true, data: task }
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message === 'WIP_EXCEEDED') {
+      return { success: false, error: `WIP limit exceeded in "${targetColumn?.name}".` }
+    }
     console.error('[MOVE_TASK_ERROR]', error)
     return { success: false, error: 'Failed to move task' }
   }
@@ -691,6 +712,16 @@ export async function toggleReaction(input: {
   if (!session) return { success: false, error: "Unauthorized" }
 
   try {
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: { task: { include: { column: { include: { board: { include: { members: { select: { id: true } } } } } } } } },
+    })
+    if (!comment) return { success: false, error: "Comment not found" }
+
+    const isMember = comment.task.column.board.members.some((m: { id: string }) => m.id === session.id)
+    const isOwner = comment.task.column.board.ownerId === session.id
+    if (!isMember && !isOwner) return { success: false, error: "Access denied" }
+
     const existing = await prisma.reaction.findFirst({
       where: { userId: session.id, commentId, emoji },
     })
@@ -1162,6 +1193,17 @@ export async function submitForReview(input: { taskId: string, reviewerId: strin
   const session = perm.session!
 
   try {
+    if (reviewerId === session.id) {
+      return { success: false, error: 'You cannot review your own task' }
+    }
+
+    const existingPending = await prisma.review.findFirst({
+      where: { taskId, status: 'PENDING' },
+    })
+    if (existingPending) {
+      return { success: false, error: 'A pending review already exists for this task' }
+    }
+
     const review = await prisma.review.create({
       data: { taskId, reviewerId, status: 'PENDING' }
     })
@@ -1240,10 +1282,20 @@ export async function completeReview(input: { id: string, status: any, feedback:
     if (targetColumnName) {
       const boardColumns = await prisma.column.findMany({
         where: { boardId: updatedReview.task.column.boardId },
+        orderBy: { order: 'asc' },
       })
-      const targetColumn = boardColumns.find(
+      let targetColumn = boardColumns.find(
         (c) => c.name.toLowerCase() === targetColumnName!.toLowerCase()
       )
+      if (!targetColumn) {
+        if (statusValue === 'APPROVED') {
+          targetColumn = boardColumns[boardColumns.length - 1]
+        } else if (statusValue === 'CHANGES_REQUESTED') {
+          targetColumn = boardColumns[1] || boardColumns[0]
+        } else if (statusValue === 'REJECTED') {
+          targetColumn = boardColumns[0]
+        }
+      }
       if (targetColumn && targetColumn.id !== updatedReview.task.columnId) {
         previousColumnId = updatedReview.task.columnId
         movedColumnId = targetColumn.id
@@ -1256,8 +1308,10 @@ await prisma.task.update({
       emitBoardEvent('task:moved', {
         boardId: updatedReview.task.column.boardId,
         taskId: updatedReview.taskId,
-        columnId: targetColumn.id,
-        previousColumnId,
+        newColumnId: targetColumn.id,
+        oldColumnId: previousColumnId,
+        userId: session.id,
+        userName: session.name || session.email,
         task: { ...updatedReview.task, columnId: targetColumn.id },
       })
 
@@ -1334,9 +1388,9 @@ export async function getAllUsers(): Promise<ActionResult> {
       select: {
         id: true,
         name: true,
-        email: true,
+        email: session.role !== 'MEMBER',
         image: true,
-        role: true
+        role: session.role !== 'MEMBER'
       },
       orderBy: { name: 'asc' }
     })

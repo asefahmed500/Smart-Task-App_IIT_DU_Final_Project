@@ -134,7 +134,7 @@ export function TaskSidebar({
           </Label>
           <Input
             type="date"
-            value={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
+            value={task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-CA') : ''}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate('dueDate', e.target.value)}
             className="h-10 bg-muted/20 border-primary/5 hover:border-primary/20 transition-all focus:ring-0 text-xs"
           />

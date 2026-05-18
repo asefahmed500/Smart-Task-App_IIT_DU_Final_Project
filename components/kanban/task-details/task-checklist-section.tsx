@@ -16,8 +16,8 @@ interface TaskChecklistSectionProps {
   onUpdateItem: (itemId: string) => Promise<void>
   onAddChecklist: (title: string) => Promise<void>
   onDeleteChecklist: (checklistId: string) => Promise<void>
-  newChecklistItem: string
-  setNewChecklistItem: (value: string) => void
+  getNewItemInput: (checklistId: string) => string
+  setNewItemInput: (checklistId: string, value: string) => void
   editingItemId: string | null
   editingContent: string
   setEditingContent: (value: string) => void
@@ -33,8 +33,8 @@ export function TaskChecklistSection({
   onUpdateItem,
   onAddChecklist,
   onDeleteChecklist,
-  newChecklistItem,
-  setNewChecklistItem,
+  getNewItemInput,
+  setNewItemInput,
   editingItemId,
   editingContent,
   setEditingContent,
@@ -193,8 +193,8 @@ export function TaskChecklistSection({
             <div className="flex items-center gap-2 pl-8 pt-1">
               <Input
                 placeholder="Add an item..."
-                value={newChecklistItem}
-                onChange={(e) => setNewChecklistItem(e.target.value)}
+                value={getNewItemInput(checklist.id)}
+                onChange={(e) => setNewItemInput(checklist.id, e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') onAddItem(checklist.id)
                 }}

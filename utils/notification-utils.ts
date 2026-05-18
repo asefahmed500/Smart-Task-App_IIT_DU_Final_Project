@@ -1,5 +1,3 @@
-'use server'
-
 import prisma from '@/lib/prisma'
 import { emitNotification } from '@/utils/socket-emitter'
 
@@ -55,29 +53,33 @@ export async function sendNotification(input: {
   message: string
   link?: string
 }): Promise<void> {
-  const prefKey = notifTypeToPrefKey[input.type]
-  if (prefKey && booleanPrefKeys.has(prefKey)) {
-    const prefs = await prisma.notificationPreference.findUnique({
-      where: { userId: input.userId },
-    })
-    if (prefs && (prefs[prefKey] as boolean | undefined) === false) return
-  }
+  try {
+    const prefKey = notifTypeToPrefKey[input.type]
+    if (prefKey && booleanPrefKeys.has(prefKey)) {
+      const prefs = await prisma.notificationPreference.findUnique({
+        where: { userId: input.userId },
+      })
+      if (prefs && (prefs[prefKey] as boolean | undefined) === false) return
+    }
 
-  const notification = await prisma.notification.create({
-    data: {
+    const notification = await prisma.notification.create({
+      data: {
+        userId: input.userId,
+        type: input.type,
+        message: input.message,
+        link: input.link ?? null,
+      },
+    })
+    emitNotification({
       userId: input.userId,
       type: input.type,
       message: input.message,
-      link: input.link ?? null,
-    },
-  })
-  emitNotification({
-    userId: input.userId,
-    type: input.type,
-    message: input.message,
-    link: input.link,
-    notificationId: notification.id,
-  })
+      link: input.link,
+      notificationId: notification.id,
+    })
+  } catch (error) {
+    console.error('[NOTIFICATION_ERROR]', error)
+  }
 }
 
 /**

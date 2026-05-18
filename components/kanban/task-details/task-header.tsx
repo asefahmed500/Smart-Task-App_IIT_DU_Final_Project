@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +25,10 @@ interface TaskHeaderProps {
 
 export function TaskHeader({ task, currentUser, onUpdate, onDelete, setTask, editingBy }: TaskHeaderProps) {
   const [localTitle, setLocalTitle] = useState(task.title)
+
+  useEffect(() => {
+    setLocalTitle(task.title)
+  }, [task.title])
 
   const handleTitleBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
     const newTitle = e.target.value.trim()

@@ -210,8 +210,8 @@ model TimeEntry {
 }
 
 model Review {
-  id         String   @id @default(cuid())
-  status     String
+  id         String        @id @default(cuid())
+  status     ReviewStatus  @default(PENDING)
   feedback   String?
   reviewerId String
   taskId     String
@@ -287,6 +287,13 @@ enum Role {
   ADMIN
   MANAGER
   MEMBER
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
 }
 
 enum Priority {

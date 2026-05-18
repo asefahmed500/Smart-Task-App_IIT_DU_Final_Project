@@ -90,13 +90,15 @@ export async function deleteUser(input: { userId: string }): Promise<ActionResul
   const auth = await checkAdmin()
   if (!auth.success) return auth
 
-  if (userId === auth.session!.id) {
+  const vUserId = idSchema.parse(userId)
+
+  if (vUserId === auth.session!.id) {
     return { success: false, error: 'Cannot delete your own admin account' }
   }
 
   try {
     await prisma.user.delete({
-      where: { id: userId },
+      where: { id: vUserId },
     })
 
     await createAuditLog({
@@ -131,6 +133,10 @@ export async function createUser(data: any): Promise<ActionResult> {
       }
     })
 
+    await prisma.notificationPreference.create({
+      data: { userId: user.id }
+    })
+
     await createAuditLog({
       userId: auth.session!.id,
       action: 'CREATE_USER',
@@ -151,9 +157,18 @@ export async function updateUserDetails(input: { userId: string, name?: string, 
   const auth = await checkAdmin()
   if (!auth.success) return auth
 
+  const vUserId = idSchema.parse(userId)
+
+  if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+    return { success: false, error: 'Invalid email format' }
+  }
+  if (data.name && (data.name.length < 1 || data.name.length > 50)) {
+    return { success: false, error: 'Name must be between 1 and 50 characters' }
+  }
+
   try {
     const user = await prisma.user.update({
-      where: { id: userId },
+      where: { id: vUserId },
       data,
     })
 

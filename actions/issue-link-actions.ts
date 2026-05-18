@@ -60,6 +60,27 @@ export async function createIssueLink(
     })
     if (!perm.success) return perm
 
+    const inverseMap: Record<string, string> = {
+      BLOCKS: 'BLOCKED_BY',
+      BLOCKED_BY: 'BLOCKS',
+      DUPLICATES: 'DUPLICATED_BY',
+      DUPLICATED_BY: 'DUPLICATES',
+      RELATES_TO: 'RELATES_TO',
+    }
+    const inverse = inverseMap[input.linkType] as string | undefined
+
+    const existingLink = await prisma.issueLink.findFirst({
+      where: {
+        OR: [
+          { sourceTaskId: input.sourceTaskId, targetTaskId: input.targetTaskId, linkType: input.linkType },
+          { sourceTaskId: input.targetTaskId, targetTaskId: input.sourceTaskId, linkType: inverse ? { in: [input.linkType, inverse as any] } : input.linkType },
+        ],
+      },
+    })
+    if (existingLink) {
+      return { success: false, error: 'A similar link already exists between these tasks' }
+    }
+
     const link = await prisma.issueLink.create({
       data: {
         sourceTaskId: input.sourceTaskId,

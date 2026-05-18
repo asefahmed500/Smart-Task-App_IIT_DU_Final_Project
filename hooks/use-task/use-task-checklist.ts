@@ -22,7 +22,11 @@ interface UseTaskChecklistProps {
 }
 
 export function useTaskChecklist({ taskId, task, setTask, fetchTaskDetails }: UseTaskChecklistProps) {
-  const [newChecklistItem, setNewChecklistItem] = useState('')
+  const [newChecklistItemInputs, setNewChecklistItemInputs] = useState<Record<string, string>>({})
+  const getNewItemInput = (checklistId: string) => newChecklistItemInputs[checklistId] || ''
+  const setNewItemInput = (checklistId: string, value: string) => {
+    setNewChecklistItemInputs(prev => ({ ...prev, [checklistId]: value }))
+  }
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
   const { isOnline } = useOfflineStore()
@@ -82,7 +86,8 @@ export function useTaskChecklist({ taskId, task, setTask, fetchTaskDetails }: Us
   }
 
   const handleAddChecklistItem = async (checklistId?: string) => {
-    if (!newChecklistItem.trim() || !task || !taskId) return
+    const content = checklistId ? getNewItemInput(checklistId) : ''
+    if (!content.trim() || !task || !taskId) return
     try {
       let targetChecklistId = checklistId
       
@@ -101,7 +106,7 @@ export function useTaskChecklist({ taskId, task, setTask, fetchTaskDetails }: Us
         }
       }
 
-      const result = await addChecklistItem({ taskId, content: newChecklistItem, checklistId: targetChecklistId })
+      const result = await addChecklistItem({ taskId, content, checklistId: targetChecklistId })
       
       if (result.success && result.data) {
         const item = result.data as ChecklistItem
@@ -122,7 +127,9 @@ export function useTaskChecklist({ taskId, task, setTask, fetchTaskDetails }: Us
         }
         
         setTask({ ...task, checklists: updatedChecklists })
-        setNewChecklistItem('')
+        if (targetChecklistId) {
+          setNewItemInput(targetChecklistId, '')
+        }
         toast.success('Item added', {
           action: {
             label: 'Undo',
@@ -258,8 +265,8 @@ export function useTaskChecklist({ taskId, task, setTask, fetchTaskDetails }: Us
   }
 
   return {
-    newChecklistItem,
-    setNewChecklistItem,
+    getNewItemInput,
+    setNewItemInput,
     editingItemId,
     setEditingItemId,
     editingContent,

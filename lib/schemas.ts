@@ -30,7 +30,7 @@ export const updateTaskSchema = z.object({
   priority: prioritySchema.optional(),
   assigneeId: idSchema.optional().nullable(),
   dueDate: z.string().optional().nullable(),
-  version: z.number().int().min(1),
+  version: z.number().int().min(1).optional(),
   // Sprint planning fields
   issueType: z.enum(['BUG', 'FEATURE', 'STORY', 'TASK', 'EPIC', 'SUBTASK']).optional().nullable(),
   storyPoints: z.number().int().min(0).max(100).optional().nullable(),
@@ -43,7 +43,7 @@ export const updateTaskSchema = z.object({
 export const moveTaskSchema = z.object({
   taskId: idSchema,
   columnId: idSchema,
-  version: z.number().int().min(1),
+  version: z.number().int().min(1).optional(),
 });
 
 // Board Schemas

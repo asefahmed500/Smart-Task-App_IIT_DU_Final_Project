@@ -153,6 +153,16 @@ async function handleMoveTask(params: string, context: TaskContext): Promise<voi
   })
 
   if (targetColumn && targetColumn.id !== context.columnId) {
+    if (targetColumn.wipLimit > 0) {
+      const count = await prisma.task.count({
+        where: { columnId: targetColumn.id, id: { not: context.taskId } }
+      })
+      if (count >= targetColumn.wipLimit) {
+        console.warn(`[AUTOMATION] Skipped move: WIP limit reached in ${targetColumn.name}`)
+        return
+      }
+    }
+
     const updatedTask = await prisma.task.update({
       where: { id: context.taskId },
       data: {

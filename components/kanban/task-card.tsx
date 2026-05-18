@@ -58,10 +58,9 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
       onClick={onClick}
       className={cn(
-        "group relative bg-background/50 backdrop-blur-sm border-primary/5 hover:border-primary/20 transition-all cursor-grab active:cursor-grabbing rounded-xl overflow-hidden",
+        "group relative bg-background/50 backdrop-blur-sm border-primary/5 hover:border-primary/20 transition-all cursor-pointer rounded-xl overflow-hidden",
         isOverlay && "ring-2 ring-primary shadow-2xl scale-105"
       )}
     >
@@ -72,9 +71,12 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
           <Badge variant="outline" className={cn("text-[10px] uppercase tracking-wider font-bold h-5 px-2", priorityColor)}>
             {task.priority}
           </Badge>
-          <button className="text-muted-foreground/50 hover:text-primary transition-colors">
+          <div
+            {...listeners}
+            className="text-muted-foreground/50 hover:text-primary transition-colors cursor-grab active:cursor-grabbing p-1 -m-1"
+          >
             <MoreVertical className="size-4" />
-          </button>
+          </div>
         </div>
 
         <h3 className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors line-clamp-2">

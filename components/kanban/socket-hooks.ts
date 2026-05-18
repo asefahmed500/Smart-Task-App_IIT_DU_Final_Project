@@ -29,6 +29,10 @@ export function useSocket(boardId?: string, user?: PresenceUser) {
       })
     }
 
+    if (socket.connected) {
+      setIsConnected(true)
+    }
+
     const handleConnect = () => {
       setIsConnected(true)
     }

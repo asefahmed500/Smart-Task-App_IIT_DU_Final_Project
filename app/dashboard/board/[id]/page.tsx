@@ -11,7 +11,9 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
 
   const result = await getBoardData({ boardId: id })
   if (!result.success || !result.data) {
-    console.error('Board not found or error:', result.error)
+    if (result.error?.includes('Access denied') || result.error?.includes('unauthorized') || result.error?.includes('Unauthorized')) {
+      redirect('/dashboard')
+    }
     notFound()
   }
   

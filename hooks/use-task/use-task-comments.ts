@@ -109,6 +109,7 @@ export function useTaskComments({ taskId, task, setTask, currentUser, fetchTaskD
   }
 
   const isCommentEditable = (comment: TaskComment): boolean => {
+    if (currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER') return true
     const ageMs = Date.now() - new Date(comment.createdAt).getTime()
     return comment.userId === currentUser.id && ageMs < FIVE_MINUTES_MS
   }

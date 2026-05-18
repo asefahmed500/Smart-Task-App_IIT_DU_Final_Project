@@ -87,7 +87,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                     <CardTitle className="text-xs font-medium text-blue-600 uppercase tracking-wider">Avg. Cycle Time</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{data.averageCycleTime.toFixed(1)}d</div>
+                    <div className="text-2xl font-bold">{(data.averageCycleTime ?? 0).toFixed(1)}d</div>
                     <p className="text-[10px] text-muted-foreground mt-1">Start to Finish</p>
                   </CardContent>
                 </Card>
@@ -96,7 +96,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                     <CardTitle className="text-xs font-medium text-purple-600 uppercase tracking-wider">Avg. Lead Time</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{data.averageLeadTime.toFixed(1)}d</div>
+                    <div className="text-2xl font-bold">{(data.averageLeadTime ?? 0).toFixed(1)}d</div>
                     <p className="text-[10px] text-muted-foreground mt-1">Creation to Done</p>
                   </CardContent>
                 </Card>
@@ -189,12 +189,12 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                       <div className="p-4 bg-muted/30 rounded-xl space-y-1 border border-primary/5">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">Cycle Time Efficiency</span>
-                          <span className="text-xs font-bold text-primary">{Math.round((data.averageCycleTime / data.averageLeadTime) * 100 || 0)}%</span>
+                          <span className="text-xs font-bold text-primary">{data.averageLeadTime ? Math.round(((data.averageCycleTime ?? 0) / data.averageLeadTime) * 100) : 0}%</span>
                         </div>
                         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-primary transition-all" 
-                            style={{ width: `${(data.averageCycleTime / data.averageLeadTime) * 100 || 0}%` }} 
+                            style={{ width: `${data.averageLeadTime ? ((data.averageCycleTime ?? 0) / data.averageLeadTime) * 100 : 0}%` }} 
                           />
                         </div>
                         <p className="text-[10px] text-muted-foreground pt-1">

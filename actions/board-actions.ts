@@ -222,20 +222,24 @@ export async function createBoardFromTemplate(templateId: string): Promise<Actio
     if (template.tasks.length > 0) {
       const columnNameToId = new Map(board.columns.map((c) => [c.name, c.id]))
 
-      await prisma.task.createMany({
-        data: template.tasks
+      await prisma.$transaction(
+        template.tasks
           .filter((t) => columnNameToId.has(t.columnName))
-          .map((t) => ({
-            title: t.title,
-            description: t.description,
-            priority: t.priority,
-            columnId: columnNameToId.get(t.columnName)!,
-            creatorId: session.id,
-            issueType: t.issueType || null,
-            storyPoints: t.storyPoints || null,
-            version: 1,
-          })),
-      })
+          .map((t) =>
+            prisma.task.create({
+              data: {
+                title: t.title,
+                description: t.description,
+                priority: t.priority,
+                columnId: columnNameToId.get(t.columnName)!,
+                creatorId: session.id,
+                issueType: t.issueType || null,
+                storyPoints: t.storyPoints || null,
+                version: 1,
+              },
+            })
+          )
+      )
     }
 
     await createAuditLog({
@@ -360,7 +364,7 @@ export async function createColumn(rawInput: any): Promise<ActionResult> {
       details: { boardId, columnId: column.id, name },
     })
 
-    emitBoardEvent('column:created', { boardId, columnId: column.id })
+    emitBoardEvent('column:created', { boardId, column: { ...column, tasks: [] } })
 
     revalidatePath(`/dashboard/board/${boardId}`)
     return { success: true, data: column }
@@ -404,21 +408,19 @@ export async function deleteColumn(input: { columnId: string, boardId: string, t
     }
 
     if (finalTargetId) {
-      // Move tasks to the target column
-      await prisma.task.updateMany({
-        where: { columnId: vColumnId },
-        data: { columnId: finalTargetId }
+      await prisma.$transaction(async (tx) => {
+        await tx.task.updateMany({
+          where: { columnId: vColumnId },
+          data: { columnId: finalTargetId }
+        })
+        await tx.column.delete({ where: { id: vColumnId } })
       })
     } else {
-      // If no other column exists, we can't delete the last column if it has tasks
       if (movedTaskIds.length > 0) {
         return { success: false, error: 'Cannot delete the only column when it contains tasks. Create another column first.' }
       }
+      await prisma.column.delete({ where: { id: vColumnId } })
     }
-
-    await prisma.column.delete({
-      where: { id: vColumnId }
-    })
 
     await createAuditLog({
       userId: (permission as any).session.id,
@@ -434,7 +436,7 @@ export async function deleteColumn(input: { columnId: string, boardId: string, t
       },
     })
 
-    emitBoardEvent('column:deleted', { boardId: vBoardId, columnId: vColumnId })
+    emitBoardEvent('column:deleted', { boardId: vBoardId, columnId: vColumnId, movedTaskIds, targetColumnId: finalTargetId })
 
     revalidatePath(`/dashboard/board/${vBoardId}`)
     return { success: true }
@@ -479,7 +481,7 @@ export async function updateColumn(rawInput: any): Promise<ActionResult> {
       },
     })
 
-    emitBoardEvent('column:updated', { boardId: column.boardId, columnId: id })
+    emitBoardEvent('column:updated', { boardId: column.boardId, column: updatedColumn })
 
     revalidatePath(`/dashboard/board/${column.boardId}`)
     return { success: true, data: updatedColumn }
@@ -495,6 +497,9 @@ export async function updateColumn(rawInput: any): Promise<ActionResult> {
 export async function updateColumnWipLimit(input: { columnId: string, wipLimit: number }): Promise<ActionResult> {
   try {
     const { columnId, wipLimit } = input
+    if (typeof wipLimit !== 'number' || wipLimit < 0 || wipLimit > 100 || !Number.isInteger(wipLimit)) {
+      return { success: false, error: 'WIP limit must be a non-negative integer (0-100)' }
+    }
     const vColumnId = idSchema.parse(columnId)
     
     const column = await prisma.column.findUnique({
@@ -528,7 +533,7 @@ export async function updateColumnWipLimit(input: { columnId: string, wipLimit: 
       },
     })
 
-    emitBoardEvent('column:updated', { boardId: column.boardId, columnId })
+    emitBoardEvent('column:updated', { boardId: column.boardId, column: updatedColumn })
 
     revalidatePath(`/dashboard/board/${column.boardId}`)
     return { success: true, data: updatedColumn }
@@ -552,6 +557,10 @@ export async function reorderColumns(rawInput: any): Promise<ActionResult> {
       select: { id: true }
     })
     const previousColumnIds = existingColumns.map(c => c.id)
+
+    if (columnIds.length !== existingColumns.length || !columnIds.every((id: string) => previousColumnIds.includes(id))) {
+      return { success: false, error: 'All columns must be included in reorder' }
+    }
 
     // Bulk update orders in a transaction
     await prisma.$transaction(
@@ -600,9 +609,9 @@ export async function searchUsers(input: { query: string }): Promise<ActionResul
       select: {
         id: true,
         name: true,
-        email: true,
+        email: session.role !== 'MEMBER',
         image: true,
-        role: true
+        role: session.role !== 'MEMBER'
       }
     })
 
@@ -850,15 +859,6 @@ export async function undoLastAction(): Promise<ActionResult> {
   if (!session) return { success: false, error: 'Unauthorized' }
 
   try {
-    // Cleanup: Delete audit logs older than 5 minutes for this user
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-    await prisma.auditLog.deleteMany({
-      where: {
-        userId: session.id,
-        createdAt: { lt: fiveMinutesAgo }
-      }
-    })
-
     // Find the most recent undoable action for this user within the last 30 seconds
     const thirtySecondsAgo = new Date(Date.now() - 30 * 1000)
     const lastAction = await prisma.auditLog.findFirst({
@@ -1315,4 +1315,11 @@ export async function undoLastAction(): Promise<ActionResult> {
     console.error('[UNDO_ACTION_ERROR]', error)
     return { success: false, error: 'Failed to undo action: ' + error.message }
   }
+}
+
+export async function getUserBoards(sessionId: string) {
+  return prisma.board.findMany({
+    where: { OR: [{ ownerId: sessionId }, { members: { some: { id: sessionId } } }] },
+    select: { id: true, name: true },
+  })
 }

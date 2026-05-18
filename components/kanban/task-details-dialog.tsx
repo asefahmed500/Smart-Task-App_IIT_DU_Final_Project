@@ -101,8 +101,8 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
   } = useTaskComments({ taskId, task, setTask, currentUser, fetchTaskDetails })
 
   const {
-    newChecklistItem,
-    setNewChecklistItem,
+    getNewItemInput,
+    setNewItemInput,
     editingItemId,
     setEditingItemId,
     editingContent,
@@ -296,8 +296,8 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                         onUpdateItem={handleSaveEdit}
                         onAddChecklist={handleAddChecklist}
                         onDeleteChecklist={handleDeleteChecklist}
-                        newChecklistItem={newChecklistItem}
-                        setNewChecklistItem={setNewChecklistItem}
+                        getNewItemInput={getNewItemInput}
+                        setNewItemInput={setNewItemInput}
                         editingItemId={editingItemId}
                         editingContent={editingContent}
                         setEditingContent={setEditingContent}

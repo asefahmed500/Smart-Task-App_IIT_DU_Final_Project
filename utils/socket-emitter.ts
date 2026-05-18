@@ -30,7 +30,12 @@ export function emitNotification(data: {
 export function emitBoardEvent(event: string, data: any) {
   try {
     const s = getSocket()
-    s.emit(event, data)
+    if (s.connected) {
+      s.emit(event, data)
+    } else {
+      s.once('connect', () => s.emit(event, data))
+      s.connect()
+    }
   } catch (error) {
     console.error(`Socket event error (${event}):`, error)
   }

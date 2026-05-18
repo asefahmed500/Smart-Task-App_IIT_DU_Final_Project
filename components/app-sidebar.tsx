@@ -199,7 +199,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
           <SidebarMenuItem>
             <SidebarMenuButton 
               className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors" 
-              onClick={async (e) => {
+              onClick={async (e: React.MouseEvent) => {
                 e.preventDefault()
                 const toastId = toast.loading('Logging out...')
                 try {

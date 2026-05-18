@@ -69,7 +69,7 @@ interface SprintTask {
   assignee: { id: string; name: string | null; image: string | null } | null
   column: { id: string; name: string } | null
   tags: { id: string; name: string; color: string }[]
-  _count: { comments: number; subtasks: number }
+  _count: { comments: number; attachments: number; checklists: number; subtasks: number }
 }
 
 interface SprintData {

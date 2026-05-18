@@ -42,7 +42,7 @@ export function TaskActivityTab({
     if (!details || typeof details !== 'object') return ''
     const d = details as Record<string, unknown>
 
-    if (action.includes('MOVED') && d.newStatus && d.previousColumnId) {
+    if (action === 'UPDATE_TASK_STATUS' && d.newStatus && d.previousColumnId) {
       return `Moved to ${d.newStatus}`
     }
     if (action.includes('CREATED')) {
@@ -84,11 +84,11 @@ export function TaskActivityTab({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">All Actions</SelectItem>
-              <SelectItem value="TASK_CREATED" className="text-xs">Created</SelectItem>
-              <SelectItem value="TASK_UPDATED" className="text-xs">Updated</SelectItem>
-              <SelectItem value="TASK_MOVED" className="text-xs">Moved</SelectItem>
-              <SelectItem value="COMMENT_ADDED" className="text-xs">Comments</SelectItem>
-              <SelectItem value="ATTACHMENT_ADDED" className="text-xs">Attachments</SelectItem>
+              <SelectItem value="CREATE_TASK" className="text-xs">Created</SelectItem>
+              <SelectItem value="UPDATE_TASK" className="text-xs">Updated</SelectItem>
+              <SelectItem value="UPDATE_TASK_STATUS" className="text-xs">Moved</SelectItem>
+              <SelectItem value="ADD_COMMENT" className="text-xs">Comments</SelectItem>
+              <SelectItem value="ADD_ATTACHMENT" className="text-xs">Attachments</SelectItem>
             </SelectContent>
           </Select>
         </div>

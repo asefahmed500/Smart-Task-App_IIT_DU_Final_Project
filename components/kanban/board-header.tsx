@@ -28,7 +28,7 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
   const isAdmin = currentUser.role === 'ADMIN'
   const isManager = currentUser.role === 'MANAGER'
   const canManageMembers = isAdmin || isManager
-  const canEditBoard = isAdmin || board.ownerId === currentUser.id
+  const canEditBoard = isAdmin || isManager || board.ownerId === currentUser.id
 
   return (
     <>

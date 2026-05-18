@@ -92,6 +92,17 @@ export async function updateEpic(
     })
     if (!perm.success) return perm
 
+    const validTransitions: Record<string, string[]> = {
+      BACKLOG: ['IN_PROGRESS', 'CANCELLED'],
+      IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
+      COMPLETED: [],
+      CANCELLED: ['BACKLOG'],
+    }
+    const allowed = validTransitions[existing.status] || []
+    if (input.status !== undefined && !allowed.includes(input.status)) {
+      return { success: false, error: `Cannot transition epic from ${existing.status} to ${input.status}` }
+    }
+
     const updateData: Record<string, unknown> = {}
     if (input.name !== undefined) updateData.name = input.name
     if (input.description !== undefined) updateData.description = input.description
@@ -223,6 +234,7 @@ export async function getEpicDetail(
             assignee: { select: { id: true, name: true, image: true } },
             tags: true,
             column: { select: { id: true, name: true } },
+            sprint: { select: { id: true, name: true, status: true } },
             _count: {
               select: { comments: true, subtasks: true },
             },
