@@ -24,6 +24,8 @@ Real-time Kanban board with RBAC, WIP limits, offline support, undo via audit lo
 
 **Verification order:** `typecheck` → `build` — **no test suite**.
 
+**PowerShell note:** Windows PowerShell does NOT support `&&`. Use `;` or `if ($?) { cmd2 }` for sequential commands.
+
 ## Environment
 
 **Required** in `.env.local`: `DATABASE_URL`, `JWT_SECRET`
@@ -105,6 +107,7 @@ Checks live inside server action files (not a shared lib):
 
 ## Gotchas
 
+- **PowerShell `&&` not supported:** Use `;` or `if ($?) { cmd2 }` for sequential commands. `npm run db:setup` in package.json uses `&&` which works in npm scripts but not in direct PowerShell commands.
 - **DnD socket self-echo:** `handleBoardEvent` for `task:moved` checks `data.userId === currentUser.id` and skips. Also skips during active drag via `isDraggingRef`. `task:updated` events also skip self-echo via `data.userId` check.
 - **`onDragOver` infinite loop:** DndKit fires `onDragOver` rapidly. Use `useRef` to track `activeId→targetColumnId` and skip `setBoard` if already moved. `onDragStart`/`onDragOver` wrapped in `useCallback`.
 - **`onDragEnd` stale closure:** Uses `boardRef.current` (not `board` state) to avoid stale indices during rapid drags.
@@ -129,6 +132,17 @@ Checks live inside server action files (not a shared lib):
 - **Vercel build fails silently** (exit 1, no logs) if env vars missing — set all in dashboard
 - **Turbopack may fail on Google Fonts** if `fonts.gstatic.com` is unreachable — retry usually succeeds
 - **`notification-utils.ts` is NOT a server action** — `'use server'` was removed. Functions are called from server actions and API routes only.
+- **Dev server cold start:** First page load after `.next` deletion takes 30-40 seconds (Turbopack compilation). Subsequent loads are 200-500ms.
+- **Task card click:** dnd-kit `{...listeners}` must NOT be spread on the Card element — it intercepts `onClick`. Spread on a drag handle element (e.g., `MoreVertical` icon) instead.
+- **SidebarMenuButton with Link:** When using `asChild` with Next.js `Link`, cast props as `any` to avoid type conflicts between `<button>` and `<a>` ref types.
+
+### Agent-browser testing notes
+
+- `click @eN` syntax fails with "Missing arguments" error in v0.27.0. Use `find text "X" click` or `eval "..."` instead.
+- `fill @eN` works inconsistently. Use `find label "X" fill` or `type "selector"` for reliable input.
+- Always use `--session` flag for isolated browser sessions.
+- `snapshot -i` (interactive elements only) is the recommended approach.
+- Clear cookies between role tests: `cookies clear` then navigate to `/login`.
 
 ## Business Logic
 
