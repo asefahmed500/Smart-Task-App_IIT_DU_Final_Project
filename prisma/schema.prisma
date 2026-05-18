@@ -254,6 +254,8 @@ model NotificationPreference {
   newUserSignup      Boolean  @default(true)
   boardMemberAdded   Boolean  @default(true)
   boardMemberRemoved Boolean  @default(true)
+  epicUpdated        Boolean  @default(true)
+  issueLinkUpdated   Boolean  @default(true)
   emailEnabled       Boolean  @default(false)
   pushEnabled        Boolean  @default(false)
   createdAt          DateTime @default(now())

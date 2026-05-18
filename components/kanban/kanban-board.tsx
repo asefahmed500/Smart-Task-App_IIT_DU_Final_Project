@@ -22,7 +22,7 @@ import { createPortal } from 'react-dom'
 import { ColumnContainer } from './column-container'
 import { TaskCard } from './task-card'
 import { Button } from '@/components/ui/button'
-import { Plus, AlertTriangle, ShieldAlert, Search, X, Tag as TagIcon } from 'lucide-react'
+import { Plus, AlertTriangle, ShieldAlert, Search, X, Tag as TagIcon, Layers } from 'lucide-react'
 import { AddColumnDialog } from './add-column-dialog'
 import { TaskDetailsDialog } from './task-details-dialog'
 import { PresenceAvatars } from './presence-avatars'
@@ -60,6 +60,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
     isConnected,
     presence,
     editingTasks,
+    isDragging,
     onDragStart,
     onDragOver,
     onDragEnd,
@@ -70,6 +71,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
+  const [selectedEpicId, setSelectedEpicId] = useState<string | null>(null)
 
   const allTags = useMemo(() => {
     const tagMap = new Map<string, Tag>()
@@ -96,10 +98,12 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
         const matchesTags =
           selectedTagIds.length === 0 ||
           task.tags?.some((t) => selectedTagIds.includes(t.id))
-        return matchesSearch && matchesTags
+        const matchesEpic =
+          !selectedEpicId || task.epicId === selectedEpicId
+        return matchesSearch && matchesTags && matchesEpic
       }),
     }))
-  }, [board.columns, searchQuery, selectedTagIds])
+  }, [board.columns, searchQuery, selectedTagIds, selectedEpicId])
 
   const columnsId = useMemo(
     () => filteredColumns.map((col: Column) => col.id),
@@ -189,6 +193,49 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
                   )}
                 </div>
 
+                {/* Epic filter */}
+                {board.epics && board.epics.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    <Layers className="size-3 text-muted-foreground" />
+                    <button
+                      onClick={() => setSelectedEpicId(null)}
+                      className={`px-2 py-0.5 text-[10px] rounded-full border transition-colors ${
+                        !selectedEpicId
+                          ? 'bg-primary/20 border-primary/40 text-primary'
+                          : 'bg-muted/30 border-primary/10 text-muted-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      All
+                    </button>
+                    {board.epics.map((epic) => (
+                      <button
+                        key={epic.id}
+                        onClick={() =>
+                          setSelectedEpicId(
+                            selectedEpicId === epic.id ? null : epic.id
+                          )
+                        }
+                        className={`px-2 py-0.5 text-[10px] rounded-full border transition-colors truncate max-w-[120px]`}
+                        style={
+                          selectedEpicId === epic.id
+                            ? {
+                                backgroundColor: epic.color + '30',
+                                borderColor: epic.color + '60',
+                                color: epic.color,
+                              }
+                            : {
+                                borderColor: epic.color + '40',
+                                color: epic.color + 'cc',
+                              }
+                        }
+                        title={epic.name}
+                      >
+                        {epic.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {/* Tag filters */}
                 {allTags.length > 0 && (
                   <div className="flex items-center gap-1">
@@ -221,11 +268,12 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
                 )}
 
                 {/* Clear filters */}
-                {(searchQuery || selectedTagIds.length > 0) && (
+                {(searchQuery || selectedTagIds.length > 0 || selectedEpicId) && (
                   <button
                     onClick={() => {
                       setSearchQuery('')
                       setSelectedTagIds([])
+                      setSelectedEpicId(null)
                     }}
                     className="text-[10px] text-muted-foreground hover:text-primary underline"
                   >
@@ -246,6 +294,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
                   boardId={board.id}
                   boardMembers={board.members}
                   onTaskClick={(id) => setSelectedTaskId(id)}
+                  isDragging={isDragging.current}
                 />
               ))}
             </SortableContext>
@@ -279,6 +328,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
             currentUser={currentUser}
             editingTasks={editingTasks}
             boardId={board.id}
+            boardEpics={board.epics || []}
           />
 
           {typeof document !== 'undefined' && createPortal(

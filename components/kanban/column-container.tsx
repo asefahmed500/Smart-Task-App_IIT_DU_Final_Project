@@ -30,9 +30,10 @@ interface ColumnContainerProps {
   boardId: string
   boardMembers: User[]
   onTaskClick: (taskId: string) => void
+  isDragging?: boolean
 }
 
-export function ColumnContainer({ column, tasks, currentUser, boardId, boardMembers, onTaskClick }: ColumnContainerProps) {
+export function ColumnContainer({ column, tasks, currentUser, boardId, boardMembers, onTaskClick, isDragging: isBoardDragging }: ColumnContainerProps) {
   const tasksIds = useMemo(() => tasks.map((task) => task.id), [tasks])
   const router = useRouter()
 
@@ -105,8 +106,9 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, boardMemb
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex flex-col bg-muted/40 backdrop-blur-md border border-primary/5 w-[350px] min-w-[350px] h-full rounded-2xl overflow-hidden shadow-sm group/column",
-        isOverWipLimit && "border-red-500/50 bg-red-500/5"
+        "flex flex-col bg-muted/40 backdrop-blur-md border border-primary/5 w-[350px] min-w-[350px] h-full rounded-2xl overflow-hidden shadow-sm group/column transition-all duration-200",
+        isOverWipLimit && "border-red-500/50 bg-red-500/5",
+        isBoardDragging && "border-primary/40 bg-primary/5 shadow-lg shadow-primary/10 ring-2 ring-primary/20"
       )}
     >
       {/* Column Header */}
@@ -165,8 +167,13 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, boardMemb
         </SortableContext>
 
         {tasks.length === 0 && (
-          <div className="h-24 border-2 border-dashed border-primary/5 rounded-xl flex items-center justify-center text-muted-foreground/30 text-xs italic">
-            No tasks here
+          <div className={cn(
+            "h-24 border-2 border-dashed rounded-xl flex items-center justify-center text-xs italic transition-all duration-200",
+            isBoardDragging
+              ? "border-primary/40 bg-primary/10 text-primary/60"
+              : "border-primary/5 text-muted-foreground/30"
+          )}>
+            {isBoardDragging ? "Drop task here" : "No tasks here"}
           </div>
         )}
       </div>

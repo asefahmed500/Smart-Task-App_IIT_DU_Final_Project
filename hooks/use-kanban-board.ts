@@ -29,6 +29,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
   const [conflictTaskData, setConflictTaskData] = useState<any>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [dropTargetColumnId, setDropTargetColumnId] = useState<string | null>(null)
   
   const { isOnline, addAction } = useOfflineStore()
 
@@ -47,7 +48,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
     image: currentUser.image
   }), [currentUser.id, currentUser.name, currentUser.email])
 
-  const { isConnected, presence, editingTasks } = useSocket(initialBoard.id, stableUser)
+  const { socket, isConnected, presence, editingTasks } = useSocket(initialBoard.id, stableUser)
 
   const handleBoardEvent = useCallback((event: string, data: Record<string, unknown>) => {
     if (event === 'task:moved') {
@@ -216,9 +217,29 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
     if (event === 'tag:created' || event === 'tag:deleted') {
       router.refresh()
     }
+
+    if (event === 'epic:created' || event === 'epic:updated' || event === 'epic:deleted') {
+      router.refresh()
+    }
+
+    if (event === 'issueLink:created' || event === 'issueLink:deleted') {
+      router.refresh()
+    }
+
+    if (
+      event === 'sprint:created' ||
+      event === 'sprint:updated' ||
+      event === 'sprint:deleted' ||
+      event === 'sprint:statusChanged' ||
+      event === 'task:sprintAssigned' ||
+      event === 'task:sprintRemoved' ||
+      event === 'task:issueFieldsUpdated'
+    ) {
+      router.refresh()
+    }
   }, [currentUser.id, router])
 
-  useBoardEvents(initialBoard.id, handleBoardEvent)
+  useBoardEvents(initialBoard.id, handleBoardEvent, socket, isConnected)
 
   const handleUndo = async () => {
     try {
@@ -249,83 +270,32 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
   }, [])
 
   const onDragOver = useCallback((event: DragOverEvent) => {
+    // NO setBoard calls here — DndKit fires onDragOver dozens of times/sec
+    // State updates during drag cause infinite re-render loops (React #185)
+    // Only track drop target for visual feedback; actual move happens in onDragEnd
     const { active, over } = event
     if (!over) return
 
     const activeId = active.id as string
     const overId = over.id as string
-
     if (activeId === overId) return
 
     const isActiveATask = active.data.current?.type === 'Task'
-    const isOverATask = over.data.current?.type === 'Task'
-
     if (!isActiveATask) return
 
-    if (isActiveATask && isOverATask) {
-      setBoard((prev: Board) => {
-        const activeColumn = prev.columns.find((c: Column) => c.tasks.some((t: Task) => t.id === activeId))
-        const overColumn = prev.columns.find((c: Column) => c.tasks.some((t: Task) => t.id === overId))
-
-        if (activeColumn && overColumn && activeColumn.id !== overColumn.id) {
-          if (dragTargetRef.current[activeId] === overColumn.id) return prev
-          dragTargetRef.current[activeId] = overColumn.id
-
-          const newColumns = prev.columns.map((col: Column) => {
-            if (col.id === activeColumn.id) {
-              return { ...col, tasks: col.tasks.filter((t: Task) => t.id !== activeId) }
-            }
-            if (col.id === overColumn.id) {
-              const activeTask = activeColumn.tasks.find((t: Task) => t.id === activeId)
-              if (!activeTask) return col
-              const newTasks = [...col.tasks]
-              const targetIndex = col.tasks.findIndex((t: Task) => t.id === overId)
-              newTasks.splice(targetIndex, 0, activeTask)
-              return { ...col, tasks: newTasks }
-            }
-            return col
-          })
-          return { ...prev, columns: newColumns }
-        }
-
-        return prev
-      })
-    }
-
+    const isOverATask = over.data.current?.type === 'Task'
     const isOverAColumn = over.data.current?.type === 'Column'
-    if (isActiveATask && isOverAColumn) {
-      const overColumnId = overId as string
-      if (dragTargetRef.current[activeId] === overColumnId) return
 
-      dragTargetRef.current[activeId] = overColumnId
-      setBoard((prev: Board) => {
-        const activeColumn = prev.columns.find((c: Column) => c.tasks.some((t: Task) => t.id === activeId))
+    if (isOverATask || isOverAColumn) {
+      const targetColId = isOverAColumn
+        ? overId as string
+        : boardRef.current.columns.find((c: Column) =>
+            c.tasks.some((t: Task) => t.id === overId)
+          )?.id
 
-        if (activeColumn && activeColumn.id !== overColumnId) {
-          const overColumn = prev.columns.find((c: Column) => c.id === overColumnId)
-          const activeTask = activeColumn.tasks.find((t: Task) => t.id === activeId)
-
-          if (overColumn?.wipLimit && overColumn.wipLimit > 0 && activeTask) {
-            const userRole = currentUser.role
-            if (userRole !== 'ADMIN' && userRole !== 'MANAGER') {
-              if (overColumn.tasks.length >= overColumn.wipLimit) return prev
-            }
-          }
-
-          if (!activeTask) return prev
-          const newColumns = prev.columns.map((col: Column) => {
-            if (col.id === activeColumn.id) {
-              return { ...col, tasks: col.tasks.filter((t: Task) => t.id !== activeId) }
-            }
-            if (col.id === overColumnId) {
-              return { ...col, tasks: [...col.tasks, activeTask] }
-            }
-            return col
-          })
-          return { ...prev, columns: newColumns }
-        }
-        return prev
-      })
+      if (targetColId) {
+        dragTargetRef.current[activeId] = targetColId
+      }
     }
   }, [])
 
@@ -497,6 +467,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
     isConnected,
     presence,
     editingTasks,
+    isDragging: isDraggingRef,
     onDragStart,
     onDragOver,
     onDragEnd,

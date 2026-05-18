@@ -99,7 +99,7 @@ Checks live inside server action files (not a shared lib):
 
 **Notification flow:** Server action → `sendNotification()` in `utils/notification-utils.ts` (checks prefs, writes DB) → `emitNotification()` (Socket.IO client → server) → server relays to `user:${userId}` room → browser `useNotificationListener` in `notification-bell.tsx`. **Must call `sendNotification()`** — just emitting a socket event is not enough (no DB record = no bell badge, no persistence). `sendNotification()` is wrapped in try/catch — notification failures don't crash parent actions.
 
-**Adding a new notification type requires:** `NotifType` union member, `notifTypeToPrefKey` entry, `booleanPrefKeys` entry, `NotificationPreference` schema field in `prisma/schema.prisma`, and `NotificationPreference` interface field in `types/kanban.ts`. Sprint types map to existing preference keys (`taskAssigned`, `statusChanged`).
+**Adding a new notification type requires:** `NotifType` union member, `notifTypeToPrefKey` entry, `booleanPrefKeys` entry, `NotificationPreference` schema field in `prisma/schema.prisma`, and `NotificationPreference` interface field in `types/kanban.ts`. Sprint types map to existing preference keys (`taskAssigned`, `statusChanged`). Epic/Issue Link types map to `epicUpdated`/`issueLinkUpdated` preference keys.
 
 **Socket event standardization:** `task:moved` events use `newColumnId`/`oldColumnId` and include `userId`/`userName`. `task:updated` events also skip self-echo via `data.userId` check. Column events (`column:created`, `column:updated`, `column:deleted`) relay only `boardId` + `columnId` (NOT full objects). Sprint events are relayed by socket server.
 
@@ -196,9 +196,9 @@ Checks live inside server action files (not a shared lib):
 See [VERCEL.md](./VERCEL.md) and [RAILWAY.md](./RAILWAY.md) for full guides.
 
 - **Vercel** (Next.js): required env vars: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `NEXT_PUBLIC_SOCKET_URL`, `NEXT_PUBLIC_APP_URL`, `ALLOWED_ORIGIN`, `PORT=3002`
-- **Railway** (Socket.IO): `railway up` — self-contained (own Prisma+pg pool, `/health` endpoint, no `@/` imports)
+- **Render** (Socket.IO): deploy as Web Service — Build: `npm install`, Start: `npx tsx src/socket/server.ts`. **Do NOT set `PORT`** — Render injects it. Auto-detects Node 22 from `.nvmrc`.
 - **Supabase** (PostgreSQL): `DATABASE_URL` with `?pgbouncer=true` (port 6543), `DIRECT_URL` (port 5432)
-- CSP `connect-src` in `next.config.mjs` built from `NEXT_PUBLIC_SOCKET_URL` — must include Railway URL
+- CSP `connect-src` in `next.config.mjs` built from `NEXT_PUBLIC_SOCKET_URL` — must include Render/Railway URL
 
 ### Syncing schema to production Supabase
 
@@ -212,6 +212,21 @@ To seed production: `npx tsx -r dotenv/config prisma/seed.ts dotenv_config_path=
 
 - `DIRECT_URL` (port 5432) required for `prisma db push` — needs direct connection, not pgbouncer
 - `DATABASE_URL` (port 6543, pgbouncer) only for app runtime queries
+
+### Render Socket Server Setup
+
+Deploy as **Web Service** (not Static Site). Fix the autofilled Next.js defaults:
+
+| Field | Change To |
+|-------|-----------|
+| Build Command | `npm install` (triggers `prisma generate` via postinstall) |
+| Start Command | `npx tsx src/socket/server.ts` |
+
+**Required env vars:** `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `ALLOWED_ORIGIN` (Vercel URL), `NODE_ENV=production`
+
+**Do NOT set `PORT`** — Render auto-injects it. The socket server reads `process.env.PORT` first (line 445 of `src/socket/server.ts`).
+
+After deploy, update `NEXT_PUBLIC_SOCKET_URL` in Vercel to the Render URL and redeploy Vercel.
 
 ## Test Accounts
 
@@ -236,3 +251,21 @@ To seed production: `npx tsx -r dotenv/config prisma/seed.ts dotenv_config_path=
 | DnD hook (infinite loop prone) | `hooks/use-kanban-board.ts` (uses `boardRef` for stale safety) |
 | Board templates | `lib/board-templates.ts` |
 | Shared board query | `getUserBoards()` in `actions/board-actions.ts` |
+| Offline sync | `lib/offline-db.ts` (IndexedDB), `lib/offline-sync.ts`, `lib/store/use-offline-store.ts` |
+| Service worker | `public/sw.js` (triggers sync on reconnect) |
+
+## Notification Types
+
+All types in `utils/notification-utils.ts` with preference keys:
+
+| Type | Pref Key | Icon |
+|------|----------|------|
+| TASK_ASSIGNED | taskAssigned | 📋 |
+| TASK_STATUS_CHANGED | statusChanged | 🔄 |
+| SPRINT_STARTED | taskAssigned | 🚀 |
+| SPRINT_COMPLETED | statusChanged | 🏁 |
+| EPIC_CREATED | epicUpdated | 🎯 |
+| EPIC_UPDATED | epicUpdated | 📊 |
+| EPIC_DELETED | epicUpdated | 🗑️ |
+| ISSUE_LINK_CREATED | issueLinkUpdated | 🔗 |
+| ISSUE_LINK_DELETED | issueLinkUpdated | 🔓 |

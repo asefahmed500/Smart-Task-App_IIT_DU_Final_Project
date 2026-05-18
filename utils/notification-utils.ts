@@ -16,6 +16,11 @@ type NotifType =
   | 'SPRINT_STARTED'
   | 'SPRINT_COMPLETED'
   | 'TASK_ADDED_TO_SPRINT'
+  | 'EPIC_CREATED'
+  | 'EPIC_UPDATED'
+  | 'EPIC_DELETED'
+  | 'ISSUE_LINK_CREATED'
+  | 'ISSUE_LINK_DELETED'
 
 const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   import('@/lib/prisma').NotificationPreference,
@@ -38,6 +43,11 @@ const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   SPRINT_STARTED: 'taskAssigned',
   SPRINT_COMPLETED: 'statusChanged',
   TASK_ADDED_TO_SPRINT: 'taskAssigned',
+  EPIC_CREATED: 'statusChanged',
+  EPIC_UPDATED: 'statusChanged',
+  EPIC_DELETED: 'statusChanged',
+  ISSUE_LINK_CREATED: 'taskAssigned',
+  ISSUE_LINK_DELETED: 'taskAssigned',
 }
 
 const booleanPrefKeys = new Set([

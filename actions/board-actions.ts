@@ -102,7 +102,16 @@ export async function getBoardData(input: { boardId: string }): Promise<ActionRe
                 checklists: {
                   include: { items: true }
                 },
-                tags: true
+                tags: true,
+                epic: {
+                  select: { id: true, name: true, color: true }
+                },
+                issueLinks: {
+                  include: {
+                    sourceTask: { select: { id: true, title: true, priority: true } },
+                    targetTask: { select: { id: true, title: true, priority: true } }
+                  }
+                }
               }
             }
           }
@@ -116,7 +125,12 @@ export async function getBoardData(input: { boardId: string }): Promise<ActionRe
             role: true
           }
         },
-        tags: true
+        tags: true,
+        epics: {
+          include: {
+            _count: { select: { tasks: true } }
+          }
+        }
       }
     })
 

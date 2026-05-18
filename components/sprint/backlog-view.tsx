@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getBacklogTasks, assignTaskToSprint, getSprintsByBoard, updateTaskIssueFields } from '@/actions'
+import { getBacklogTasks, assignTaskToSprint, getSprintsByBoard, updateTaskIssueFields, getEpicsByBoard } from '@/actions'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,6 +32,7 @@ import {
   GitBranch,
   Search,
   Plus,
+  Layers,
 } from 'lucide-react'
 
 const ISSUE_TYPE_COLORS: Record<string, string> = {
@@ -90,12 +91,13 @@ export function BacklogView({
   const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>([])
   const [sprints, setSprints] = useState<Sprint[]>([])
+  const [epics, setEpics] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [assignDialogOpen, setAssignDialogOpen] = useState(false)
   const [targetSprint, setTargetSprint] = useState('')
-  const [editForm, setEditForm] = useState({ issueType: '', storyPoints: '' })
+  const [editForm, setEditForm] = useState({ issueType: '', storyPoints: '', epicId: '' })
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [filterPriority, setFilterPriority] = useState('all')
@@ -106,12 +108,14 @@ export function BacklogView({
 
   async function loadData() {
     setLoading(true)
-    const [tasksRes, sprintsRes] = await Promise.all([
+    const [tasksRes, sprintsRes, epicsRes] = await Promise.all([
       getBacklogTasks(boardId),
       getSprintsByBoard(boardId),
+      getEpicsByBoard(boardId),
     ])
     if (tasksRes.success) setTasks(tasksRes.data || [])
     if (sprintsRes.success) setSprints(sprintsRes.data || [])
+    if (epicsRes.success) setEpics(epicsRes.data || [])
     setLoading(false)
   }
 
@@ -137,6 +141,7 @@ export function BacklogView({
       taskId: selectedTask.id,
       issueType: editForm.issueType || undefined,
       storyPoints: editForm.storyPoints ? parseInt(editForm.storyPoints) : null,
+      epicId: editForm.epicId || null,
     })
     if (res.success) {
       toast.success('Task updated')
@@ -152,6 +157,7 @@ export function BacklogView({
     setEditForm({
       issueType: task.issueType || '',
       storyPoints: task.storyPoints?.toString() || '',
+      epicId: '',
     })
     setEditDialogOpen(true)
   }
@@ -395,6 +401,31 @@ export function BacklogView({
               <p className="text-xs text-muted-foreground mt-1">
                 Fibonacci sequence recommended: 1, 2, 3, 5, 8, 13, 21
               </p>
+            </div>
+            <div>
+              <Label className="flex items-center gap-1.5">
+                <Layers className="size-3" />
+                Epic
+              </Label>
+              <Select
+                value={editForm.epicId || '__none__'}
+                onValueChange={(v) => setEditForm((f) => ({ ...f, epicId: v === '__none__' ? '' : v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select epic" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No epic</SelectItem>
+                  {epics.map((epic) => (
+                    <SelectItem key={epic.id} value={epic.id}>
+                      <div className="flex items-center gap-2">
+                        <div className="size-2.5 rounded-full" style={{ backgroundColor: epic.color }} />
+                        {epic.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

@@ -18,9 +18,10 @@ import {
   User as UserIcon,
   ChevronRight,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Layers
 } from 'lucide-react'
-import { Task, User, Tag, Priority } from '@/types/kanban'
+import { Task, User, Tag, Priority, Epic, EpicStatus } from '@/types/kanban'
 import { cn } from '@/utils/utils'
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
@@ -31,6 +32,7 @@ interface TaskSidebarProps {
   currentUser: User
   eligibleAssignees: User[]
   boardTags: Tag[]
+  boardEpics: Epic[]
   onUpdate: (field: string, value: string | Priority | null) => Promise<void>
   onAddTag: (tagId: string) => Promise<void>
   onRemoveTag: (tagId: string) => Promise<void>
@@ -41,6 +43,7 @@ export function TaskSidebar({
   currentUser,
   eligibleAssignees,
   boardTags,
+  boardEpics,
   onUpdate,
   onAddTag,
   onRemoveTag
@@ -138,6 +141,42 @@ export function TaskSidebar({
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate('dueDate', e.target.value)}
             className="h-10 bg-muted/20 border-primary/5 hover:border-primary/20 transition-all focus:ring-0 text-xs"
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-bold">
+            <Layers className="size-3" />
+            Epic
+          </Label>
+          <Select 
+            value={task.epicId || '__none__'} 
+            onValueChange={(val) => onUpdate('epicId', val === '__none__' ? null : val)}
+          >
+            <SelectTrigger className="h-10 bg-muted/20 border-primary/5 hover:border-primary/20 transition-all focus:ring-0">
+              <SelectValue placeholder="No epic">
+                {task.epic && (
+                  <div className="flex items-center gap-2">
+                    <div className="size-2.5 rounded-full" style={{ backgroundColor: task.epic.color }} />
+                    <span className="text-sm font-medium truncate">{task.epic.name}</span>
+                  </div>
+                )}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__" className="text-xs">No epic</SelectItem>
+              {boardEpics.map((epic) => (
+                <SelectItem key={epic.id} value={epic.id} className="text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="size-2.5 rounded-full" style={{ backgroundColor: epic.color }} />
+                    {epic.name}
+                    <span className="text-[10px] text-muted-foreground ml-auto">
+                      {epic.status}
+                    </span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-3 pt-2">

@@ -122,6 +122,14 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
       case 'REVIEW_COMPLETED': return '✅'
       case 'BOARD_MEMBER_ADDED': return '👥'
       case 'BOARD_MEMBER_REMOVED': return '👋'
+      case 'SPRINT_STARTED': return '🚀'
+      case 'SPRINT_COMPLETED': return '🏁'
+      case 'TASK_ADDED_TO_SPRINT': return '📅'
+      case 'EPIC_CREATED': return '🎯'
+      case 'EPIC_UPDATED': return '📊'
+      case 'EPIC_DELETED': return '🗑️'
+      case 'ISSUE_LINK_CREATED': return '🔗'
+      case 'ISSUE_LINK_DELETED': return '🔓'
       default: return '🔔'
     }
   }

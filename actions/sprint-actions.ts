@@ -159,6 +159,20 @@ export async function updateSprint(
       return { success: false, error: 'End date must be after start date' }
     }
 
+    // Check for date overlaps with other PLANNED/ACTIVE sprints
+    const overlapping = await prisma.sprint.findFirst({
+      where: {
+        boardId: existing.boardId,
+        status: { in: ['PLANNED', 'ACTIVE'] },
+        id: { not: input.id },
+        startDate: { lte: effectiveEnd },
+        endDate: { gte: effectiveStart },
+      },
+    })
+    if (overlapping) {
+      return { success: false, error: 'Sprint dates overlap with an existing sprint' }
+    }
+
     const sprint = await prisma.sprint.update({
       where: { id: input.id },
       data: updateData,
@@ -278,6 +292,16 @@ export async function updateSprintStatus(
       }
     }
 
+    // Check for concurrent ACTIVE sprint BEFORE any DB write
+    if (input.status === 'ACTIVE') {
+      const activeSprint = await prisma.sprint.findFirst({
+        where: { boardId: existing.boardId, status: 'ACTIVE', id: { not: input.id } },
+      })
+      if (activeSprint) {
+        return { success: false, error: 'Another sprint is already active on this board' }
+      }
+    }
+
     const sprint = await prisma.sprint.update({
       where: { id: input.id },
       data: { status: input.status },
@@ -291,13 +315,6 @@ export async function updateSprintStatus(
 
     // Notify assignees when sprint becomes active
     if (input.status === 'ACTIVE') {
-      const activeSprint = await prisma.sprint.findFirst({
-        where: { boardId: existing.boardId, status: 'ACTIVE', id: { not: input.id } },
-      })
-      if (activeSprint) {
-        return { success: false, error: 'Another sprint is already active on this board' }
-      }
-
       const assigneeIds = [...new Set(existing.tasks.map((t) => t.assigneeId).filter(Boolean))]
       for (const uid of assigneeIds) {
         if (uid === session.id) continue
@@ -331,14 +348,13 @@ export async function updateSprintStatus(
           })
         }
       }
-    }
 
-    // Move incomplete tasks back to backlog when sprint completes
-    if (input.status === 'COMPLETED') {
+      // Move incomplete tasks back to backlog when sprint completes
+      const doneColName = await findDoneColumnName(existing.boardId)
       await prisma.task.updateMany({
         where: {
           sprintId: input.id,
-          column: { name: { not: 'Done' } },
+          column: { name: { not: doneColName } },
         },
         data: { sprintId: null },
       })
@@ -751,6 +767,7 @@ export async function updateTaskIssueFields(
       storyPoints: z.number().int().min(0).max(100).optional().nullable(),
       parentId: z.string().optional().nullable(),
       resolution: z.enum(['FIXED', 'WONT_FIX', 'DUPLICATE', 'CANNOT_REPRODUCE', 'LATER', 'MOVED']).optional().nullable(),
+      epicId: z.string().optional().nullable(),
     }).parse(rawInput)
 
     const task = await prisma.task.findUnique({
@@ -770,6 +787,7 @@ export async function updateTaskIssueFields(
     if (input.storyPoints !== undefined) updateData.storyPoints = input.storyPoints
     if (input.parentId !== undefined) updateData.parentId = input.parentId
     if (input.resolution !== undefined) updateData.resolution = input.resolution
+    if (input.epicId !== undefined) updateData.epicId = input.epicId
 
     const updated = await prisma.task.update({
       where: { id: input.taskId },

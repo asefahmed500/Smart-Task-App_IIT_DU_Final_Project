@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getTaskActivityLog } from '@/actions/task-actions'
 import { ActionResult } from '@/types/kanban'
-import { useBoardEvents } from '@/components/kanban/socket-hooks'
+import { useBoardEvents, useSocket } from '@/components/kanban/socket-hooks'
 
 interface UseTaskActivityProps {
   taskId: string | null
@@ -15,6 +15,9 @@ export function useTaskActivity({ taskId, isOpen, boardId }: UseTaskActivityProp
   const [activityLog, setActivityLog] = useState<any[]>([])
   const [activityFilter, setActivityFilter] = useState<string>('all')
   const [isLoading, setIsLoading] = useState(false)
+
+  // Subscribe to shared socket singleton for connection state only
+  const { socket, isConnected } = useSocket()
 
   const fetchActivityLog = useCallback(async () => {
     if (!taskId) return
@@ -44,7 +47,7 @@ export function useTaskActivity({ taskId, isOpen, boardId }: UseTaskActivityProp
     }
   }, [taskId, fetchActivityLog])
 
-  useBoardEvents(boardId || 'none', handleBoardEvent)
+  useBoardEvents(boardId || 'none', handleBoardEvent, socket, isConnected)
 
   const filteredActivityLog = activityFilter === 'all'
     ? activityLog

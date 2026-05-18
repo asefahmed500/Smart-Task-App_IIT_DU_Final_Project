@@ -25,6 +25,10 @@ import {
   MessageSquare,
   Clock,
   Loader2,
+  Link as LinkIcon,
+  Plus,
+  X,
+  Search,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useOfflineStore } from '@/lib/store/use-offline-store'
@@ -34,10 +38,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConflictDialog } from './conflict-dialog'
 import { Separator } from '@/components/ui/separator'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { createIssueLink, deleteIssueLink, getTaskIssueLinks } from '@/actions/issue-link-actions'
+import { searchUsers } from '@/actions/board-actions'
+import {
   User,
   Task,
   Tag,
-  Priority
+  Priority,
+  Epic,
+  IssueLink,
+  IssueLinkType,
 } from '@/types/kanban'
 
 // Import custom hooks
@@ -69,9 +83,10 @@ interface TaskDetailsDialogProps {
   currentUser: User
   editingTasks?: Record<string, { id: string; name: string; image: string | null }[]>
   boardId?: string
+  boardEpics?: Epic[]
 }
 
-export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, currentUser, editingTasks, boardId }: TaskDetailsDialogProps) {
+export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, currentUser, editingTasks, boardId, boardEpics = [] }: TaskDetailsDialogProps) {
   const isMember = currentUser.role === 'MEMBER'
   const isAdmin = currentUser.role === 'ADMIN'
 
@@ -167,8 +182,96 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
     handleCompleteReview
   } = useTaskReviews({ taskId, task, setTask, currentUser, fetchTaskDetails })
 
+  // Fetch issue links when task opens
+  useEffect(() => {
+    if (taskId && isOpen) {
+      getTaskIssueLinks({ taskId }).then((result) => {
+        if (result.success && result.data) {
+          setIssueLinks(result.data as IssueLink[])
+        }
+      })
+    }
+  }, [taskId, isOpen])
+
+  // Search tasks for linking
+  const handleSearchTasks = async (query: string) => {
+    setSearchQuery(query)
+    if (!query || query.length < 2) {
+      setSearchResults([])
+      return
+    }
+    // Use searchUsers to find tasks - we need a task search endpoint
+    // For now, search by board members and their tasks
+    try {
+      const result = await searchUsers({ query })
+      if (result.success && result.data) {
+        setSearchResults(result.data as any[])
+      }
+    } catch {
+      // Ignore search errors
+    }
+  }
+
+  const handleAddIssueLink = async (targetTaskId: string) => {
+    if (!taskId) return
+    setIsLinking(true)
+    try {
+      const result = await createIssueLink({
+        sourceTaskId: taskId,
+        targetTaskId,
+        linkType: selectedLinkType,
+      })
+      if (result.success) {
+        toast.success('Issue link added')
+        // Refresh links
+        const linksResult = await getTaskIssueLinks({ taskId })
+        if (linksResult.success && linksResult.data) {
+          setIssueLinks(linksResult.data as IssueLink[])
+        }
+        setLinkDialogOpen(false)
+        setSearchQuery('')
+        setSearchResults([])
+      } else {
+        toast.error(result.error || 'Failed to add link')
+      }
+    } catch {
+      toast.error('Failed to add link')
+    } finally {
+      setIsLinking(false)
+    }
+  }
+
+  const handleDeleteIssueLink = async (linkId: string) => {
+    try {
+      const result = await deleteIssueLink({ id: linkId })
+      if (result.success) {
+        toast.success('Issue link removed')
+        setIssueLinks((prev) => prev.filter((l) => l.id !== linkId))
+      } else {
+        toast.error(result.error || 'Failed to remove link')
+      }
+    } catch {
+      toast.error('Failed to remove link')
+    }
+  }
+
+  const getLinkLabel = (link: IssueLink) => {
+    const isSource = link.sourceTaskId === taskId
+    const otherTask = isSource ? link.targetTask : link.sourceTask
+    const linkTypeLabel = link.linkType.replace('_', ' ')
+    return { otherTask, linkTypeLabel, isSource }
+  }
+
   const [showActivity, setShowActivity] = useState(false)
   const { isOnline } = useOfflineStore()
+
+  // Issue links state
+  const [issueLinks, setIssueLinks] = useState<IssueLink[]>([])
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false)
+  const [selectedLinkType, setSelectedLinkType] = useState<IssueLinkType>('BLOCKS')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isLinking, setIsLinking] = useState(false)
 
   // Emit editing events
   useEffect(() => {
@@ -311,6 +414,107 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                         onDeleteAttachment={handleDeleteAttachment}
                         isUploading={isUploading}
                       />
+
+                      {/* Issue Links Section */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-semibold flex items-center gap-2">
+                            <LinkIcon className="size-4 text-muted-foreground" />
+                            Issue Links
+                          </h3>
+                          <Popover open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+                                <Plus className="size-3" />
+                                Add Link
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 p-0" align="start">
+                              <div className="p-3 border-b">
+                                <div className="flex items-center gap-2">
+                                  <Select value={selectedLinkType} onValueChange={(v) => setSelectedLinkType(v as IssueLinkType)}>
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="BLOCKS">BLOCKS</SelectItem>
+                                      <SelectItem value="BLOCKED_BY">BLOCKED BY</SelectItem>
+                                      <SelectItem value="RELATES_TO">RELATES TO</SelectItem>
+                                      <SelectItem value="DUPLICATES">DUPLICATES</SelectItem>
+                                      <SelectItem value="DUPLICATED_BY">DUPLICATED BY</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="p-3">
+                                <div className="relative">
+                                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                                  <Input
+                                    placeholder="Search tasks..."
+                                    value={searchQuery}
+                                    onChange={(e) => handleSearchTasks(e.target.value)}
+                                    className="pl-7 h-8 text-xs"
+                                  />
+                                </div>
+                                {searchResults.length > 0 && (
+                                  <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
+                                    {searchResults.map((user) => (
+                                      <button
+                                        key={user.id}
+                                        onClick={() => handleAddIssueLink(user.id)}
+                                        disabled={isLinking}
+                                        className="w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm disabled:opacity-50"
+                                      >
+                                        <Avatar className="size-5">
+                                          <AvatarImage src={user.image || undefined} />
+                                          <AvatarFallback className="text-[8px]">
+                                            {user.name?.slice(0, 2).toUpperCase()}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span>{user.name}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        {issueLinks.length > 0 ? (
+                          <div className="space-y-2">
+                            {issueLinks.map((link) => {
+                              const { otherTask, linkTypeLabel, isSource } = getLinkLabel(link)
+                              if (!otherTask) return null
+                              return (
+                                <div
+                                  key={link.id}
+                                  className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-primary/5 group hover:bg-muted/50 transition-colors"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <Badge variant="outline" className="text-[9px] h-5 px-1.5 shrink-0">
+                                      {linkTypeLabel}
+                                    </Badge>
+                                    <span className="text-xs truncate" title={otherTask.title}>
+                                      {otherTask.title}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleDeleteIssueLink(link.id)}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500"
+                                  >
+                                    <X className="size-3" />
+                                  </button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground text-center py-4">
+                            No issue links yet
+                          </p>
+                        )}
+                      </div>
                     </TabsContent>
 
                     <TabsContent value="activity" className="p-6 m-0 space-y-8 animate-in fade-in slide-in-from-right-4 duration-300 h-full flex flex-col">
@@ -373,6 +577,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                       currentUser={currentUser}
                       eligibleAssignees={eligibleAssignees}
                       boardTags={boardTags}
+                      boardEpics={boardEpics}
                       onUpdate={handleUpdate}
                       onAddTag={handleAddTag}
                       onRemoveTag={handleRemoveTag}

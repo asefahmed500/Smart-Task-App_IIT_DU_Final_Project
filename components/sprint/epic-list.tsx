@@ -228,7 +228,7 @@ export function EpicList({
           {filteredEpics.map((epic) => {
             const config = EPIC_STATUS_CONFIG[epic.status] || EPIC_STATUS_CONFIG.BACKLOG
             return (
-              <Card key={epic.id} className="hover:shadow-md transition-shadow">
+              <Card key={epic.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`${basePath}/epics/${epic.id}`)}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

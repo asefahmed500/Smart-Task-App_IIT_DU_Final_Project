@@ -482,7 +482,14 @@ export async function getTaskDetails(input: { id: string }): Promise<ActionResul
         },
         tags: true,
         timeEntries: { include: { user: true }, orderBy: { createdAt: 'desc' } },
-        reviews: { include: { reviewer: true }, orderBy: { createdAt: 'desc' } }
+        reviews: { include: { reviewer: true }, orderBy: { createdAt: 'desc' } },
+        epic: { select: { id: true, name: true, color: true } },
+        issueLinks: {
+          include: {
+            sourceTask: { select: { id: true, title: true, issueType: true, priority: true, status: true } },
+            targetTask: { select: { id: true, title: true, issueType: true, priority: true, status: true } }
+          }
+        }
       }
     })
 

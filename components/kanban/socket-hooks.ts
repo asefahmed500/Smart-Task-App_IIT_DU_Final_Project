@@ -81,9 +81,12 @@ export function useSocket(boardId?: string, user?: PresenceUser) {
   return { socket, isConnected, presence, editingTasks }
 }
 
-export function useBoardEvents(boardId: string, onEvent: (event: string, data: Record<string, unknown>) => void) {
-  const { socket, isConnected } = useSocket(boardId)
-
+export function useBoardEvents(
+  boardId: string,
+  onEvent: (event: string, data: Record<string, unknown>) => void,
+  socket?: Socket | null,
+  isConnected?: boolean,
+) {
   useEffect(() => {
     if (!socket || !isConnected) return
 
@@ -102,6 +105,21 @@ export function useBoardEvents(boardId: string, onEvent: (event: string, data: R
       'board:member_removed': (data) => onEvent('board:member_removed', data),
       'tag:created': (data) => onEvent('tag:created', data),
       'tag:deleted': (data) => onEvent('tag:deleted', data),
+      // Sprint events
+      'sprint:created': (data) => onEvent('sprint:created', data),
+      'sprint:updated': (data) => onEvent('sprint:updated', data),
+      'sprint:deleted': (data) => onEvent('sprint:deleted', data),
+      'sprint:statusChanged': (data) => onEvent('sprint:statusChanged', data),
+      'task:sprintAssigned': (data) => onEvent('task:sprintAssigned', data),
+      'task:sprintRemoved': (data) => onEvent('task:sprintRemoved', data),
+      'task:issueFieldsUpdated': (data) => onEvent('task:issueFieldsUpdated', data),
+      // Epic events
+      'epic:created': (data) => onEvent('epic:created', data),
+      'epic:updated': (data) => onEvent('epic:updated', data),
+      'epic:deleted': (data) => onEvent('epic:deleted', data),
+      // Issue link events
+      'issueLink:created': (data) => onEvent('issueLink:created', data),
+      'issueLink:deleted': (data) => onEvent('issueLink:deleted', data),
     }
 
     Object.entries(handlers).forEach(([event, handler]) => {

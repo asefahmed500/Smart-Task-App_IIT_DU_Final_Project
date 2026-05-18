@@ -10,7 +10,7 @@ import { createAutomationRuleSchema, updateAutomationRuleSchema, idSchema } from
 import { ActionResult } from '@/types/kanban'
 import { createAuditLog } from '@/lib/create-audit-log'
 
-export type Trigger = 'TASK_CREATED' | 'TASK_MOVED' | 'TASK_UPDATED' | 'TASK_ASSIGNED'
+export type Trigger = 'TASK_CREATED' | 'TASK_MOVED' | 'TASK_UPDATED' | 'TASK_ASSIGNED' | 'SPRINT_STARTED' | 'SPRINT_COMPLETED'
 export type Action = 'SEND_NOTIFICATION' | 'MOVE_TASK' | 'SET_PRIORITY' | 'ADD_TAG'
 
 interface TaskContext {

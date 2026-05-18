@@ -8,6 +8,7 @@ import { ActionResult } from '@/types/kanban'
 import { emitBoardEvent } from '@/utils/socket-emitter'
 import { createAuditLog } from '@/lib/create-audit-log'
 import { checkBoardPermission } from './board-actions'
+import { sendNotification } from '@/utils/notification-utils'
 
 // --- Schemas ---
 
@@ -108,6 +109,16 @@ export async function createIssueLink(
       boardId: sourceTask.column.boardId,
     })
 
+    // Notify assignee of target task
+    if (targetTask.assigneeId && targetTask.assigneeId !== session.id) {
+      await sendNotification({
+        userId: targetTask.assigneeId,
+        type: 'ISSUE_LINK_CREATED',
+        message: `Task "${sourceTask.title}" now ${input.linkType.toLowerCase().replace('_', ' ')} "${targetTask.title}"`,
+        link: `/dashboard/board/${sourceTask.column.boardId}`,
+      })
+    }
+
     revalidatePath(`/dashboard/board/${sourceTask.column.boardId}`)
     return { success: true, data: link, message: 'Issue link created' }
   } catch (error) {
@@ -154,6 +165,20 @@ export async function deleteIssueLink(
       linkId: input.id,
       boardId: link.sourceTask.column.boardId,
     })
+
+    // Notify assignee of target task if different from deleter
+    const targetTask = await prisma.task.findUnique({
+      where: { id: link.targetTaskId },
+      select: { assigneeId: true, title: true },
+    })
+    if (targetTask?.assigneeId && targetTask.assigneeId !== session.id) {
+      await sendNotification({
+        userId: targetTask.assigneeId,
+        type: 'ISSUE_LINK_DELETED',
+        message: `Issue link removed from "${targetTask.title}"`,
+        link: `/dashboard/board/${link.sourceTask.column.boardId}`,
+      })
+    }
 
     revalidatePath(`/dashboard/board/${link.sourceTask.column.boardId}`)
     return { success: true, message: 'Issue link deleted' }

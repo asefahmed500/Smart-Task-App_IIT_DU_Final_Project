@@ -152,6 +152,8 @@ export interface NotificationPreference {
   newUserSignup: boolean;
   boardMemberAdded: boolean;
   boardMemberRemoved: boolean;
+  epicUpdated: boolean;
+  issueLinkUpdated: boolean;
   emailEnabled: boolean;
   pushEnabled: boolean;
 }

@@ -8,6 +8,7 @@ import { ActionResult } from '@/types/kanban'
 import { emitBoardEvent } from '@/utils/socket-emitter'
 import { createAuditLog } from '@/lib/create-audit-log'
 import { checkBoardPermission } from './board-actions'
+import { sendNotification } from '@/utils/notification-utils'
 
 // --- Schemas ---
 
@@ -61,6 +62,27 @@ export async function createEpic(
     })
 
     emitBoardEvent('epic:created', { epic, boardId: input.boardId })
+
+    // Notify board members
+    const board = await prisma.board.findUnique({
+      where: { id: input.boardId },
+      include: { members: { select: { id: true } }, owner: { select: { id: true } } },
+    })
+    if (board) {
+      const memberIds = [
+        ...board.members.map((m) => m.id),
+        ...(board.owner ? [board.owner.id] : []),
+      ]
+      for (const uid of memberIds) {
+        if (uid === session.id) continue
+        await sendNotification({
+          userId: uid,
+          type: 'EPIC_CREATED',
+          message: `New epic "${epic.name}" created`,
+          link: `/manager/epics/${epic.id}`,
+        })
+      }
+    }
 
     revalidatePath(`/manager/epics`)
     revalidatePath(`/member/epics`)
@@ -122,6 +144,29 @@ export async function updateEpic(
 
     emitBoardEvent('epic:updated', { epic, boardId: existing.boardId })
 
+    // Notify board members of status changes
+    if (input.status) {
+      const board = await prisma.board.findUnique({
+        where: { id: existing.boardId },
+        include: { members: { select: { id: true } }, owner: { select: { id: true } } },
+      })
+      if (board) {
+        const memberIds = [
+          ...board.members.map((m) => m.id),
+          ...(board.owner ? [board.owner.id] : []),
+        ]
+        for (const uid of memberIds) {
+          if (uid === session.id) continue
+          await sendNotification({
+            userId: uid,
+            type: 'EPIC_UPDATED',
+            message: `Epic "${epic.name}" status changed to ${epic.status}`,
+            link: `/manager/epics/${epic.id}`,
+          })
+        }
+      }
+    }
+
     revalidatePath(`/manager/epics`)
     revalidatePath(`/member/epics`)
     return { success: true, data: epic, message: 'Epic updated' }
@@ -168,6 +213,27 @@ export async function deleteEpic(rawInput: unknown): Promise<ActionResult> {
     })
 
     emitBoardEvent('epic:deleted', { epicId: input, boardId: existing.boardId })
+
+    // Notify board members
+    const board = await prisma.board.findUnique({
+      where: { id: existing.boardId },
+      include: { members: { select: { id: true } }, owner: { select: { id: true } } },
+    })
+    if (board) {
+      const memberIds = [
+        ...board.members.map((m) => m.id),
+        ...(board.owner ? [board.owner.id] : []),
+      ]
+      for (const uid of memberIds) {
+        if (uid === session.id) continue
+        await sendNotification({
+          userId: uid,
+          type: 'EPIC_DELETED',
+          message: `Epic "${existing.name}" was deleted`,
+          link: `/manager/epics`,
+        })
+      }
+    }
 
     revalidatePath(`/manager/epics`)
     revalidatePath(`/member/epics`)

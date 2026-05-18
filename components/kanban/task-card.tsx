@@ -68,9 +68,20 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
       
       <CardContent className="p-4 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2">
-          <Badge variant="outline" className={cn("text-[10px] uppercase tracking-wider font-bold h-5 px-2", priorityColor)}>
-            {task.priority}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            <Badge variant="outline" className={cn("text-[10px] uppercase tracking-wider font-bold h-5 px-2", priorityColor)}>
+              {task.priority}
+            </Badge>
+            {task.epic && (
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded-full font-medium truncate max-w-[100px]"
+                style={{ backgroundColor: task.epic.color + '15', color: task.epic.color, border: `1px solid ${task.epic.color}25` }}
+                title={task.epic.name}
+              >
+                {task.epic.name}
+              </span>
+            )}
+          </div>
           <div
             {...listeners}
             className="text-muted-foreground/50 hover:text-primary transition-colors cursor-grab active:cursor-grabbing p-1 -m-1"
