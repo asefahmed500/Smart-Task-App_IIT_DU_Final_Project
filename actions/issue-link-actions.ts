@@ -24,6 +24,8 @@ const deleteIssueLinkSchema = z.object({
 
 const idSchema = z.string()
 
+const taskIdSchema = z.object({ taskId: z.string() })
+
 // --- Issue Linking ---
 
 export async function createIssueLink(
@@ -193,6 +195,52 @@ export async function deleteIssueLink(
 
 // --- Queries ---
 
+export async function searchBoardTasks(
+  rawInput: unknown
+): Promise<ActionResult> {
+  try {
+    const session = await getSession()
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    const input = z.object({
+      boardId: z.string(),
+      query: z.string().min(2),
+      excludeTaskId: z.string().optional(),
+    }).parse(rawInput)
+
+    const perm = await checkBoardPermission({
+      boardId: input.boardId,
+      allowedRoles: ['ADMIN', 'MANAGER', 'MEMBER'],
+    })
+    if (!perm.success) return perm
+
+    const tasks = await prisma.task.findMany({
+      where: {
+        column: { boardId: input.boardId },
+        title: { contains: input.query, mode: 'insensitive' },
+        ...(input.excludeTaskId ? { id: { not: input.excludeTaskId } } : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        issueType: true,
+        priority: true,
+        column: { select: { id: true, name: true } },
+      },
+      take: 20,
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    return { success: true, data: tasks }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }
+    }
+    console.error('[SEARCH_BOARD_TASKS_ERROR]', error)
+    return { success: false, error: 'Failed to search tasks' }
+  }
+}
+
 export async function getTaskIssueLinks(
   rawInput: unknown
 ): Promise<ActionResult> {
@@ -200,10 +248,10 @@ export async function getTaskIssueLinks(
     const session = await getSession()
     if (!session) return { success: false, error: 'Unauthorized' }
 
-    const input = idSchema.parse(rawInput)
+    const { taskId } = taskIdSchema.parse(rawInput)
 
     const task = await prisma.task.findUnique({
-      where: { id: input },
+      where: { id: taskId },
       include: { column: { include: { board: true } } },
     })
     if (!task) return { success: false, error: 'Task not found' }
@@ -216,7 +264,7 @@ export async function getTaskIssueLinks(
 
     const links = await prisma.issueLink.findMany({
       where: {
-        OR: [{ sourceTaskId: input }, { targetTaskId: input }],
+        OR: [{ sourceTaskId: taskId }, { targetTaskId: taskId }],
       },
       include: {
         sourceTask: {

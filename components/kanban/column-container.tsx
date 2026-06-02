@@ -118,44 +118,52 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, boardMemb
         className="p-4 flex items-center justify-between gap-2 border-b border-primary/5 cursor-grab active:cursor-grabbing bg-background/20"
       >
         <div className="flex items-center gap-2">
-          <div className="size-2 rounded-full bg-primary" />
-          <h2 className="font-oswald uppercase tracking-wider text-sm font-bold flex items-center gap-2">
-            {column.name}
-            <span className={cn(
-              "text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-sans tracking-normal",
-              isOverWipLimit && "bg-red-500 text-white animate-pulse"
-            )}>
-              {tasks.length}
-              {column.wipLimit > 0 && ` / ${column.wipLimit}`}
-            </span>
-          </h2>
-        </div>
+           <div className="size-2 rounded-full bg-primary" />
+           <h2 className="font-oswald uppercase tracking-wider text-sm font-bold flex items-center gap-2">
+             {column.name}
+             <span className={cn(
+               "text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-sans tracking-normal",
+               isOverWipLimit && "bg-red-500 text-white animate-pulse"
+             )}>
+               {tasks.length}
+               {column.wipLimit > 0 && ` / ${column.wipLimit}`}
+             </span>
+           </h2>
+         </div>
 
-        <div className="flex items-center gap-1">
-          {isOverWipLimit && (
-            <AlertCircle className="size-4 text-red-500" />
-          )}
-          {currentUser.role !== 'MEMBER' && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8 opacity-0 group-hover/column:opacity-100 transition-opacity">
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem className="gap-2" onClick={() => setIsRenameOpen(true)}>
-                  <Edit2 className="size-4" /> Rename Column
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2" onClick={() => setIsWipLimitOpen(true)}>
-                  <AlertCircle className="size-4" /> Set WIP Limit
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 text-red-500 focus:text-red-500 focus:bg-red-500/10" onClick={handleDelete}>
-                  <Trash2 className="size-4" /> Delete Column
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
+         <div className="flex items-center gap-1">
+           <Button
+             variant="ghost"
+             size="icon"
+             className="size-7"
+             onClick={() => setIsAddTaskOpen(true)}
+           >
+             <Plus className="size-4" />
+           </Button>
+           {isOverWipLimit && (
+             <AlertCircle className="size-4 text-red-500" />
+           )}
+           {currentUser.role !== 'MEMBER' && (
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                 <Button variant="ghost" size="icon" className="size-8 opacity-0 group-hover/column:opacity-100 transition-opacity">
+                   <MoreHorizontal className="size-4" />
+                 </Button>
+               </DropdownMenuTrigger>
+               <DropdownMenuContent align="end" className="w-48">
+                 <DropdownMenuItem className="gap-2" onClick={() => setIsRenameOpen(true)}>
+                   <Edit2 className="size-4" /> Rename Column
+                 </DropdownMenuItem>
+                 <DropdownMenuItem className="gap-2" onClick={() => setIsWipLimitOpen(true)}>
+                   <AlertCircle className="size-4" /> Set WIP Limit
+                 </DropdownMenuItem>
+                 <DropdownMenuItem className="gap-2 text-red-500 focus:text-red-500 focus:bg-red-500/10" onClick={handleDelete}>
+                   <Trash2 className="size-4" /> Delete Column
+                 </DropdownMenuItem>
+               </DropdownMenuContent>
+             </DropdownMenu>
+           )}
+         </div>
       </div>
 
       {/* Tasks List */}

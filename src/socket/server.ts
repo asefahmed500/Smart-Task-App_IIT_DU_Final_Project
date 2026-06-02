@@ -258,6 +258,25 @@ io.on('connection', (socket: Socket) => {
     socket.to(`board:${data.boardId}`).emit('task:issueFieldsUpdated', data)
   })
 
+  // Epic event relay
+  socket.on('epic:created', (data: { boardId: string; epic: any }) => {
+    socket.to(`board:${data.boardId}`).emit('epic:created', data)
+  })
+  socket.on('epic:updated', (data: { boardId: string; epic: any }) => {
+    socket.to(`board:${data.boardId}`).emit('epic:updated', data)
+  })
+  socket.on('epic:deleted', (data: { boardId: string; epicId: string }) => {
+    socket.to(`board:${data.boardId}`).emit('epic:deleted', data)
+  })
+
+  // Issue link event relay
+  socket.on('issueLink:created', (data: { boardId: string; link: any }) => {
+    socket.to(`board:${data.boardId}`).emit('issueLink:created', data)
+  })
+  socket.on('issueLink:deleted', (data: { boardId: string; linkId: string }) => {
+    socket.to(`board:${data.boardId}`).emit('issueLink:deleted', data)
+  })
+
   // Register user for personal notifications
   socket.on('register-user', (userId: string) => {
     if (!userSockets.has(userId)) {

@@ -292,19 +292,43 @@ export async function updateSprintStatus(
       }
     }
 
-    // Check for concurrent ACTIVE sprint BEFORE any DB write
-    if (input.status === 'ACTIVE') {
-      const activeSprint = await prisma.sprint.findFirst({
-        where: { boardId: existing.boardId, status: 'ACTIVE', id: { not: input.id } },
+    // Atomic sprint status update with concurrent-active check
+    if (input.status === 'ACTIVE' || input.status === 'COMPLETED') {
+      await prisma.$transaction(async (tx) => {
+        if (input.status === 'ACTIVE') {
+          const activeSprint = await tx.sprint.findFirst({
+            where: { boardId: existing.boardId, status: 'ACTIVE', id: { not: input.id } },
+          })
+          if (activeSprint) {
+            throw new Error('Another sprint is already active on this board')
+          }
+        }
+
+        await tx.sprint.update({
+          where: { id: input.id },
+          data: { status: input.status },
+        })
+
+        if (input.status === 'COMPLETED') {
+          const doneColName = await findDoneColumnName(existing.boardId)
+          await tx.task.updateMany({
+            where: {
+              sprintId: input.id,
+              column: { name: { not: doneColName } },
+            },
+            data: { sprintId: null },
+          })
+        }
       })
-      if (activeSprint) {
-        return { success: false, error: 'Another sprint is already active on this board' }
-      }
+    } else {
+      await prisma.sprint.update({
+        where: { id: input.id },
+        data: { status: input.status },
+      })
     }
 
-    const sprint = await prisma.sprint.update({
+    const sprint = await prisma.sprint.findUnique({
       where: { id: input.id },
-      data: { status: input.status },
     })
 
     await createAuditLog({
@@ -348,16 +372,6 @@ export async function updateSprintStatus(
           })
         }
       }
-
-      // Move incomplete tasks back to backlog when sprint completes
-      const doneColName = await findDoneColumnName(existing.boardId)
-      await prisma.task.updateMany({
-        where: {
-          sprintId: input.id,
-          column: { name: { not: doneColName } },
-        },
-        data: { sprintId: null },
-      })
     }
 
     emitBoardEvent('sprint:statusChanged', {
@@ -374,6 +388,9 @@ export async function updateSprintStatus(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }
+    }
+    if (error instanceof Error && error.message === 'Another sprint is already active on this board') {
+      return { success: false, error: error.message }
     }
     console.error('[UPDATE_SPRINT_STATUS_ERROR]', error)
     return { success: false, error: 'Failed to update sprint status' }
@@ -610,9 +627,11 @@ export async function getBacklogTasks(
     })
     if (!perm.success) return perm
 
+    const doneColName = await findDoneColumnName(input)
+
     const tasks = await prisma.task.findMany({
       where: {
-        column: { boardId: input },
+        column: { boardId: input, name: { not: doneColName } },
         sprintId: null,
         parentId: null,
       },

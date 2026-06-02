@@ -27,7 +27,8 @@ const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   'taskAssigned' | 'statusChanged' | 'commentMention' |
   'automationTriggered' | 'dueDateReminder' | 'overdueReminder' |
   'reviewRequested' | 'reviewCompleted' | 'newUserSignup' |
-  'boardMemberAdded' | 'boardMemberRemoved'
+  'boardMemberAdded' | 'boardMemberRemoved' |
+  'epicUpdated' | 'issueLinkUpdated'
 >>> = {
   TASK_ASSIGNED: 'taskAssigned',
   TASK_STATUS_CHANGED: 'statusChanged',
@@ -43,11 +44,11 @@ const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   SPRINT_STARTED: 'taskAssigned',
   SPRINT_COMPLETED: 'statusChanged',
   TASK_ADDED_TO_SPRINT: 'taskAssigned',
-  EPIC_CREATED: 'statusChanged',
-  EPIC_UPDATED: 'statusChanged',
-  EPIC_DELETED: 'statusChanged',
-  ISSUE_LINK_CREATED: 'taskAssigned',
-  ISSUE_LINK_DELETED: 'taskAssigned',
+  EPIC_CREATED: 'epicUpdated',
+  EPIC_UPDATED: 'epicUpdated',
+  EPIC_DELETED: 'epicUpdated',
+  ISSUE_LINK_CREATED: 'issueLinkUpdated',
+  ISSUE_LINK_DELETED: 'issueLinkUpdated',
 }
 
 const booleanPrefKeys = new Set([
@@ -55,6 +56,7 @@ const booleanPrefKeys = new Set([
   'automationTriggered', 'dueDateReminder', 'overdueReminder',
   'reviewRequested', 'reviewCompleted', 'newUserSignup',
   'boardMemberAdded', 'boardMemberRemoved',
+  'epicUpdated', 'issueLinkUpdated',
 ]) as Set<string & keyof import('@/lib/prisma').NotificationPreference>
 
 export async function sendNotification(input: {

@@ -57,6 +57,7 @@ interface EpicDetailData {
   updatedAt: string
   tasks: Task[]
   _count: { tasks: number }
+  doneColumnName: string
 }
 
 export function EpicDetail({
@@ -94,9 +95,6 @@ export function EpicDetail({
     setUpdating(true)
     const res = await updateEpic({
       id: epic.id,
-      name: epic.name,
-      description: epic.description || '',
-      color: epic.color,
       status: newStatus as 'BACKLOG' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED',
     })
     if (res.success) {
@@ -133,15 +131,16 @@ export function EpicDetail({
 
   const config = EPIC_STATUS_CONFIG[epic.status] || EPIC_STATUS_CONFIG.BACKLOG
   const totalTasks = epic.tasks.length
+  const doneColumnName = epic.doneColumnName || 'Done'
   const doneTasks = epic.tasks.filter(
-    (t) => t.column?.name.toLowerCase() === 'done' || t.status === 'DONE'
+    (t) => t.column?.name.toLowerCase() === doneColumnName.toLowerCase()
   ).length
   const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0
 
   const filteredTasks =
     statusFilter === 'all'
       ? epic.tasks
-      : epic.tasks.filter((t) => t.status === statusFilter || t.column?.name === statusFilter)
+      : epic.tasks.filter((t) => t.column?.name.toLowerCase() === statusFilter.toLowerCase())
 
   const priorityColor: Record<string, string> = {
     LOW: 'bg-blue-500/10 text-blue-500',
@@ -234,9 +233,9 @@ export function EpicDetail({
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-blue-500">
-              {epic.tasks.filter((t) => t.status === 'IN_PROGRESS').length}
+              {totalTasks - doneTasks}
             </div>
-            <p className="text-xs text-muted-foreground">In Progress</p>
+            <p className="text-xs text-muted-foreground">Remaining</p>
           </CardContent>
         </Card>
         <Card>
@@ -257,9 +256,11 @@ export function EpicDetail({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Tasks</SelectItem>
-            <SelectItem value="TODO">To Do</SelectItem>
-            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-            <SelectItem value="DONE">Done</SelectItem>
+            {[...new Set(epic.tasks.map((t) => t.column?.name).filter(Boolean))].map((name) => (
+              <SelectItem key={name} value={name!}>
+                {name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

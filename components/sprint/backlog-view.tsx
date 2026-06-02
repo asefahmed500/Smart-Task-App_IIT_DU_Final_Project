@@ -58,6 +58,7 @@ interface Task {
   priority: string
   issueType: string | null
   storyPoints: number | null
+  epicId: string | null
   createdAt: string
   assignee: { id: string; name: string | null; image: string | null } | null
   tags: { id: string; name: string; color: string }[]
@@ -157,7 +158,7 @@ export function BacklogView({
     setEditForm({
       issueType: task.issueType || '',
       storyPoints: task.storyPoints?.toString() || '',
-      epicId: '',
+      epicId: task.epicId || '',
     })
     setEditDialogOpen(true)
   }

@@ -20,7 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   MessageSquare,
   Clock,
@@ -42,8 +41,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { createIssueLink, deleteIssueLink, getTaskIssueLinks } from '@/actions/issue-link-actions'
-import { searchUsers } from '@/actions/board-actions'
+import { createIssueLink, deleteIssueLink, getTaskIssueLinks, searchBoardTasks } from '@/actions/issue-link-actions'
 import {
   User,
   Task,
@@ -200,10 +198,13 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
       setSearchResults([])
       return
     }
-    // Use searchUsers to find tasks - we need a task search endpoint
-    // For now, search by board members and their tasks
+    if (!boardId) return
     try {
-      const result = await searchUsers({ query })
+      const result = await searchBoardTasks({
+        boardId,
+        query,
+        excludeTaskId: taskId || undefined,
+      })
       if (result.success && result.data) {
         setSearchResults(result.data as any[])
       }
@@ -344,6 +345,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
               onUpdate={handleUpdate}
               onDelete={handleDelete}
               setTask={setTask}
+              boardEpics={boardEpics}
               editingBy={taskId ? editingTasks?.[taskId]?.filter((u) => u.id !== currentUser.id) : undefined}
             />
 
@@ -458,20 +460,24 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                                 </div>
                                 {searchResults.length > 0 && (
                                   <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
-                                    {searchResults.map((user) => (
+                                    {searchResults.map((task) => (
                                       <button
-                                        key={user.id}
-                                        onClick={() => handleAddIssueLink(user.id)}
+                                        key={task.id}
+                                        onClick={() => handleAddIssueLink(task.id)}
                                         disabled={isLinking}
                                         className="w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm disabled:opacity-50"
                                       >
-                                        <Avatar className="size-5">
-                                          <AvatarImage src={user.image || undefined} />
-                                          <AvatarFallback className="text-[8px]">
-                                            {user.name?.slice(0, 2).toUpperCase()}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <span>{user.name}</span>
+                                        <div className="flex-1 min-w-0">
+                                          <span className="text-xs font-medium truncate block">{task.title}</span>
+                                          {task.column && (
+                                            <span className="text-[10px] text-muted-foreground">{task.column.name}</span>
+                                          )}
+                                        </div>
+                                        {task.issueType && (
+                                          <Badge variant="outline" className="text-[8px] h-4 px-1 shrink-0">
+                                            {task.issueType}
+                                          </Badge>
+                                        )}
                                       </button>
                                     ))}
                                   </div>

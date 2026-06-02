@@ -317,7 +317,16 @@ export async function getEpicDetail(
     })
     if (!perm.success) return perm
 
-    return { success: true, data: epic }
+    const columns = await prisma.column.findMany({
+      where: { boardId: epic.boardId },
+      orderBy: { order: 'asc' },
+    })
+    const doneCol = columns.find(
+      (c) => c.name.toLowerCase() === 'done' || c.name.toLowerCase() === 'completed' || c.name.toLowerCase() === 'resolved'
+    )
+    const doneColumnName = doneCol?.name || columns[columns.length - 1]?.name || 'Done'
+
+    return { success: true, data: { ...epic, doneColumnName } }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }
