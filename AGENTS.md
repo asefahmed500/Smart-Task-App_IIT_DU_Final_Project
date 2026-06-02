@@ -37,7 +37,9 @@ Real-time Kanban board with RBAC, WIP limits, offline support, undo via audit lo
 
 ## Architecture
 
-**Port 3002, not 3000.** Next.js dev on 3002. Socket.io standalone on 3001 (via `SOCKET_PORT`).
+**Port 3002, not 3000.** Next.js dev on 3002. Socket.io standalone on 3001 (via `SOCKET_PORT`). Dev uses `concurrently` to run both.
+
+**Landing page (`/`) auto-redirects** authenticated users to role-specific dashboards: ADMIN→`/admin`, MANAGER→`/manager`, MEMBER→`/member`. Logged-out users see a static marketing page.
 
 **ESM project** (`"type": "module"`). All config files use `.mjs`. Never create `.cjs` configs.
 
@@ -69,7 +71,7 @@ Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API 
 - **Tailwind CSS 4:** `@import "tailwindcss"`, `@theme inline`, `@custom-variant dark`, PostCSS via `@tailwindcss/postcss`
 - **Zod v4:** Date fields from HTML forms use `z.string()` (not `z.string().datetime()`) — `<input type="date">` returns `YYYY-MM-DD`
 - **shadcn** style `radix-nova`, components in `components/ui/`
-- **Offline:** IndexedDB queue (`lib/offline-db.ts`), Zustand store (`lib/store/use-offline-store.ts`), sync via `lib/offline-sync.ts`
+- **Offline:** IndexedDB queue (`lib/offline-db.ts`), Zustand store (`lib/store/use-offline-store.ts`), sync via `lib/offline-sync.ts`, `<OfflineProvider>` wrapper in root layout (`app/layout.tsx`), service worker at `public/sw.js`
 
 ## Code Conventions
 
@@ -77,10 +79,11 @@ Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API 
 - Server actions return `ActionResult<T>` (defined in `types/kanban.ts`): `{ success, data?, error?, message?, fieldErrors? }`
 - Server actions live in `actions/*-actions.ts` (barrel in `actions/index.ts` — **`notification-preferences-actions.ts` is NOT in the barrel**)
 - `createAuditLog()` in `lib/create-audit-log.ts` auto-injects IP — use for all mutations
+- Password reset uses `PasswordResetToken` model + nodemailer (`utils/mail.ts`); dev logs link to console
 - Prisma enum returns need casting (`as string`, `as Priority`) when crossing server/client boundary
 - Import enums via `@/lib/prisma` (re-exports from `generated/prisma`)
 - `tsconfig.json` excludes `scripts/` and `scratch/` — files there use `npx tsx`, don't import from app code
-- **No semicolons, double quotes** — see `.prettierrc` for full config
+- **No semicolons, double quotes, `printWidth: 80`, `trailingComma: "es5"`, `endOfLine: "lf"`** — see `.prettierrc` for full config
 - **Shared board query:** use `getUserBoards(sessionId)` from `actions/board-actions.ts` instead of duplicating the `OR: [{ ownerId }, { members }]` pattern
 
 ## RBAC
@@ -99,7 +102,7 @@ Checks live inside server action files (not a shared lib):
 
 **Notification flow:** Server action → `sendNotification()` in `utils/notification-utils.ts` (checks prefs, writes DB) → `emitNotification()` (Socket.IO client → server) → server relays to `user:${userId}` room → browser `useNotificationListener` in `notification-bell.tsx`. **Must call `sendNotification()`** — just emitting a socket event is not enough (no DB record = no bell badge, no persistence). `sendNotification()` is wrapped in try/catch — notification failures don't crash parent actions.
 
-**Adding a new notification type requires:** `NotifType` union member, `notifTypeToPrefKey` entry, `booleanPrefKeys` entry, `NotificationPreference` schema field in `prisma/schema.prisma`, and `NotificationPreference` interface field in `types/kanban.ts`. Sprint types map to existing preference keys (`taskAssigned`, `statusChanged`). Epic/Issue Link types map to `epicUpdated`/`issueLinkUpdated` preference keys.
+**Adding a new notification type requires:** `NotifType` union member, `notifTypeToPrefKey` entry, `booleanPrefKeys` entry, `NotificationPreference` schema field in `prisma/schema.prisma`, and `NotificationPreference` interface field in `types/kanban.ts`. Sprint types map to `taskAssigned`/`statusChanged`. Epic types map to `epicUpdated`. IssueLink types map to `issueLinkUpdated`.
 
 **Socket event standardization:** `task:moved` events use `newColumnId`/`oldColumnId` and include `userId`/`userName`. `task:updated` events also skip self-echo via `data.userId` check. Column events (`column:created`, `column:updated`, `column:deleted`) relay only `boardId` + `columnId` (NOT full objects). Sprint events are relayed by socket server.
 
@@ -113,6 +116,9 @@ Checks live inside server action files (not a shared lib):
 - **`onDragEnd` stale closure:** Uses `boardRef.current` (not `board` state) to avoid stale indices during rapid drags.
 - **Failure recovery:** On drag/reorder failure, use `router.refresh()` — NOT `setBoard(initialBoard)` which discards all optimistic updates.
 - **Sprint detail crash:** `getSprintDetail` query MUST include `column: { select: { id: true, name: true } }` in the tasks include. Missing it causes "Cannot read properties of undefined (reading 'name')" on the sprint detail page.
+- **Done column detection:** Always use `findDoneColumnName()` from `sprint-actions.ts` (checks "done"/"completed"/"resolved", falls back to last column). Never hardcode column name checks — column names are user-defined.
+- **Epic detail gets `doneColumnName` from server:** `getEpicDetail` returns `{ ...epic, doneColumnName }` — the client must use this field, not hardcode "done".
+- **Server action schema shape matters:** Always check whether an action expects `z.string()` (bare) or `z.object({ ... })` (object). Mismatched calls silently fail (ZodError caught, returns `{ success: false }`).
 - **Never pass object refs as useEffect deps.** `useSocket` uses `useMemo` to stabilize `user` prop — raw objects cause infinite join/leave loops
 - **All Dialog components must include `<DialogDescription>`** (even with `className="sr-only"`). Radix throws without it
 - **Recharts `ResponsiveContainer` needs explicit pixel dimensions.** `height="100%"` causes negative dimension errors. Use `height={300}`
@@ -162,15 +168,15 @@ Checks live inside server action files (not a shared lib):
 
 ## Sprint Planning
 
-- **Backlog is implicit:** all tasks where `sprintId = null` AND `parentId = null` on a board. Subtasks excluded from top-level backlog.
+- **Backlog is implicit:** all tasks where `sprintId = null` AND `parentId = null` AND column is NOT the "done" column. Uses `findDoneColumnName()` to identify the done column. Subtasks excluded from top-level backlog.
 - **Role mapping:** MANAGER = Scrum Master/PO (creates sprints, plans backlog, manages epics). MEMBER = read-only. ADMIN = full oversight
 - **Routes:** `/manager/{backlog,sprints,sprints/[id],epics}` — CRUD. `/member/{backlog,sprints,sprints/[id],epics}` — read-only
 - **readOnly pattern:** All sprint components (`BacklogView`, `SprintList`, `SprintDetail`, `EpicList`) accept `readOnly?: boolean`
 - **Server actions:** `actions/sprint-actions.ts`, `actions/epic-actions.ts`, `actions/issue-link-actions.ts`
 - **Sprint lifecycle:** PLANNED → ACTIVE → COMPLETED (or CANCELLED). CANCELLED → PLANNED allowed. Cannot delete ACTIVE sprints. MANAGER/ADMIN only.
 - **No overlapping sprints:** Creating/updating a sprint checks for date overlaps with existing PLANNED/ACTIVE sprints on the same board.
-- **Only one ACTIVE sprint per board:** Transition to ACTIVE fails if another sprint is already active.
-- **Sprint completion auto-moves incomplete tasks:** Tasks not in the "done" column have `sprintId` set to `null` (back to backlog).
+- **Only one ACTIVE sprint per board:** Transition to ACTIVE is atomic via `$transaction` — checks and updates happen in one TX to prevent race conditions.
+- **Sprint completion auto-moves incomplete tasks:** Tasks not in the "done" column have `sprintId` set to `null` (back to backlog). This runs inside the same `$transaction` as the status update.
 - **Sprint deletion auto-unlinks tasks:** Tasks get `sprintId: null` instead of blocking deletion.
 - **Velocity:** Uses `findDoneColumnName()` helper — matches "done"/"completed"/"resolved" or falls back to the last column by order.
 - **Epic status transitions:** Validated (BACKLOG→IN_PROGRESS→COMPLETED, CANCELLED→BACKLOG). Arbitrary jumps rejected.
@@ -182,6 +188,8 @@ Checks live inside server action files (not a shared lib):
 - **Bidirectional duplicate detection:** Creating `A BLOCKS B` then `B BLOCKED_BY A` (or vice versa) is rejected.
 - **Self-links rejected:** Cannot link a task to itself.
 - **Same-board only:** Both tasks must be on the same board.
+- **Task search for linking:** `searchBoardTasks({ boardId, query, excludeTaskId })` in `actions/issue-link-actions.ts` — board-scoped, case-insensitive title search, excludes current task.
+- **`getTaskIssueLinks` expects `{ taskId: string }`** (object), NOT a bare string. Other query actions like `getSprintsByBoard` use bare `z.string()` — don't confuse them.
 
 ## Board Templates
 
@@ -262,8 +270,18 @@ All types in `utils/notification-utils.ts` with preference keys:
 |------|----------|------|
 | TASK_ASSIGNED | taskAssigned | 📋 |
 | TASK_STATUS_CHANGED | statusChanged | 🔄 |
+| COMMENT_MENTION | commentMention | 💬 |
+| REVIEW_REQUESTED | reviewRequested | 🔍 |
+| REVIEW_COMPLETED | reviewCompleted | ✅ |
+| AUTOMATION_TRIGGERED | automationTriggered | ⚡ |
+| DUE_DATE_REMINDER | dueDateReminder | ⏰ |
+| OVERDUE | overdueReminder | ⚠️ |
+| NEW_USER_SIGNUP | newUserSignup | 🎉 |
+| BOARD_MEMBER_ADDED | boardMemberAdded | 👥 |
+| BOARD_MEMBER_REMOVED | boardMemberRemoved | 👋 |
 | SPRINT_STARTED | taskAssigned | 🚀 |
 | SPRINT_COMPLETED | statusChanged | 🏁 |
+| TASK_ADDED_TO_SPRINT | taskAssigned | 📅 |
 | EPIC_CREATED | epicUpdated | 🎯 |
 | EPIC_UPDATED | epicUpdated | 📊 |
 | EPIC_DELETED | epicUpdated | 🗑️ |
