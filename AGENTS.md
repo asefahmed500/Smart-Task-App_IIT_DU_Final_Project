@@ -162,6 +162,7 @@ Checks live inside server action files (not a shared lib):
 - **Self-review blocked:** `reviewerId` cannot equal `session.id`.
 - **Only one PENDING review per task:** Creating a second returns an error.
 - **Signup defaults:** `MEMBER` role + default `NotificationPreference`. Self-signup via `POST /api/auth/signup` auto-logs in. Admin-created users also get default preferences.
+- **Auto-welcome-board:** On signup (or when admin creates a MEMBER user), a welcome board named `"{name}'s Board"` is auto-created with 3 default columns (To Do / In Progress / Done). The user is set as owner+member. A notification fires: "Developer assigned you a board to check the functionality of the system". Board creation failure does not block signup — wrapped in try/catch in both `app/api/auth/signup/route.ts` and `actions/admin-actions.ts:createUser`.
 - **Due date display:** Uses `toLocaleDateString('en-CA')` (ISO format) — NOT `toISOString()` which shifts timezone.
 - **Checklist inputs:** Per-checklist state (not shared across all checklists).
 - **Tag operations sync version:** Adding/removing tags updates the task's `version` to prevent false conflicts.
@@ -232,7 +233,7 @@ Deploy as **Web Service** (not Static Site). Fix the autofilled Next.js defaults
 
 **Required env vars:** `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `ALLOWED_ORIGIN` (Vercel URL), `NODE_ENV=production`
 
-**Do NOT set `PORT`** — Render auto-injects it. The socket server reads `process.env.PORT` first (line 445 of `src/socket/server.ts`).
+**Do NOT set `PORT`** — Render auto-injects it. The socket server reads `process.env.PORT` first (`src/socket/server.ts`).
 
 After deploy, update `NEXT_PUBLIC_SOCKET_URL` in Vercel to the Render URL and redeploy Vercel.
 

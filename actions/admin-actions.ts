@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth-server"
 import { revalidatePath } from "next/cache"
 import { Role } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
-import { notifyAdminsNewUser } from "@/utils/notification-utils"
+import { notifyAdminsNewUser, sendNotification } from "@/utils/notification-utils"
 import { ActionResult } from "@/types/kanban"
 import { idSchema, roleSchema } from "@/lib/schemas"
 import { z } from 'zod'
@@ -144,6 +144,38 @@ export async function createUser(data: any): Promise<ActionResult> {
     })
 
     notifyAdminsNewUser(user.id, user.name, user.email, auth.session!.id).catch(console.error)
+
+    // Auto-create a welcome board for new members
+    if (user.role === 'MEMBER') {
+      try {
+        const welcomeBoard = await prisma.board.create({
+          data: {
+            name: `${user.name}'s Board`,
+            description: 'Your personal board to explore and manage tasks',
+            ownerId: user.id,
+            members: {
+              connect: { id: user.id }
+            },
+            columns: {
+              create: [
+                { name: 'To Do', order: 0 },
+                { name: 'In Progress', order: 1 },
+                { name: 'Done', order: 2 }
+              ]
+            }
+          }
+        })
+
+        await sendNotification({
+          userId: user.id,
+          type: 'BOARD_MEMBER_ADDED',
+          message: 'Developer assigned you a board to check the functionality of the system',
+          link: `/dashboard/board/${welcomeBoard.id}`,
+        })
+      } catch (boardError) {
+        console.error('Welcome board creation failed:', boardError)
+      }
+    }
 
     revalidatePath('/admin')
     return { success: true, data: user }
