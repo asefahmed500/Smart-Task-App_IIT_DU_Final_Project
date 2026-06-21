@@ -50,6 +50,7 @@ export function TaskSidebar({
 }: TaskSidebarProps) {
   const isMember = currentUser.role === 'MEMBER'
   const canChangeAssignee = currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER'
+  const today = new Date().toLocaleDateString('en-CA')
   
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -138,6 +139,7 @@ export function TaskSidebar({
           <Input
             type="date"
             value={task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-CA') : ''}
+            min={today}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate('dueDate', e.target.value)}
             className="h-10 bg-muted/20 border-primary/5 hover:border-primary/20 transition-all focus:ring-0 text-xs"
           />

@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Trash2, Layers, Edit2 } from 'lucide-react'
+import { Plus, Trash2, Layers, Edit2, Palette } from 'lucide-react'
 
 const EPIC_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   BACKLOG: { label: 'Backlog', color: 'bg-slate-100 text-slate-700' },
@@ -282,39 +282,43 @@ export function EpicList({
 
       {/* Create Epic Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-primary/10">
           <DialogHeader>
-            <DialogTitle>Create Epic</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Create Epic</DialogTitle>
+            <DialogDescription className="sr-only">
               Group related tasks under an epic for better organization
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
               <Label>Epic Name</Label>
               <Input
                 value={createForm.name}
                 onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="e.g. User Authentication, Payment System"
+                className="bg-background/50 border-primary/10 focus:border-primary/30"
               />
             </div>
-            <div>
-              <Label>Description (optional)</Label>
+            <div className="space-y-2">
+              <Label>Description (Optional)</Label>
               <Textarea
                 value={createForm.description}
                 onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
                 placeholder="What is this epic about?"
-                rows={3}
+                className="bg-background/50 border-primary/10 focus:border-primary/30 min-h-[100px]"
               />
             </div>
-            <div>
-              <Label>Color</Label>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Palette className="size-3.5 text-muted-foreground" />
+                Color
+              </Label>
               <div className="flex items-center gap-3">
                 <Input
                   type="color"
                   value={createForm.color}
                   onChange={(e) => setCreateForm((f) => ({ ...f, color: e.target.value }))}
-                  className="h-10 w-16 p-1"
+                  className="h-10 w-16 p-1 bg-background/50 border-primary/10"
                 />
                 <span className="text-sm text-muted-foreground font-mono">
                   {createForm.color}
@@ -322,7 +326,7 @@ export function EpicList({
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="pt-4">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               Cancel
             </Button>
@@ -335,34 +339,35 @@ export function EpicList({
 
       {/* Edit Epic Dialog */}
       <Dialog open={!!editTarget} onOpenChange={() => setEditTarget(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-primary/10">
           <DialogHeader>
-            <DialogTitle>Edit Epic</DialogTitle>
-            <DialogDescription>{editTarget?.name}</DialogDescription>
+            <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Edit Epic</DialogTitle>
+            <DialogDescription className="sr-only">{editTarget?.name}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
               <Label>Epic Name</Label>
               <Input
                 value={editForm.name}
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                className="bg-background/50 border-primary/10 focus:border-primary/30"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Description</Label>
               <Textarea
                 value={editForm.description}
                 onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                rows={3}
+                className="bg-background/50 border-primary/10 focus:border-primary/30 min-h-[100px]"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Status</Label>
               <Select
                 value={editForm.status}
                 onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-background/50 border-primary/10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -373,14 +378,17 @@ export function EpicList({
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Color</Label>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Palette className="size-3.5 text-muted-foreground" />
+                Color
+              </Label>
               <div className="flex items-center gap-3">
                 <Input
                   type="color"
                   value={editForm.color}
                   onChange={(e) => setEditForm((f) => ({ ...f, color: e.target.value }))}
-                  className="h-10 w-16 p-1"
+                  className="h-10 w-16 p-1 bg-background/50 border-primary/10"
                 />
                 <span className="text-sm text-muted-foreground font-mono">
                   {editForm.color}
@@ -388,7 +396,7 @@ export function EpicList({
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="pt-4">
             <Button variant="outline" onClick={() => setEditTarget(null)}>
               Cancel
             </Button>

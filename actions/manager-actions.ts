@@ -64,9 +64,11 @@ export async function getManagerTeam(): Promise<ActionResult> {
       }
     })
 
+    const managerId = auth.session!.id
     const memberMap = new Map()
     boards.forEach(board => {
       board.members.forEach(member => {
+        if (member.id === managerId) return
         memberMap.set(member.id, member)
       })
     })

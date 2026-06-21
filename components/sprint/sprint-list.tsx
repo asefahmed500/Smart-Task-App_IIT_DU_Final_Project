@@ -352,57 +352,78 @@ export function SprintList({
 
       {/* Create Sprint Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-primary/10">
           <DialogHeader>
-            <DialogTitle>Create Sprint</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="font-oswald uppercase tracking-wider text-xl">Create Sprint</DialogTitle>
+            <DialogDescription className="sr-only">
               Set up a new sprint with a goal and timeframe
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
               <Label>Sprint Name</Label>
               <Input
                 value={createForm.name}
                 onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="e.g. Sprint 1, Sprint 2"
+                className="bg-background/50 border-primary/10 focus:border-primary/30"
               />
             </div>
-            <div>
-              <Label>Goal (optional)</Label>
+            <div className="space-y-2">
+              <Label>Goal (Optional)</Label>
               <Textarea
                 value={createForm.goal}
                 onChange={(e) => setCreateForm((f) => ({ ...f, goal: e.target.value }))}
                 placeholder="What do you want to achieve this sprint?"
-                rows={3}
+                className="bg-background/50 border-primary/10 focus:border-primary/30 min-h-[100px]"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Start Date</Label>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5 text-muted-foreground" />
+                  Start Date
+                </Label>
                 <Input
                   type="date"
                   value={createForm.startDate}
                   onChange={(e) => setCreateForm((f) => ({ ...f, startDate: e.target.value }))}
+                  className="bg-background/50 border-primary/10 focus:border-primary/30 text-sm"
                 />
               </div>
-              <div>
-                <Label>End Date</Label>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5 text-muted-foreground" />
+                  End Date
+                </Label>
                 <Input
                   type="date"
                   value={createForm.endDate}
+                  min={createForm.startDate || undefined}
                   onChange={(e) => setCreateForm((f) => ({ ...f, endDate: e.target.value }))}
+                  className="bg-background/50 border-primary/10 focus:border-primary/30 text-sm"
                 />
               </div>
             </div>
+            {createForm.startDate && createForm.endDate &&
+              new Date(createForm.endDate) <= new Date(createForm.startDate) && (
+                <p className="text-sm text-destructive">
+                  End date must be after the start date.
+                </p>
+              )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="pt-4">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               Cancel
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={!createForm.name || !createForm.startDate || !createForm.endDate}
+              disabled={
+                !createForm.name ||
+                !createForm.startDate ||
+                !createForm.endDate ||
+                new Date(createForm.endDate) <= new Date(createForm.startDate)
+              }
             >
               Create Sprint
             </Button>

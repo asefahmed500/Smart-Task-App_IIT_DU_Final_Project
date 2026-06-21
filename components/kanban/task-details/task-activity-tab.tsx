@@ -38,6 +38,24 @@ export function TaskActivityTab({
     return action.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ')
   }
 
+  const FIELD_LABELS: Record<string, string> = {
+    title: 'Title',
+    description: 'Description',
+    priority: 'Priority',
+    dueDate: 'Due Date',
+    status: 'Status',
+    assigneeId: 'Assignee',
+    columnId: 'Column',
+    epicId: 'Epic',
+    sprintId: 'Sprint',
+    parentId: 'Parent',
+    issueType: 'Issue Type',
+    storyPoints: 'Story Points',
+    resolution: 'Resolution',
+    tags: 'Tags',
+    version: 'Version',
+  }
+
   const formatDetails = (action: string, details: Record<string, unknown>): string => {
     if (!details || typeof details !== 'object') return ''
     const d = details as Record<string, unknown>
@@ -48,8 +66,20 @@ export function TaskActivityTab({
     if (action.includes('CREATED')) {
       return d.title ? `Created task: ${d.title}` : 'Task created'
     }
-    if (action.includes('UPDATED') && d.field) {
-      return `Updated ${d.field}${d.newValue !== undefined ? ` to ${d.newValue}` : ''}`
+    if (action.includes('UPDATED')) {
+      if (d.field) {
+        return `Updated ${FIELD_LABELS[String(d.field)] || d.field}${d.newValue !== undefined ? ` to ${d.newValue}` : ''}`
+      }
+      const changedKeys: string[] = Array.isArray(d.updatedFields)
+        ? (d.updatedFields as string[])
+        : d.changes && typeof d.changes === 'object'
+          ? Object.keys(d.changes as object)
+          : []
+      if (changedKeys.length > 0) {
+        const labels = changedKeys.map((k) => FIELD_LABELS[k] || k)
+        return `Updated: ${labels.join(', ')}`
+      }
+      return 'Task updated'
     }
     if (action.includes('DELETED')) {
       return d.title ? `Deleted task: ${d.title}` : 'Task deleted'
@@ -64,9 +94,25 @@ export function TaskActivityTab({
       return 'Action undone'
     }
     const parts = Object.entries(d)
-      .filter(([k]) => !['taskId', 'boardId', 'columnId', 'override'].includes(k))
-      .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
-    return parts.join(' • ')
+      .filter(
+        ([k]) =>
+          ![
+            'taskId',
+            'boardId',
+            'columnId',
+            'override',
+            'previousState',
+            'updatedFields',
+            'changes',
+          ].includes(k)
+      )
+      .filter(([, v]) => v !== null && v !== undefined && v !== '')
+      .map(([k, v]) => {
+        const label = FIELD_LABELS[k] || k
+        const value = typeof v === 'object' ? JSON.stringify(v) : String(v)
+        return `${label}: ${value}`
+      })
+    return parts.length > 0 ? parts.join(' • ') : ''
   }
 
   return (

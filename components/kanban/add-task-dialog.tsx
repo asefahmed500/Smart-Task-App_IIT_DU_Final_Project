@@ -49,6 +49,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
 
   const isMember = currentUser.role === 'MEMBER'
   const canAssign = currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER'
+  const today = new Date().toLocaleDateString('en-CA')
 
   const handleClose = () => {
     setTitle('')
@@ -178,6 +179,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
                 id="dueDate"
                 type="date"
                 value={dueDate}
+                min={today}
                 onChange={(e) => setDueDate(e.target.value)}
                 className="bg-background/50 border-primary/10 focus:border-primary/30 text-sm"
               />

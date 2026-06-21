@@ -33,6 +33,8 @@ Real-time Kanban board with RBAC, WIP limits, offline support, undo via audit lo
 **Optional:** `JWT_EXPIRES_IN` (default `7d`), `ALLOWED_ORIGIN`, `EMAIL_HOST/PORT/USER/PASS/SECURE/FROM`, `NEXT_PUBLIC_SOCKET_URL` (default `http://localhost:3001`), `NEXT_PUBLIC_APP_URL`, `SOCKET_PORT` (default 3001), `PORT`, `DIRECT_URL` (for Prisma CLI)
 
 - **`NEXT_PUBLIC_SOCKET_URL` is missing from `.env.example` but required for production.**
+- **`.env.example` ships hardcoded-looking SMTP credentials (`EMAIL_USER`/`EMAIL_PASS`).** Treat them as compromised — do not reuse, rotate the mailbox's app password, and never copy `.env.example` verbatim into `.env.production`.
+- `.env.local` is the dev source of truth: `lib/prisma.ts`, `prisma.config.ts`, `src/socket/server.ts`, and the `seed`/`check-*` scripts all call `dotenv.config({ path: '.env.local' })`. Production reads plain `.env`/`.env.production` via `NODE_ENV` guards.
 - For Supabase: `?pgbouncer=true` on `DATABASE_URL` (pooled, port 6543), separate `DIRECT_URL` (port 5432). SSL auto-applied when URL contains `supabase.com`.
 
 ## Architecture
@@ -54,6 +56,8 @@ Prisma client: eagerly in production, lazily in dev via `global.prisma` for hot-
 ### Socket.io (standalone)
 
 `src/socket/server.ts` — self-contained with own Prisma+pg pool. Imports from relative `../../generated/prisma` (NOT `@/` paths). Background jobs inline (due date reminders/overdue checks every 60s, 90-day audit cleanup at midnight). HTTP: `GET /health` for Railway.
+
+**Known inconsistency:** the socket server's background worker hardcodes `column: { name: { not: 'Done' } }` for overdue/due-soon queries (it cannot import `findDoneColumnName()` since `@/` is unavailable there). App code must still use `findDoneColumnName()`; only the standalone worker is exempt.
 
 `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit through it to the standalone server.
 
@@ -111,6 +115,7 @@ Checks live inside server action files (not a shared lib):
 ## Gotchas
 
 - **PowerShell `&&` not supported:** Use `;` or `if ($?) { cmd2 }` for sequential commands. `npm run db:setup` in package.json uses `&&` which works in npm scripts but not in direct PowerShell commands.
+- **Stray duplicate at repo root:** `check-users.ts` exists at the project root AND in `scripts/check-users.ts`. The root copy is matched by tsconfig's `**/*.ts` (not excluded) — don't extend it; use `scripts/check-users.ts` (invoked by `npm run check-users`).
 - **DnD socket self-echo:** `handleBoardEvent` for `task:moved` checks `data.userId === currentUser.id` and skips. Also skips during active drag via `isDraggingRef`. `task:updated` events also skip self-echo via `data.userId` check.
 - **`onDragOver` infinite loop:** DndKit fires `onDragOver` rapidly. Use `useRef` to track `activeId→targetColumnId` and skip `setBoard` if already moved. `onDragStart`/`onDragOver` wrapped in `useCallback`.
 - **`onDragEnd` stale closure:** Uses `boardRef.current` (not `board` state) to avoid stale indices during rapid drags.
