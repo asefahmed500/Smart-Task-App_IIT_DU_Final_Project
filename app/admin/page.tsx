@@ -84,123 +84,102 @@ export default async function AdminPage() {
   const recentLogs = recentLogsResult.success ? (recentLogsResult.data as any[]) : []
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-10">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-bold tracking-tight font-oswald uppercase text-foreground">
-          System <span className="text-primary">Intelligence</span>
-        </h1>
-        <p className="text-muted-foreground text-lg">Centralized oversight and resource optimization.</p>
+    <div className="space-y-6 pb-10">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight text-[#1A1A1A]">System Intelligence</h1>
+        <p className="text-[14px] text-[#5A5A5A]">Centralized oversight and resource optimization.</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_color-mix(in_srgb,var(--primary),transparent_90%)] group">
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Total Users</CardTitle>
-            <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-all duration-300">
-              <Users className="h-5 w-5 text-blue-500" />
-            </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border border-[#E8E8E8] shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[13px] font-semibold text-[#5A5A5A]">Total Users</CardTitle>
+            <Users className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-oswald">{stats.userCount}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
-              <TrendingUp className="size-3 text-green-500" />
-              <span className="text-green-500 font-medium">+2.5%</span>
-              <span>this month</span>
-            </p>
+            <div className="text-2xl font-bold text-[#1A1A1A]">{stats.userCount}</div>
+            <div className="flex items-center gap-1 mt-1.5">
+              <TrendingUp className="size-3 text-[#22C55E]" />
+              <span className="text-[12px] text-[#22C55E] font-medium">+2.5%</span>
+              <span className="text-[12px] text-[#5A5A5A]">this month</span>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_color-mix(in_srgb,var(--primary),transparent_90%)] group">
-          <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Active Boards</CardTitle>
-            <div className="size-10 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-all duration-300">
-              <Layout className="h-5 w-5 text-purple-500" />
-            </div>
+        <Card className="border border-[#E8E8E8] shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[13px] font-semibold text-[#5A5A5A]">Active Boards</CardTitle>
+            <Layout className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-oswald">{stats.boardCount}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
-              <Activity className="size-3 text-purple-500" />
-              <span>Global distribution</span>
-            </p>
+            <div className="text-2xl font-bold text-[#1A1A1A]">{stats.boardCount}</div>
+            <p className="text-[12px] text-[#5A5A5A] mt-1.5">Global distribution</p>
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_color-mix(in_srgb,var(--primary),transparent_90%)] group">
-          <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Audit Events</CardTitle>
-            <div className="size-10 rounded-xl bg-orange-500/10 flex items-center justify-center group-hover:scale-110 transition-all duration-300">
-              <ShieldCheck className="h-5 w-5 text-orange-500" />
-            </div>
+        <Card className="border border-[#E8E8E8] shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[13px] font-semibold text-[#5A5A5A]">Audit Events</CardTitle>
+            <ShieldCheck className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-oswald">{stats.logCount}</div>
-            <p className="text-xs text-muted-foreground mt-2">Last 24 hours activity</p>
+            <div className="text-2xl font-bold text-[#1A1A1A]">{stats.logCount}</div>
+            <p className="text-[12px] text-[#5A5A5A] mt-1.5">Last 24 hours activity</p>
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden bg-card/50 backdrop-blur-md border-primary/10 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_color-mix(in_srgb,var(--primary),transparent_90%)] group">
-          <div className="absolute top-0 left-0 w-1 h-full bg-green-500" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">System Health</CardTitle>
-            <div className="size-10 rounded-xl bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-all duration-300">
-              <Activity className="h-5 w-5 text-green-500 animate-pulse" />
-            </div>
+        <Card className="border border-[#E8E8E8] shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[13px] font-semibold text-[#5A5A5A]">System Health</CardTitle>
+            <Activity className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className={cn("text-3xl font-bold font-oswald", stats.dbStatus === 'STABLE' ? "text-green-500" : "text-yellow-500")}>
+            <div className={cn("text-2xl font-bold", stats.dbStatus === 'STABLE' ? "text-[#22C55E]" : "text-[#F59E0B]")}>
               {stats.dbStatus}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">Latency: {stats.latency}</p>
+            <p className="text-[12px] text-[#5A5A5A] mt-1.5">Latency: {stats.latency}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="lg:col-span-4 bg-card/40 backdrop-blur-xl border-primary/10 shadow-xl overflow-hidden group">
-          <div className="absolute inset-0 bg-noise opacity-[0.03] pointer-events-none" />
+        <Card className="lg:col-span-4 border border-[#E8E8E8] shadow-sm">
           <CardHeader>
-            <CardTitle className="text-xl font-oswald uppercase flex items-center gap-2">
-              <TrendingUp className="size-5 text-primary" />
+            <CardTitle className="text-sm font-semibold text-[#1A1A1A] flex items-center gap-2">
+              <TrendingUp className="size-4 text-[#2C67F2]" />
               System Activity Trend
             </CardTitle>
-            <CardDescription>Visualizing global audit log events over the last 7 days.</CardDescription>
+            <CardDescription className="text-[13px] text-[#5A5A5A]">Audit log events over the last 7 days.</CardDescription>
           </CardHeader>
           <CardContent>
             <SystemActivityChart data={stats.activityData} />
           </CardContent>
         </Card>
         
-        <Card className="lg:col-span-3 bg-card/40 backdrop-blur-xl border-primary/10 shadow-xl overflow-hidden relative">
-          <div className="absolute inset-0 bg-noise opacity-[0.03] pointer-events-none" />
+        <Card className="lg:col-span-3 border border-[#E8E8E8] shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-xl font-oswald uppercase">Recent Activity</CardTitle>
-            <Link href="/admin/logs" className="text-xs text-primary hover:underline font-medium">View All</Link>
+            <CardTitle className="text-sm font-semibold text-[#1A1A1A]">Recent Activity</CardTitle>
+            <Link href="/admin/logs" className="text-[12px] text-[#2C67F2] hover:underline font-medium">View All</Link>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
+            <div className="space-y-4">
               {recentLogs.slice(0, 5).map((log, index) => (
-                <div key={log.id} className="flex gap-4 group/item">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="size-10 rounded-full bg-accent flex items-center justify-center shrink-0 border border-primary/10 group-hover/item:border-primary/30 transition-all">
-                      <Clock className="size-4 text-primary" />
+                <div key={log.id} className="flex gap-3 group/item">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className="size-8 rounded-full bg-[#2C67F2]/5 border border-[#E8E8E8] flex items-center justify-center shrink-0">
+                      <Clock className="size-3.5 text-[#2C67F2]" />
                     </div>
-                    {index !== 4 && <div className="w-px h-full bg-border" />}
+                    {index !== 4 && <div className="w-px h-full bg-[#E8E8E8]" />}
                   </div>
-                  <div className="flex flex-col gap-1 pb-4">
+                  <div className="flex flex-col gap-0.5 pb-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm">{log.user.name}</span>
-                      <Badge variant="outline" className="text-[10px] py-0 px-1 font-mono uppercase opacity-70">
+                      <span className="text-[13px] font-semibold text-[#1A1A1A]">{log.user.name}</span>
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono text-[#5A5A5A] border-[#E8E8E8]">
                         {log.action}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {formatLogDescription(log)}
-                    </p>
-                    <span className="text-[10px] text-muted-foreground/60 font-medium">
+                    <p className="text-[12px] text-[#5A5A5A]">{formatLogDescription(log)}</p>
+                    <span className="text-[11px] text-[#B0B0B0]">
                       {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
                     </span>
                   </div>
@@ -213,4 +192,3 @@ export default async function AdminPage() {
     </div>
   )
 }
-

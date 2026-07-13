@@ -2,71 +2,113 @@
 
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, MoreHorizontal, GripVertical } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Plus, MessageSquare, Paperclip } from 'lucide-react'
 
 interface Task {
   id: string
   title: string
-  priority: 'Low' | 'Medium' | 'High'
+  priority: 'Low' | 'Medium' | 'High' | 'Critical'
   tags: string[]
+  comments: number
+  attachments: number
+  assignee: string
 }
 
 interface Column {
   id: string
   title: string
   tasks: Task[]
-  color: string
+}
+
+const avatarColors: Record<string, string> = {
+  JD: 'bg-blue-100 text-blue-700',
+  SK: 'bg-amber-100 text-amber-700',
+  AL: 'bg-green-100 text-green-700',
+  MR: 'bg-purple-100 text-purple-700',
+  TN: 'bg-rose-100 text-rose-700',
+  CJ: 'bg-cyan-100 text-cyan-700',
+  PW: 'bg-orange-100 text-orange-700',
 }
 
 const initialColumns: Column[] = [
   {
+    id: 'backlog',
+    title: 'Backlog',
+    tasks: [
+      { id: 'b1', title: 'Research competitor analytics features', priority: 'Low', tags: ['Research'], comments: 2, attachments: 1, assignee: 'AL' },
+      { id: 'b2', title: 'Draft API documentation v2', priority: 'Medium', tags: ['Docs'], comments: 0, attachments: 0, assignee: 'SK' },
+      { id: 'b3', title: 'Design system icon audit', priority: 'Low', tags: ['Design'], comments: 1, attachments: 3, assignee: 'MR' },
+      { id: 'b4', title: 'Performance benchmark report', priority: 'Medium', tags: ['Dev', 'Backend'], comments: 3, attachments: 2, assignee: 'JD' },
+    ]
+  },
+  {
     id: 'todo',
     title: 'To Do',
-    color: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
     tasks: [
-      { id: '1', title: 'Design System Update', priority: 'High', tags: ['Design'] },
-      { id: '2', title: 'User Interview Analysis', priority: 'Medium', tags: ['Research'] },
+      { id: 't1', title: 'Refactor notification service', priority: 'High', tags: ['Dev', 'Backend'], comments: 5, attachments: 0, assignee: 'JD' },
+      { id: 't2', title: 'Build onboarding wizard flow', priority: 'Medium', tags: ['Design', 'Frontend'], comments: 8, attachments: 4, assignee: 'AL' },
+      { id: 't3', title: 'Set up staging environment', priority: 'High', tags: ['DevOps'], comments: 2, attachments: 1, assignee: 'PW' },
     ]
   },
   {
     id: 'in-progress',
     title: 'In Progress',
-    color: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
     tasks: [
-      { id: '3', title: 'Auth Module Implementation', priority: 'High', tags: ['Dev'] },
+      { id: 'i1', title: 'Implement real-time sync engine', priority: 'Critical', tags: ['Dev', 'Core'], comments: 12, attachments: 2, assignee: 'JD' },
+      { id: 'i2', title: 'Design system component audit', priority: 'High', tags: ['Design'], comments: 6, attachments: 5, assignee: 'MR' },
+      { id: 'i3', title: 'OAuth integration for SSO', priority: 'High', tags: ['Dev', 'Security'], comments: 4, attachments: 0, assignee: 'SK' },
+      { id: 'i4', title: 'Mobile responsive fixes', priority: 'Medium', tags: ['Frontend'], comments: 7, attachments: 3, assignee: 'TN' },
+    ]
+  },
+  {
+    id: 'review',
+    title: 'Review',
+    tasks: [
+      { id: 'r1', title: 'PR: Dashboard widgets refactor', priority: 'Medium', tags: ['Review', 'Frontend'], comments: 9, attachments: 0, assignee: 'CJ' },
+      { id: 'r2', title: 'Database migration scripts', priority: 'Critical', tags: ['Review', 'Backend'], comments: 3, attachments: 1, assignee: 'JD' },
     ]
   },
   {
     id: 'done',
     title: 'Done',
-    color: 'bg-green-500/10 text-green-600 border-green-500/20',
     tasks: [
-      { id: '4', title: 'Initial Project Setup', priority: 'Low', tags: ['Dev'] },
-      { id: '5', title: 'Database Schema Design', priority: 'Medium', tags: ['Backend'] },
+      { id: 'd1', title: 'Initial project scaffolding', priority: 'Low', tags: ['Dev'], comments: 0, attachments: 0, assignee: 'JD' },
+      { id: 'd2', title: 'Database schema design', priority: 'Medium', tags: ['Backend'], comments: 4, attachments: 2, assignee: 'SK' },
+      { id: 'd3', title: 'Authentication module', priority: 'High', tags: ['Dev', 'Security'], comments: 10, attachments: 1, assignee: 'PW' },
+      { id: 'd4', title: 'Landing page redesign', priority: 'Medium', tags: ['Design', 'Frontend'], comments: 6, attachments: 4, assignee: 'TN' },
+      { id: 'd5', title: 'CI/CD pipeline setup', priority: 'High', tags: ['DevOps'], comments: 3, attachments: 0, assignee: 'CJ' },
     ]
   }
 ]
 
+const priorityColors: Record<string, string> = {
+  Critical: 'bg-error',
+  High: 'bg-warning',
+  Medium: 'bg-amber-500',
+  Low: 'bg-success',
+}
+
 export function DemoKanban() {
   const [columns, setColumns] = useState<Column[]>(initialColumns)
 
-  const moveTask = (taskId: string, targetColId: string) => {
+  const cycleStatus = (taskId: string) => {
     setColumns(prev => {
       let taskToMove: Task | null = null
-      const newCols = prev.map(col => {
+      let sourceColIdx = -1
+      const newCols = prev.map((col, idx) => {
         const taskIdx = col.tasks.findIndex(t => t.id === taskId)
         if (taskIdx > -1) {
           taskToMove = col.tasks[taskIdx]
+          sourceColIdx = idx
           return { ...col, tasks: col.tasks.filter(t => t.id !== taskId) }
         }
         return col
       })
 
-      if (taskToMove) {
-        return newCols.map(col => {
-          if (col.id === targetColId) {
+      if (taskToMove && sourceColIdx > -1) {
+        const targetIdx = (sourceColIdx + 1) % newCols.length
+        return newCols.map((col, idx) => {
+          if (idx === targetIdx) {
             return { ...col, tasks: [...col.tasks, taskToMove!] }
           }
           return col
@@ -76,99 +118,116 @@ export function DemoKanban() {
     })
   }
 
+  const totalTasks = columns.reduce((sum, col) => sum + col.tasks.length, 0)
+
   return (
-    <div className="w-full max-w-5xl mx-auto p-4 md:p-8 bg-card/30 backdrop-blur-xl border border-border/50 rounded-3xl shadow-2xl shadow-primary/5 overflow-hidden">
-      <div className="flex items-center justify-between mb-8">
+    <div className="w-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-hairline">
         <div className="flex items-center gap-3">
-          <div className="size-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground">
-            <span className="font-bold">ST</span>
-          </div>
-          <h3 className="text-xl font-serif font-black tracking-tight">Project Board</h3>
-        </div>
-        <div className="flex -space-x-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="size-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-bold">
-              U{i}
+          <div className="flex -space-x-1.5">
+            {['JD', 'SK', 'AL', 'MR'].map((initials) => (
+              <div
+                key={initials}
+                className={`size-6 sm:size-7 rounded-full border-2 border-canvas flex items-center justify-center text-[9px] sm:text-[10px] font-semibold ${avatarColors[initials]}`}
+              >
+                {initials}
+              </div>
+            ))}
+            <div className="size-6 sm:size-7 rounded-full border-2 border-canvas bg-canvas-soft flex items-center justify-center text-[9px] sm:text-[10px] font-medium text-body-text">
+              +3
             </div>
-          ))}
-          <Button size="icon" variant="outline" className="size-8 rounded-full ml-2">
-            <Plus className="size-4" />
-          </Button>
+          </div>
+          <div className="h-4 w-px bg-hairline hidden sm:block" />
+          <span className="text-xs sm:text-sm font-medium text-ink hidden sm:inline">Sprint 24</span>
+          <span className="text-[11px] sm:text-xs font-medium text-body-text">{totalTasks} tasks</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] sm:text-xs text-body-text hidden sm:inline">Click to move</span>
+          <div className="size-2 rounded-full bg-accent animate-pulse" />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {columns.map((column) => (
-          <div key={column.id} className="flex flex-col gap-4">
-            <div className="flex items-center justify-between px-2">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className={`${column.color} border font-serif font-black uppercase tracking-wider text-[10px]`}>
-                  {column.title}
-                </Badge>
-                <span className="text-xs font-medium text-muted-foreground">{column.tasks.length}</span>
+      {/* Board */}
+      <div className="overflow-x-auto">
+        <div className="flex gap-4 sm:gap-5 p-4 sm:p-6 min-w-[900px] lg:min-w-0 lg:grid lg:grid-cols-5">
+          {columns.map((column) => (
+            <div key={column.id} className="flex-1 lg:flex-none flex flex-col gap-3 sm:gap-4 min-w-[160px] lg:min-w-0">
+              {/* Column Header */}
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] sm:text-xs font-semibold text-ink uppercase tracking-wider">{column.title}</span>
+                  <span className="text-[11px] sm:text-xs font-medium text-body-text bg-canvas-soft px-1.5 py-0.5 rounded">{column.tasks.length}</span>
+                </div>
               </div>
-              <Button variant="ghost" size="icon" className="size-6 text-muted-foreground">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </div>
 
-            <div className="flex flex-col gap-3 min-h-[300px]">
-              <AnimatePresence mode="popLayout">
-                {column.tasks.map((task) => (
-                  <motion.div
-                    key={task.id}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    whileHover={{ scale: 1.02 }}
-                    className="group bg-background border border-border/50 p-4 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 transition-all cursor-pointer relative"
-                    onClick={() => {
-                      const nextCol = column.id === 'todo' ? 'in-progress' : column.id === 'in-progress' ? 'done' : 'todo'
-                      moveTask(task.id, nextCol)
-                    }}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex flex-wrap gap-1">
+              {/* Tasks */}
+              <div className="flex flex-col gap-2 sm:gap-3 min-h-[200px]">
+                <AnimatePresence mode="popLayout">
+                  {column.tasks.map((task) => (
+                    <motion.div
+                      key={task.id}
+                      layout
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      whileHover={{ y: -2 }}
+                      transition={{ duration: 0.2 }}
+                      className="group bg-canvas border border-hairline rounded-lg p-3 sm:p-4 hover:border-accent/30 hover:shadow-sm cursor-pointer transition-all"
+                      onClick={() => cycleStatus(task.id)}
+                    >
+                      {/* Tags */}
+                      <div className="flex flex-wrap gap-1 mb-2">
                         {task.tags.map(tag => (
-                          <span key={tag} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-tight">
+                          <span
+                            key={tag}
+                            className="text-[9px] sm:text-[10px] font-medium px-1.5 py-0.5 rounded bg-canvas-soft text-body-text"
+                          >
                             {tag}
                           </span>
                         ))}
                       </div>
-                      <GripVertical className="size-3.5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
-                    </div>
-                    <h4 className="text-sm font-semibold mb-3">{task.title}</h4>
-                    <div className="flex items-center justify-between mt-auto">
-                      <div className="flex items-center gap-2">
-                        <div className={`size-1.5 rounded-full ${
-                          task.priority === 'High' ? 'bg-red-500' : 
-                          task.priority === 'Medium' ? 'bg-amber-500' : 'bg-green-500'
-                        }`} />
-                        <span className="text-[10px] font-medium text-muted-foreground uppercase">{task.priority}</span>
+
+                      {/* Title */}
+                      <h4 className="text-[12px] sm:text-[13px] font-semibold text-ink leading-snug mb-2.5 sm:mb-3">
+                        {task.title}
+                      </h4>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`size-1.5 sm:size-2 rounded-full ${priorityColors[task.priority]}`} />
+                          <span className="text-[9px] sm:text-[10px] font-medium text-body-text">{task.priority}</span>
+                          {task.comments > 0 && (
+                            <div className="flex items-center gap-0.5 text-body-text">
+                              <MessageSquare className="size-2.5 sm:size-3" />
+                              <span className="text-[9px] sm:text-[10px]">{task.comments}</span>
+                            </div>
+                          )}
+                          {task.attachments > 0 && (
+                            <div className="flex items-center gap-0.5 text-body-text">
+                              <Paperclip className="size-2.5 sm:size-3" />
+                              <span className="text-[9px] sm:text-[10px]">{task.attachments}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className={`size-5 sm:size-6 rounded-full flex items-center justify-center text-[8px] sm:text-[9px] font-semibold ${avatarColors[task.assignee]}`}>
+                          {task.assignee}
+                        </div>
                       </div>
-                      <div className="size-6 rounded-full bg-muted/50 border border-border flex items-center justify-center text-[8px] font-bold">
-                        ME
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              
-              <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-primary h-10 border-dashed border border-transparent hover:border-primary/20 rounded-xl transition-all">
-                <Plus className="size-4 mr-2" />
-                <span className="text-xs font-medium">Add Task</span>
-              </Button>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+
+                {/* Add button */}
+                <button className="flex items-center justify-center gap-1.5 py-2 sm:py-2.5 rounded-lg border border-dashed border-hairline text-[11px] sm:text-xs font-medium text-body-text hover:text-accent hover:border-accent/30 transition-all">
+                  <Plus className="size-3 sm:size-3.5" />
+                  Add Task
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-      
-      <div className="mt-8 pt-6 border-t border-border/50 flex items-center justify-center gap-4 text-xs text-muted-foreground font-medium">
-        <span className="flex items-center gap-1.5">
-          <div className="size-2 bg-green-500 rounded-full animate-pulse"></div>
-          Click tasks to move them across columns
-        </span>
+          ))}
+        </div>
       </div>
     </div>
   )

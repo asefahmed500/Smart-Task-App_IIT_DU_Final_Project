@@ -66,82 +66,82 @@ function ResetPasswordForm() {
   }
 
   return (
-    <Card className="shadow-2xl border-border/50 bg-background/80 backdrop-blur-xl">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold tracking-tight text-center">New Password</CardTitle>
-        <CardDescription className="text-center">
+    <Card className="border border-[#E8E8E8] shadow-sm">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-lg font-semibold text-[#1A1A1A] text-center">New Password</CardTitle>
+        <CardDescription className="text-sm text-[#5A5A5A] text-center">
           Please enter your new password below.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {status === 'success' ? (
-          <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex flex-col items-center text-center gap-3">
-            <CheckCircle2 className="size-10" />
+          <div className="p-4 rounded-md bg-[#F0FDF4] border border-[#BBF7D0] text-[#16A34A] flex flex-col items-center text-center gap-3">
+            <CheckCircle2 className="size-8" />
             <div>
-              <p className="text-sm font-bold">Password Reset Successful!</p>
-              <p className="text-xs mt-1">Redirecting you to login in a few seconds...</p>
+              <p className="text-[13px] font-semibold">Password Reset Successful!</p>
+              <p className="text-[12px] mt-1 text-[#16A34A]/80">Redirecting you to login in a few seconds...</p>
             </div>
-            <Button variant="outline" className="mt-2 w-full border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-500" asChild>
+            <Button variant="outline" className="mt-2 w-full border-[#BBF7D0] hover:bg-[#F0FDF4] text-[#16A34A] h-9 text-sm" asChild>
               <Link href="/login">Go to Login</Link>
             </Button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">New Password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-[13px] font-medium text-[#1A1A1A]">New Password</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-muted/30 h-11 pr-10"
+                  className="h-10 text-sm border-[#E8E8E8] bg-white placeholder:text-[#B0B0B0] pr-10"
                   disabled={status === 'loading' || !token}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5A5A5A] hover:text-[#1A1A1A] transition-colors"
                   tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </button>
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword" className="text-[13px] font-medium text-[#1A1A1A]">Confirm Password</Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="••••••••"
+                placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;"
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="bg-muted/30 h-11"
+                className="h-10 text-sm border-[#E8E8E8] bg-white placeholder:text-[#B0B0B0]"
                 disabled={status === 'loading' || !token}
               />
             </div>
 
             {status === 'error' && (
-              <div className="p-3 text-sm text-destructive-foreground bg-destructive/10 border border-destructive/20 rounded-md flex items-center gap-2">
-                <AlertCircle className="size-4 shrink-0" />
+              <div className="p-3 text-[13px] text-[#EF4444] bg-[#FEF2F2] border border-[#FECACA] rounded-md flex items-center gap-2">
+                <AlertCircle className="size-3.5 shrink-0" />
                 {message}
               </div>
             )}
 
-            <Button type="submit" className="w-full h-11 font-bold shadow-lg shadow-primary/20" disabled={status === 'loading' || !token}>
+            <Button type="submit" className="w-full h-10 text-sm font-medium bg-[#2C67F2] text-white hover:bg-[#2558d6]" disabled={status === 'loading' || !token}>
               {status === 'loading' ? "Resetting..." : "Reset Password"}
             </Button>
           </form>
         )}
       </CardContent>
-      <CardFooter>
-        <p className="text-center text-sm text-muted-foreground w-full">
+      <CardFooter className="border-t border-[#E8E8E8] pt-4 justify-center">
+        <p className="text-[13px] text-[#5A5A5A]">
           Changed your mind?{" "}
-          <Link href="/login" className="font-bold text-primary hover:underline transition-colors">
+          <Link href="/login" className="font-semibold text-[#2C67F2] hover:text-[#2558d6] transition-colors">
             Back to login
           </Link>
         </p>
@@ -152,30 +152,24 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12 relative overflow-hidden">
-      {/* Background Orbs */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full"></div>
-        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-accent/20 blur-[120px] rounded-full"></div>
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
-        <div className="flex justify-center mb-8">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="size-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-black text-2xl shadow-xl shadow-primary/20 transition-transform group-hover:scale-110">
+    <div className="flex min-h-screen items-center justify-center bg-white px-4 py-12">
+      <div className="w-full max-w-sm">
+        <div className="flex justify-center mb-10">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="size-8 rounded-md bg-[#2C67F2] flex items-center justify-center text-white font-bold text-sm">
               S
             </div>
-            <span className="font-bold text-2xl tracking-tight">SmartTask</span>
+            <span className="text-sm font-semibold text-[#1A1A1A] tracking-tight">SmartTask</span>
           </Link>
         </div>
 
         <Suspense fallback={
-          <Card className="shadow-2xl border-border/50 bg-background/80 backdrop-blur-xl">
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl font-bold tracking-tight text-center">Loading...</CardTitle>
+          <Card className="border border-[#E8E8E8] shadow-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-semibold text-[#1A1A1A] text-center">Loading...</CardTitle>
             </CardHeader>
-            <CardContent className="h-32 flex items-center justify-center">
-              <div className="size-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+            <CardContent className="h-24 flex items-center justify-center">
+              <div className="size-5 rounded-full border-2 border-[#E8E8E8] border-t-[#2C67F2] animate-spin"></div>
             </CardContent>
           </Card>
         }>

@@ -113,12 +113,12 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
 
   return (
     <Sidebar variant="inset" {...props}>
-      <SidebarHeader className="h-16 border-b px-6 flex flex-row items-center gap-2">
-        <div className="size-8 bg-primary rounded-lg flex items-center justify-center">
-          <span className="text-primary-foreground font-bold text-sm">ST</span>
+      <SidebarHeader className="h-16 border-b border-sidebar-border px-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 flex flex-row items-center gap-2">
+        <div className="size-8 bg-accent rounded-lg flex items-center justify-center shrink-0">
+          <span className="text-on-primary font-bold text-sm">ST</span>
         </div>
-        <div className="flex flex-col">
-          <span className="font-bold text-sm leading-none">SmartTask</span>
+        <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+          <span className="font-bold text-sm leading-none text-sidebar-foreground">SmartTask</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mt-1">{role}</span>
         </div>
       </SidebarHeader>
@@ -178,19 +178,19 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
           </SidebarGroup>
         )}
       </SidebarContent>
-      <SidebarFooter className="border-t p-4">
+      <SidebarFooter className="border-t border-sidebar-border p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton className="h-12" asChild>
               <Link href="/profile" className="flex items-center">
-                <Avatar className="size-8">
+                <Avatar className="size-8 shrink-0">
                   {user.image && <AvatarImage src={user.image} />}
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                  <AvatarFallback className="bg-accent/10 text-accent text-xs">
                     {user.name?.[0] || user.email[0].toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col items-start ml-2 text-left overflow-hidden">
-                  <span className="text-sm font-medium leading-none truncate w-full">{user.name || 'Account'}</span>
+                <div className="flex flex-col items-start ml-2 text-left overflow-hidden group-data-[collapsible=icon]:hidden">
+                  <span className="text-sm font-medium leading-none truncate w-full text-sidebar-foreground">{user.name || 'Account'}</span>
                   <span className="text-xs text-muted-foreground mt-1 truncate w-full">{user.email}</span>
                 </div>
               </Link>
@@ -198,7 +198,8 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton 
-              className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors" 
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
+              tooltip="Logout"
               onClick={async (e: React.MouseEvent) => {
                 e.preventDefault()
                 const toastId = toast.loading('Logging out...')

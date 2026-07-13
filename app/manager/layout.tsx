@@ -19,32 +19,22 @@ export default async function ManagerLayout({
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <div className="flex min-h-screen bg-background w-full">
+        <div className="flex min-h-screen bg-white w-full">
           <AppSidebar user={session} />
           <main className="flex-1 flex flex-col min-w-0">
-            {/* Premium Header */}
-            <header className="h-16 border-b px-4 md:px-8 bg-background/80 backdrop-blur-md sticky top-0 z-50 flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <header className="h-14 border-b border-[#E8E8E8] px-4 md:px-6 bg-white sticky top-0 z-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 <SidebarTrigger />
-                <div className="h-4 w-px bg-border hidden md:block" />
-                <nav className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-                  <span className="hover:text-foreground transition-colors cursor-pointer font-medium">Manager</span>
-                  <span>/</span>
-                  <span className="text-foreground font-semibold">Dashboard</span>
-                </nav>
+                <div className="h-3 w-px bg-[#E8E8E8]" />
+                <span className="text-[13px] font-medium text-[#5A5A5A]">Manager Dashboard</span>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-primary/5 border border-primary/10 text-[10px] font-bold uppercase tracking-tighter text-primary">
-                  Team Pulse Active
-                </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] text-[#5A5A5A]">Team Pulse</span>
                 <NotificationBell userId={session.id} />
               </div>
             </header>
-
-            {/* Content with Noise Overlay and Max Width Control */}
-            <div className="flex-1 relative overflow-y-auto">
-              <div className="absolute inset-0 bg-noise opacity-[0.03] pointer-events-none" />
-              <div className="mx-auto w-full p-4 md:p-6 lg:p-10 space-y-8">
+            <div className="flex-1 overflow-y-auto">
+              <div className="mx-auto w-full p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl">
                 {children}
               </div>
             </div>
@@ -54,4 +44,3 @@ export default async function ManagerLayout({
     </TooltipProvider>
   )
 }
-

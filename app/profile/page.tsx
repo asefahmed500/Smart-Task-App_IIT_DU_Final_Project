@@ -18,12 +18,12 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-10">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-bold tracking-tight font-oswald uppercase text-foreground">
-          User <span className="text-primary">Profile</span>
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight text-[#1A1A1A]">
+          Profile
         </h1>
-        <p className="text-muted-foreground text-lg">Manage your personal information and account security.</p>
+        <p className="text-[14px] text-[#5A5A5A]">Manage your personal information and account security.</p>
       </div>
 
       <ProfileForm user={user} />
