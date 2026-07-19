@@ -72,7 +72,7 @@ Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API 
 ### Other
 
 - **Roles:** `ADMIN`, `MANAGER`, `MEMBER` (UPPERCASE in DB)
-- **Tailwind CSS 4:** `@import "tailwindcss"`, `@theme inline`, `@custom-variant dark`, PostCSS via `@tailwindcss/postcss`
+- **Tailwind CSS 4:** `@import "tailwindcss"`, `@plugin "../node_modules/tailwindcss-animate"`, `@custom-variant dark`, **dual `@theme` + `@theme inline`** (see Design System below). PostCSS via `@tailwindcss/postcss`
 - **Zod v4:** Date fields from HTML forms use `z.string()` (not `z.string().datetime()`) — `<input type="date">` returns `YYYY-MM-DD`
 - **shadcn** style `radix-nova`, components in `components/ui/`
 - **Offline:** IndexedDB queue (`lib/offline-db.ts`), Zustand store (`lib/store/use-offline-store.ts`), sync via `lib/offline-sync.ts`, `<OfflineProvider>` wrapper in root layout (`app/layout.tsx`), service worker at `public/sw.js`
@@ -89,6 +89,33 @@ Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API 
 - `tsconfig.json` excludes `scripts/` and `scratch/` — files there use `npx tsx`, don't import from app code
 - **No semicolons, double quotes, `printWidth: 80`, `trailingComma: "es5"`, `endOfLine: "lf"`** — see `.prettierrc` for full config
 - **Shared board query:** use `getUserBoards(sessionId)` from `actions/board-actions.ts` instead of duplicating the `OR: [{ ownerId }, { members }]` pattern
+
+## Design System (Attio-inspired)
+
+Defined in `app/globals.css`. Uses **named Tailwind tokens** via dual `@theme` + `@theme inline` — prefer these over hardcoded hex.
+
+| Token | Utility | Value |
+|-------|---------|-------|
+| `--color-canvas` | `bg-canvas` | `#ffffff` |
+| `--color-canvas-soft` | `bg-canvas-soft` | `#fafafa` |
+| `--color-ink` | `text-ink` | `#1a1a1a` |
+| `--color-body-text` | `text-body-text` | `#5a5a5a` |
+| `--color-muted-text` | `text-muted-text` | `#8a8a8a` |
+| `--color-accent` | `bg-accent` / `text-accent` | `#2c67f2` |
+| `--color-accent-soft` | `bg-accent-soft` | `#eaf1fe` |
+| `--color-accent-strong` | `hover:bg-accent-strong` | `#1d50d6` |
+| `--color-hairline` | `border-hairline` | `#e8e8eb` |
+| `--color-success` | `text-success` | `#16a34a` |
+| `--color-warning` | | `#d97706` |
+| `--color-error` | | `#dc2626` |
+| `--color-on-primary` | `text-on-primary` (text on dark/accent bg) | `#ffffff` |
+
+- **Display utility classes:** `.display-mega`, `.display-xl`, `.display-lg`, `.display-md`, `.display-sm` — fluid responsive at `md:` breakpoint
+- **`@theme` block:** static design tokens (canvas, ink, accent, hairline, radii, shadows, animations)
+- **`@theme inline` block:** maps shadcn semantic tokens (`--color-background: var(--background)`, etc.) — needed for shadcn components to generate `bg-background`, `text-foreground`, `border-border` utilities
+- **Accent is for UI/data/CTA only** — not for marketing headline text
+- **Landing page components:** `FloatingHero` (`components/floating-hero.tsx`), `DemoKanban` (`components/demo-kanban.tsx`), `MobileNav` (`components/mobile-nav.tsx`), `LogoIcon` (`components/logo-icon.tsx`), `MotionDiv` (`components/motion-div.tsx`)
+- **Landing page section order:** Hero (floating cards) → Social proof → Demo Kanban → Features → Bento Grid → AI Features → Pricing → CTA → Footer
 
 ## RBAC
 
@@ -146,6 +173,8 @@ Checks live inside server action files (not a shared lib):
 - **Dev server cold start:** First page load after `.next` deletion takes 30-40 seconds (Turbopack compilation). Subsequent loads are 200-500ms.
 - **Task card click:** dnd-kit `{...listeners}` must NOT be spread on the Card element — it intercepts `onClick`. Spread on a drag handle element (e.g., `MoreVertical` icon) instead.
 - **SidebarMenuButton with Link:** When using `asChild` with Next.js `Link`, cast props as `any` to avoid type conflicts between `<button>` and `<a>` ref types.
+- **Sidebar collapse:** Use `group-data-[collapsible=icon]:hidden` on text labels that should hide when sidebar is collapsed to icon-only mode. Header/footer must use `group-data-[collapsible=icon]:justify-center` and `group-data-[collapsible=icon]:px-0` to center icons properly.
+- **Theme tokens in new code:** Always use named tokens (`bg-canvas`, `text-ink`, `text-body-text`, `bg-accent`, `bg-accent-soft`, `border-hairline`) instead of hardcoded hex values. Only auth pages and dashboards still have legacy hex that hasn't been migrated yet.
 
 ### Agent-browser testing notes
 
@@ -209,6 +238,8 @@ Checks live inside server action files (not a shared lib):
 
 See [VERCEL.md](./VERCEL.md) and [RAILWAY.md](./RAILWAY.md) for full guides.
 
+**Quick deploy via Vercel CLI:** `npx vercel --prod --yes` (builds locally validated, pushes to production). Always run `npm run typecheck` then `npm run build` before deploying.
+
 - **Vercel** (Next.js): required env vars: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `NEXT_PUBLIC_SOCKET_URL`, `NEXT_PUBLIC_APP_URL`, `ALLOWED_ORIGIN`, `PORT=3002`
 - **Render** (Socket.IO): deploy as Web Service — Build: `npm install`, Start: `npx tsx src/socket/server.ts`. **Do NOT set `PORT`** — Render injects it. Auto-detects Node 22 from `.nvmrc`.
 - **Supabase** (PostgreSQL): `DATABASE_URL` with `?pgbouncer=true` (port 6543), `DIRECT_URL` (port 5432)
@@ -267,6 +298,8 @@ After deploy, update `NEXT_PUBLIC_SOCKET_URL` in Vercel to the Render URL and re
 | Shared board query | `getUserBoards()` in `actions/board-actions.ts` |
 | Offline sync | `lib/offline-db.ts` (IndexedDB), `lib/offline-sync.ts`, `lib/store/use-offline-store.ts` |
 | Service worker | `public/sw.js` (triggers sync on reconnect) |
+| Landing page | `app/page.tsx` (hero + floating cards + demo + pricing) |
+| Design tokens | `app/globals.css` (`@theme` + `@theme inline`) |
 
 ## Notification Types
 

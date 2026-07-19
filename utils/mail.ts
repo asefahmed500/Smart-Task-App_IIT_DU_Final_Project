@@ -32,18 +32,16 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   }
 
   try {
-    // In development, we log the link so it's usable without a mail server
-    console.log('-----------------------------------------')
-    console.log(`PASSWORD RESET LINK FOR ${email}:`)
-    console.log(resetLink)
-    console.log('-----------------------------------------')
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[DEV] Password reset link for', email, ':', resetLink)
+    }
 
     await transporter.sendMail(mailOptions)
-    console.log(`Password reset email sent to ${email}`)
     return { success: true }
   } catch (error) {
-    console.error('Error sending password reset email (expected if no SMTP configured):', error)
-    // Return success: true anyway so the user can see the link in the console/logs
-    return { success: true, message: 'Reset link logged to server console (SMTP not configured)' }
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[DEV] SMTP not configured. Reset link:', resetLink)
+    }
+    return { success: true, message: process.env.NODE_ENV !== 'production' ? 'Reset link logged to server console' : 'Reset email sent' }
   }
 }

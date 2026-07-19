@@ -45,7 +45,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
             setError(res.error || 'Failed to load report')
           }
         })
-        .catch(() => setError('An unexpected error occurred'))
+        .catch((err: unknown) => setError(err instanceof Error ? err.message : 'An unexpected error occurred'))
         .finally(() => setLoading(false))
     }
   }, [isOpen, boardId])
@@ -236,3 +236,4 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
     </div>
   )
 }
+

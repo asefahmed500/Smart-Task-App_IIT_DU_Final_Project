@@ -124,6 +124,7 @@ export async function getManagerAnalytics(): Promise<ActionResult> {
         action: { in: ['UPDATE_TASK_STATUS', 'UPDATE_TASK_STATUS_OVERRIDE'] },
         createdAt: { gte: thirtyDaysAgo },
       },
+      select: { id: true, details: true, createdAt: true },
       orderBy: { createdAt: 'asc' }
     })
 
@@ -160,7 +161,8 @@ export async function getManagerAnalytics(): Promise<ActionResult> {
       where: {
         id: { in: taskIds },
         column: { name: { contains: 'Done', mode: 'insensitive' } }
-      }
+      },
+      select: { id: true, createdAt: true, updatedAt: true }
     })
 
     // Fetch all logs for these tasks to calculate cycle time

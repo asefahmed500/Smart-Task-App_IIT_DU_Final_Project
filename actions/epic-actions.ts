@@ -319,6 +319,7 @@ export async function getEpicDetail(
 
     const columns = await prisma.column.findMany({
       where: { boardId: epic.boardId },
+      select: { id: true, name: true, order: true },
       orderBy: { order: 'asc' },
     })
     const doneCol = columns.find(

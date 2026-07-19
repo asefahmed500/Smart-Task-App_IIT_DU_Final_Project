@@ -63,8 +63,8 @@ export default function AdminBoardsPage() {
 
   const loadData = () => {
     Promise.all([
-      getAllBoards(),
-      getUsers()
+      getAllBoards().catch(() => ({ success: false as const, data: [] as AdminBoard[] })),
+      getUsers().catch(() => ({ success: false as const, data: [] as BoardUser[] }))
     ]).then(([boardsRes, usersRes]) => {
       setBoards(boardsRes.success ? (boardsRes.data as AdminBoard[]) : [])
       setUsers(usersRes.success ? (usersRes.data as BoardUser[]) : [])

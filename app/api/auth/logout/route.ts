@@ -1,9 +1,23 @@
 import { NextResponse } from "next/server"
-import { logout } from "@/lib/auth-server"
+import { getSession, logout } from "@/lib/auth-server"
 import { createAuditLog } from "@/lib/create-audit-log"
 
 export async function POST() {
-  await logout()
-  
-  return NextResponse.json({ success: true })
+  try {
+    const session = await getSession()
+    await logout()
+
+    if (session) {
+      await createAuditLog({
+        userId: session.id,
+        action: 'LOGOUT',
+        details: { email: session.email },
+      }).catch(() => {})
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Logout error:', error)
+    return NextResponse.json({ success: false, error: 'Logout failed' }, { status: 500 })
+  }
 }

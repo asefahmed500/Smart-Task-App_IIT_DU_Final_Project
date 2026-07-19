@@ -10,6 +10,7 @@ export function LogoutButton() {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
+      localStorage.removeItem('auth_token')
       router.push('/')
       router.refresh()
     } catch (error) {

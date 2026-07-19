@@ -5,6 +5,11 @@ import { io, Socket } from 'socket.io-client'
 
 let socket: Socket | null = null
 
+function getAuthToken(): string | undefined {
+  if (typeof window === 'undefined') return undefined
+  return localStorage.getItem('auth_token') || undefined
+}
+
 interface PresenceUser {
   id: string
   name: string
@@ -25,7 +30,13 @@ export function useSocket(boardId?: string, user?: PresenceUser) {
   useEffect(() => {
     if (!socket) {
       socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
-        transports: ['websocket', 'polling']
+        transports: ['websocket', 'polling'],
+        auth: { token: getAuthToken() },
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 30000,
+        randomizationFactor: 0.5,
       })
     }
 
@@ -166,7 +177,13 @@ export function getSocket() {
   if (!socket) {
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
       transports: ['websocket', 'polling'],
-      autoConnect: false
+      autoConnect: false,
+      auth: { token: getAuthToken() },
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 30000,
+      randomizationFactor: 0.5,
     })
   }
   return socket

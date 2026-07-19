@@ -49,6 +49,7 @@ const removeTaskFromSprintSchema = z.object({
 async function findDoneColumnName(boardId: string): Promise<string> {
   const columns = await prisma.column.findMany({
     where: { boardId },
+    select: { id: true, name: true, order: true },
     orderBy: { order: 'asc' },
   })
   const doneCol = columns.find(

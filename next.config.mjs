@@ -1,9 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
-    const cspScriptSrc = process.env.NODE_ENV === 'production'
+    const isProd = process.env.NODE_ENV === 'production'
+    const cspScriptSrc = isProd
       ? "'self' 'unsafe-inline'"
       : "'self' 'unsafe-eval' 'unsafe-inline'"
+
+    const cacheHeader = isProd
+      ? { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }
+      : { key: 'Cache-Control', value: 'no-cache' }
 
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'
     const connectSources = [
@@ -22,6 +27,7 @@ const nextConfig = {
       {
         source: '/:path*',
         headers: [
+          cacheHeader,
           {
             key: 'Content-Security-Policy',
             value: [
@@ -59,6 +65,18 @@ const nextConfig = {
             value: 'max-age=31536000; includeSubDomains',
           },
         ],
+      },
+      {
+        source: '/images/:path*',
+        headers: [cacheHeader],
+      },
+      {
+        source: '/fonts/:path*',
+        headers: [cacheHeader],
+      },
+      {
+        source: '/icons/:path*',
+        headers: [cacheHeader],
       },
       {
         source: '/api/:path*',

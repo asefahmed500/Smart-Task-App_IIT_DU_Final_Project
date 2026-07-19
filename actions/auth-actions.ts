@@ -39,7 +39,9 @@ export async function requestPasswordReset(email: string): Promise<ActionResult>
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user) {
       // For security, don't reveal if user exists in UI, but log it
-      console.log(`Password reset requested for non-existent email: ${email}`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Password reset requested for non-existent email: ${email}`)
+      }
       return { success: true, message: 'If an account exists with this email, a reset link has been sent.' }
     }
 

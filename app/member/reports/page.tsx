@@ -21,6 +21,7 @@ import {
 export default function MemberReportsPage() {
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     getMemberStats().then((res) => {
@@ -28,10 +29,12 @@ export default function MemberReportsPage() {
         setStats(res.data)
       }
       setLoading(false)
-    }).catch(() => setLoading(false))
+    }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'Failed to load reports'); setLoading(false) })
   }, [])
 
   if (loading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Calculating your impact...</div>
+
+  if (error) return <div className="p-8 text-center text-destructive">Error: {error}</div>
 
   const productivityData = stats?.productivityData || [
     { day: 'Mon', tasks: 0 },
@@ -177,3 +180,4 @@ export default function MemberReportsPage() {
     </div>
   )
 }
+

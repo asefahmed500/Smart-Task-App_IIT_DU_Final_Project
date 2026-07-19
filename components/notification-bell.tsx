@@ -25,7 +25,7 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
   const [unreadCount, setUnreadCount] = useState(0)
   const router = useRouter()
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       const result = await getNotifications()
       if (result.success && result.data) {
@@ -36,16 +36,14 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
     } catch {
       // Not logged in or error
     }
-  }
+  }, [])
 
   // Initial load
   useEffect(() => {
     void loadNotifications()
-  }, [])
+  }, [loadNotifications])
 
   const handleNewNotification = useCallback((newNotif: any) => {
-    console.log('Real-time notification received:', newNotif)
-    
     toast(newNotif.message, {
       description: 'You have a new notification',
       action: newNotif.link ? {

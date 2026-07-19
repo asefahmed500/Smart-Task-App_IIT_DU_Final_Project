@@ -1,6 +1,9 @@
 import { SignJWT, jwtVerify } from 'jose'
 
-const secretKey = process.env.JWT_SECRET || 'dev-secret-key-change-in-production'
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required')
+}
+const secretKey = process.env.JWT_SECRET!
 const key = new TextEncoder().encode(secretKey)
 
 export interface JWTPayload {
@@ -9,7 +12,16 @@ export interface JWTPayload {
   name: string | null
   image: string | null
   role: 'ADMIN' | 'MANAGER' | 'MEMBER'
+  passwordVersion: number
   [key: string]: unknown
+}
+
+export interface LoginInput {
+  id: string
+  email: string
+  name: string | null
+  image: string | null
+  role: 'ADMIN' | 'MANAGER' | 'MEMBER'
 }
 
 export async function encrypt(payload: JWTPayload) {

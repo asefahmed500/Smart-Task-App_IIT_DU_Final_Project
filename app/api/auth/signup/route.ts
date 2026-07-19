@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     notifyAdminsNewUser(user.id, user.name, user.email).catch(console.error)
 
     // Log the user in immediately after signup
-    await login({ id: user.id, email: user.email, name: user.name, image: user.image, role: user.role })
+    const sessionToken = await login({ id: user.id, email: user.email, name: user.name, image: user.image, role: user.role })
 
     // Auto-create a welcome board for new members
     if (user.role === 'MEMBER') {
@@ -85,7 +85,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ 
-      user: { id: user.id, email: user.email, name: user.name, image: user.image, role: user.role } 
+      user: { id: user.id, email: user.email, name: user.name, image: user.image, role: user.role },
+      token: sessionToken,
     }, { status: 201 })
 
   } catch (error) {

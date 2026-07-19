@@ -29,6 +29,7 @@ interface TeamMember {
 export default function ManagerTeamPage() {
   const [team, setTeam] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<string | 'ALL'>('ALL')
 
@@ -38,7 +39,7 @@ export default function ManagerTeamPage() {
         setTeam(res.data as TeamMember[])
       }
       setLoading(false)
-    }).catch(() => setLoading(false))
+    }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'Failed to load team'); setLoading(false) })
   }, [])
 
   const filteredTeam = team.filter(member => {
@@ -51,6 +52,9 @@ export default function ManagerTeamPage() {
 
   if (loading) {
     return <div className="p-8">Loading team...</div>
+  }
+  if (error) {
+    return <div className="p-8 text-destructive">Error: {error}</div>
   }
 
   return (
@@ -172,3 +176,5 @@ export default function ManagerTeamPage() {
     </div>
   )
 }
+
+

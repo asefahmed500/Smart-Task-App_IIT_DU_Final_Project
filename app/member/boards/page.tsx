@@ -27,6 +27,7 @@ interface MemberBoard {
 export default function MemberBoardsPage() {
   const [boards, setBoards] = useState<MemberBoard[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     getMemberBoards().then((res) => {
@@ -34,10 +35,12 @@ export default function MemberBoardsPage() {
         setBoards(res.data as MemberBoard[])
       }
       setLoading(false)
-    }).catch(() => setLoading(false))
+    }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'Failed to load boards'); setLoading(false) })
   }, [])
 
   if (loading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading your workspaces...</div>
+
+  if (error) return <div className="p-8 text-center text-destructive">Error: {error}</div>
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -114,3 +117,4 @@ export default function MemberBoardsPage() {
     </div>
   )
 }
+

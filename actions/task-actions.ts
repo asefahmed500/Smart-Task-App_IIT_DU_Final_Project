@@ -24,7 +24,7 @@ import {
   updateChecklistItemSchema,
 } from "@/lib/schemas"
 import { createAuditLog } from "@/lib/create-audit-log"
-import { Priority, Role } from '@/lib/prisma'
+import { Role } from '@/lib/prisma'
 import { ActionResult } from '@/types/kanban'
 import { checkBoardPermission, getTagsForBoard } from './board-actions'
 
@@ -550,7 +550,8 @@ export async function addComment(input: { taskId: string, content: string }): Pr
           OR: mentionedNames.map(name => ({
             name: { contains: name, mode: 'insensitive' as const }
           }))
-        }
+        },
+        select: { id: true, name: true }
       })
 
       for (const user of mentionedUsers) {
@@ -1289,6 +1290,7 @@ export async function completeReview(input: { id: string, status: any, feedback:
     if (targetColumnName) {
       const boardColumns = await prisma.column.findMany({
         where: { boardId: updatedReview.task.column.boardId },
+        select: { id: true, name: true, order: true },
         orderBy: { order: 'asc' },
       })
       let targetColumn = boardColumns.find(

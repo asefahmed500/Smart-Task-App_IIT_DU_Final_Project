@@ -109,6 +109,7 @@ export async function getAdvancedReports(boardId: string): Promise<ActionResult>
       where: {
         action: { in: ['UPDATE_TASK_STATUS', 'UPDATE_TASK_STATUS_OVERRIDE'] },
       },
+      select: { id: true, details: true, createdAt: true },
       orderBy: { createdAt: 'asc' }
     })
 
@@ -251,6 +252,7 @@ export async function getMemberDashboardData(): Promise<ActionResult> {
 
     const recentActivity = await prisma.auditLog.findMany({
       where: { userId: session.id },
+      select: { id: true, action: true, details: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
       take: 5
     })

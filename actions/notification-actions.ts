@@ -17,6 +17,7 @@ export async function getNotifications(): Promise<ActionResult> {
 
     const notifications = await prisma.notification.findMany({
       where: { userId: session.id },
+      select: { id: true, type: true, message: true, link: true, isRead: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
       take: 50
     })

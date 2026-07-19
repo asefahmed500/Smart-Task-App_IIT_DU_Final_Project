@@ -38,6 +38,9 @@ export default function SignupPage() {
       const data = await res.json()
 
       if (res.ok) {
+        if (data.token) {
+          localStorage.setItem('auth_token', data.token)
+        }
         router.push('/dashboard')
         router.refresh()
       } else {

@@ -96,17 +96,24 @@ export async function getMemberStats(): Promise<ActionResult> {
     const dailyCompletions = await Promise.all(last7Days.map(async (date) => {
       const nextDay = new Date(date)
       nextDay.setDate(nextDay.getDate() + 1)
-      
-      const count = await prisma.task.count({
-        where: {
-          assigneeId: auth.session!.id,
-          updatedAt: { gte: date, lt: nextDay },
-          column: { name: { contains: 'Done', mode: 'insensitive' } }
+
+      try {
+        const count = await prisma.task.count({
+          where: {
+            assigneeId: auth.session!.id,
+            updatedAt: { gte: date, lt: nextDay },
+            column: { name: { contains: 'Done', mode: 'insensitive' } }
+          }
+        })
+        return { 
+          day: date.toLocaleDateString('en-US', { weekday: 'short' }), 
+          tasks: count 
         }
-      })
-      return { 
-        day: date.toLocaleDateString('en-US', { weekday: 'short' }), 
-        tasks: count 
+      } catch {
+        return { 
+          day: date.toLocaleDateString('en-US', { weekday: 'short' }), 
+          tasks: 0 
+        }
       }
     }))
 
@@ -176,6 +183,7 @@ export async function getMemberStats(): Promise<ActionResult> {
         userId: auth.session!.id,
         createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
       },
+      select: { id: true },
       orderBy: { createdAt: 'desc' }
     })
 

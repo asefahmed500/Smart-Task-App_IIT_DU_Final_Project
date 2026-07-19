@@ -11,6 +11,7 @@ import { createServer } from 'http'
 import { PrismaClient } from '../../generated/prisma'
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
+import { jwtVerify } from 'jose'
 
 const connectionString = process.env.DATABASE_URL!
 const isSupabase = connectionString.includes('supabase.com')
@@ -49,6 +50,38 @@ interface PresenceUser {
   name: string
   image: string | null
 }
+
+// JWT auth middleware
+const jwtSecret = process.env.JWT_SECRET
+if (!jwtSecret) {
+  throw new Error('JWT_SECRET environment variable is required for Socket.IO server')
+}
+const jwtKey = new TextEncoder().encode(jwtSecret)
+
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token
+    if (!token) {
+      return next(new Error('Authentication required'))
+    }
+    const { payload } = await jwtVerify(token, jwtKey, { algorithms: ['HS256'] })
+    const payloadData = payload as unknown as {
+      id: string
+      email: string
+      name: string | null
+      role: string
+    }
+    socket.data.user = {
+      id: payloadData.id,
+      name: payloadData.name || payloadData.email,
+      image: null,
+    }
+    socket.data.role = payloadData.role
+    next()
+  } catch {
+    next(new Error('Invalid or expired token'))
+  }
+})
 
 const userSockets = new Map<string, Set<string>>() // userId -> Set of socket ids
 
@@ -279,6 +312,10 @@ io.on('connection', (socket: Socket) => {
 
   // Register user for personal notifications
   socket.on('register-user', (userId: string) => {
+    if (userId !== socket.data.user?.id) {
+      console.warn(`Socket ${socket.id} tried to register as user ${userId} but JWT is ${socket.data.user?.id}`)
+      return
+    }
     if (!userSockets.has(userId)) {
       userSockets.set(userId, new Set())
     }

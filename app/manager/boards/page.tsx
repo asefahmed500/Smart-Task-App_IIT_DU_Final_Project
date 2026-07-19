@@ -61,6 +61,7 @@ export default function ManagerBoardsPage() {
   const [editBoard, setEditBoard] = useState<ManagerBoard | null>(null)
   const [selectedBoard, setSelectedBoard] = useState<ManagerBoard | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<BoardMember[]>([])
   const router = useRouter()
@@ -72,7 +73,7 @@ export default function ManagerBoardsPage() {
         setBoards(res.data as ManagerBoard[])
       }
       setLoading(false)
-    }).catch(() => setLoading(false))
+    }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'Failed to load boards'); setLoading(false) })
   }
 
   useEffect(() => {
@@ -167,6 +168,18 @@ export default function ManagerBoardsPage() {
             <Card key={i} className="h-48 bg-muted/50 animate-pulse" />
           ))}
         </div>
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-4">
+        <div className="size-20 bg-muted rounded-full flex items-center justify-center">
+          <Layout className="size-10 text-muted-foreground" />
+        </div>
+        <h2 className="text-2xl font-bold">Error Loading Boards</h2>
+        <p className="text-muted-foreground max-w-md">{error}</p>
+        <Button onClick={loadData} variant="outline">Retry</Button>
       </div>
     )
   }
@@ -379,3 +392,4 @@ export default function ManagerBoardsPage() {
     </div>
   )
 }
+

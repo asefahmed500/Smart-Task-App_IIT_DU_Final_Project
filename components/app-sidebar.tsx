@@ -205,6 +205,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
                 const toastId = toast.loading('Logging out...')
                 try {
                   const res = await fetch('/api/auth/logout', { method: 'POST' })
+                  localStorage.removeItem('auth_token')
                   if (res.ok) {
                     toast.success('Logged out successfully', { id: toastId })
                     window.location.href = '/login'

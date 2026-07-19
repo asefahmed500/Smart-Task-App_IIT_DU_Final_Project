@@ -44,7 +44,7 @@ export default function ManagerAnalyticsPage() {
         if (analyticsRes.success) setData(analyticsRes.data)
         if (boardsRes.success) setBoards(boardsRes.data)
       })
-      .catch(() => setError('Failed to load initial data'))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load initial data'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -475,3 +475,4 @@ export default function ManagerAnalyticsPage() {
     </div>
   )
 }
+

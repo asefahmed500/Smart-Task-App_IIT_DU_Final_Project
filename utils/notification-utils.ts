@@ -124,27 +124,36 @@ export async function checkDueDateReminders(): Promise<number> {
 
   let reminderCount = 0
 
-  for (const task of tasksDueSoon) {
-    if (!task.assigneeId) continue
+  if (tasksDueSoon.length === 0) return 0
 
-    // Check if we already sent a reminder for this task
-    const existingReminder = await prisma.notification.findFirst({
-      where: {
-        userId: task.assigneeId,
-        type: 'DUE_DATE_REMINDER',
-        message: { contains: task.id },
-      },
-    })
+  // Batch: fetch all existing reminders for these users in 1 query instead of N
+  const assigneeIds = [...new Set(tasksDueSoon.map(t => t.assigneeId).filter(Boolean))] as string[]
+  const existingReminders = await prisma.notification.findMany({
+    where: {
+      userId: { in: assigneeIds },
+      type: 'DUE_DATE_REMINDER',
+    },
+    select: { userId: true, message: true },
+  })
 
-    if (!existingReminder) {
-      await sendNotification({
-        userId: task.assigneeId,
-        type: 'DUE_DATE_REMINDER',
-        message: `Task "${task.title}" (ID: ${task.id}) is due within 24 hours`,
-        link: `/dashboard/board/${task.column.boardId}`,
-      })
-      reminderCount++
+  const remindedSet = new Set<string>()
+  for (const nr of existingReminders) {
+    for (const task of tasksDueSoon) {
+      if (task.id && nr.message.includes(task.id)) {
+        remindedSet.add(task.id)
+      }
     }
+  }
+
+  for (const task of tasksDueSoon) {
+    if (!task.assigneeId || remindedSet.has(task.id)) continue
+    await sendNotification({
+      userId: task.assigneeId,
+      type: 'DUE_DATE_REMINDER',
+      message: `Task "${task.title}" (ID: ${task.id}) is due within 24 hours`,
+      link: `/dashboard/board/${task.column.boardId}`,
+    })
+    reminderCount++
   }
 
   return reminderCount
@@ -180,29 +189,39 @@ export async function checkOverdueTasks(): Promise<number> {
 
   let overdueCount = 0
 
-  for (const task of overdueTasks) {
-    if (!task.assigneeId) continue
+  if (overdueTasks.length === 0) return 0
 
-    // Check if we already sent an overdue notification for this task today
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const existingOverdue = await prisma.notification.findFirst({
-      where: {
-        userId: task.assigneeId,
-        type: 'OVERDUE',
-        message: { contains: task.id },
-        createdAt: { gte: todayStart },
-      },
-    })
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const overdueAssigneeIds = [...new Set(overdueTasks.map(t => t.assigneeId).filter(Boolean))] as string[]
 
-    if (!existingOverdue) {
-      await sendNotification({
-        userId: task.assigneeId,
-        type: 'OVERDUE',
-        message: `Task "${task.title}" (ID: ${task.id}) is overdue`,
-        link: `/dashboard/board/${task.column.boardId}`,
-      })
-      overdueCount++
+  // Batch: fetch all overdue notifications for these users in 1 query
+  const existingOverdues = await prisma.notification.findMany({
+    where: {
+      userId: { in: overdueAssigneeIds },
+      type: 'OVERDUE',
+      createdAt: { gte: todayStart },
+    },
+    select: { message: true },
+  })
+
+  const overduedSet = new Set<string>()
+  for (const no of existingOverdues) {
+    for (const task of overdueTasks) {
+      if (task.id && no.message.includes(task.id)) {
+        overduedSet.add(task.id)
+      }
     }
+  }
+
+  for (const task of overdueTasks) {
+    if (!task.assigneeId || overduedSet.has(task.id)) continue
+    await sendNotification({
+      userId: task.assigneeId,
+      type: 'OVERDUE',
+      message: `Task "${task.title}" (ID: ${task.id}) is overdue`,
+      link: `/dashboard/board/${task.column.boardId}`,
+    })
+    overdueCount++
   }
 
   return overdueCount

@@ -96,10 +96,14 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     if ("serviceWorker" in navigator) {
       const registerSW = async () => {
         try {
-          const registration = await navigator.serviceWorker.register("/sw.js")
-          console.log("SW registered: ", registration)
+          await navigator.serviceWorker.register("/sw.js")
+          if (process.env.NODE_ENV !== 'production') {
+            console.log("SW registered")
+          }
         } catch (err) {
-          console.log("SW registration failed: ", err)
+          if (process.env.NODE_ENV !== 'production') {
+            console.log("SW registration failed: ", err)
+          }
         }
       }
 

@@ -3,7 +3,7 @@
 import prisma from "@/lib/prisma"
 import { getSession } from "@/lib/auth-server"
 import { revalidatePath } from "next/cache"
-import { Role } from "@/lib/prisma"
+import type { Role } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { notifyAdminsNewUser, sendNotification } from "@/utils/notification-utils"
 import { ActionResult } from "@/types/kanban"
@@ -301,18 +301,21 @@ export async function getAdminStats(): Promise<ActionResult> {
   if (!auth.success) return auth
 
   try {
+    const safeNum = (p: Promise<number>) => p.catch(() => 0)
+    const safeArr = <T>(p: Promise<T[]>) => p.catch(() => [] as T[])
+
     const [userCount, boardCount, totalLogs, recentLogsCount, last7DaysLogs] = await Promise.all([
-      prisma.user.count(),
-      prisma.board.count(),
-      prisma.auditLog.count(),
-      prisma.auditLog.count({
+      safeNum(prisma.user.count()),
+      safeNum(prisma.board.count()),
+      safeNum(prisma.auditLog.count()),
+      safeNum(prisma.auditLog.count({
         where: {
           createdAt: {
             gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
           }
         }
-      }),
-      prisma.auditLog.groupBy({
+      })),
+      safeArr(prisma.auditLog.groupBy({
         by: ['createdAt'],
         where: {
           createdAt: {
@@ -320,7 +323,7 @@ export async function getAdminStats(): Promise<ActionResult> {
           }
         },
         _count: true,
-      })
+      }))
     ])
 
     const activityData = Array.from({ length: 7 }).map((_, i) => {
@@ -396,16 +399,18 @@ export async function getSystemReports(): Promise<ActionResult> {
   if (!auth.success) return auth
 
   try {
+    const safeNum = (p: Promise<number>) => p.catch(() => 0)
+
     const [taskCount, completedTaskCount, userCount] = await Promise.all([
-      prisma.task.count(),
-      prisma.task.count({ 
+      safeNum(prisma.task.count()),
+      safeNum(prisma.task.count({ 
         where: { 
           column: { 
             name: { contains: 'Done', mode: 'insensitive' } 
           } 
         } 
-      }),
-      prisma.user.count()
+      })),
+      safeNum(prisma.user.count())
     ])
 
     const completionRate = taskCount > 0 ? Math.round((completedTaskCount / taskCount) * 100) : 0
@@ -441,6 +446,7 @@ export async function getSystemReports(): Promise<ActionResult> {
         action: 'UPDATE_TASK_STATUS',
         createdAt: { gte: thirtyDaysAgo }
       },
+      select: { id: true, details: true, createdAt: true },
       orderBy: { createdAt: 'asc' }
     })
     
@@ -470,6 +476,7 @@ export async function getSystemReports(): Promise<ActionResult> {
         action: 'UPDATE_TASK_STATUS',
         details: { path: ['newStatus'], equals: 'Done' }
       },
+      select: { createdAt: true },
       take: 500,
       orderBy: { createdAt: 'desc' }
     })

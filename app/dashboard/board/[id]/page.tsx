@@ -1,7 +1,7 @@
 import { getBoardData } from '@/actions/board-actions'
 import { getSession } from "@/lib/auth-server"
 import { redirect, notFound } from "next/navigation"
-import { KanbanBoard } from "@/components/kanban/kanban-board"
+import { KanbanBoard } from "@/components/kanban/kanban-board-dynamic"
 import { BoardHeader } from "@/components/kanban/board-header"
 
 export default async function BoardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,7 +20,7 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
   const board = result.data as any
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col -m-6 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="flex flex-col -m-6 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ height: 'calc(100dvh - 4rem)' }}>
       <BoardHeader board={board} currentUser={session} />
 
       <div className="flex-1 min-h-0 bg-muted/20 border-t border-primary/5 p-4 overflow-hidden relative">
