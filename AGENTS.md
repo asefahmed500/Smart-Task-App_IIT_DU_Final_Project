@@ -253,16 +253,35 @@ See [VERCEL.md](./VERCEL.md) and [RAILWAY.md](./RAILWAY.md) for full guides.
 
 ### Syncing schema to production Supabase
 
+**IMPORTANT — Migration vs db push:**
+
+On an **existing production DB** with data, `prisma migrate resolve --applied` only marks the migration as done — it does NOT run the SQL. You must follow it with `prisma db push` to apply the actual column changes:
+
 ```powershell
 $env:DIRECT_URL = "postgresql://user:pass@host.supabase.com:5432/postgres"
 $env:DATABASE_URL = "postgresql://user:pass@host.supabase.com:6543/postgres?pgbouncer=true"
+
+# Step 1: Mark initial migration as applied (no SQL executed)
+npx prisma migrate resolve --applied 0001_init
+
+# Step 2: Push schema changes to production (ALTER TABLE ADD COLUMN only — data safe)
 npx prisma db push
+```
+
+For **future schema changes**, use proper migrations:
+```powershell
+# Dev: create migration locally
+npx prisma migrate dev --name <description>
+
+# Prod: apply migration (runs ALTER TABLE, never drops data)
+npx prisma migrate deploy
 ```
 
 To seed production: `npx tsx -r dotenv/config prisma/seed.ts dotenv_config_path=.env.production`
 
-- `DIRECT_URL` (port 5432) required for `prisma db push` — needs direct connection, not pgbouncer
+- `DIRECT_URL` (port 5432) required for schema ops — needs direct connection, not pgbouncer
 - `DATABASE_URL` (port 6543, pgbouncer) only for app runtime queries
+- `prisma db push` is safe on existing data — it only ADDs columns/indexes, never DROPs
 
 ### Render Socket Server Setup
 
