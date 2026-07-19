@@ -47,7 +47,12 @@ Real-time Kanban board with RBAC, WIP limits, offline support, undo via audit lo
 
 ### Prisma v7
 
-Uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). Uses `db push` (not migrations). `prisma.config.ts` uses `DIRECT_URL` for schema ops (falls back to `DATABASE_URL`). `postinstall` runs `prisma generate`.
+Uses `@prisma/adapter-pg` (wrapping `pg.Pool`) — NOT `@prisma/adapter-neon` despite both being in `package.json`. Client output is `generated/prisma` (imported as `'../generated/prisma'` from `lib/prisma.ts`). `prisma.config.ts` uses `DIRECT_URL` for schema ops (falls back to `DATABASE_URL`). `postinstall` runs `prisma generate`.
+
+**Migrations (production-safe):** Project now uses Prisma migrations instead of `db push`. Initial baseline migration `0001_init` covers all tables.
+- **Dev:** `npx prisma migrate dev --name <description>` — creates + applies migrations locally
+- **Prod:** `npx prisma migrate deploy` — applies pending migrations (runs ALTER TABLE, never drops data)
+- **First time on existing prod DB:** `npx prisma migrate resolve --applied 0001_init` — marks migration as done without running SQL (preserves existing data)
 
 **`generated/` is gitignored** — always run `prisma generate` after pulling schema changes.
 
@@ -67,7 +72,7 @@ Prisma client: eagerly in production, lazily in dev via `global.prisma` for hot-
 
 ### Auth
 
-Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies. Login is an API route (`POST /api/auth/login`), not a server action. `lib/auth.ts` has encrypt/decrypt; `lib/auth-server.ts` is `'use server'` for cookie management. `JWT_SECRET` has a dev fallback — **must be set in production**.
+Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies + localStorage (for Socket.IO handshake). Login is an API route (`POST /api/auth/login`), not a server action. `lib/auth.ts` has encrypt/decrypt; `lib/auth-server.ts` is `'use server'` for cookie management. **`JWT_SECRET` is required** — throws at startup if missing. JWT payload includes `passwordVersion`; `getSession()` re-validates against the DB (checks `isActive` + `passwordVersion` match) every call to invalidate tokens on password changes.
 
 ### Other
 
@@ -154,6 +159,7 @@ Checks live inside server action files (not a shared lib):
 - **Never pass object refs as useEffect deps.** `useSocket` uses `useMemo` to stabilize `user` prop — raw objects cause infinite join/leave loops
 - **All Dialog components must include `<DialogDescription>`** (even with `className="sr-only"`). Radix throws without it
 - **Recharts `ResponsiveContainer` needs explicit pixel dimensions.** `height="100%"` causes negative dimension errors. Use `height={300}`
+- **`dnd-kit` SSR hydration mismatches** (`DndDescribedBy-0` vs `DndDescribedBy-1`). Do not use `next/dynamic` with `ssr: false` in Server Components — wrap DndContext in a Client Component boundary
 - **After mutations, call `router.refresh()`.** `revalidatePath` alone isn't enough for client updates
 - **API routes must use `auth-server.ts` for cookies** — do NOT import `cookies` from `next/headers` directly in route handlers (Turbopack returns 404 at runtime). Use `login()`/`logout()`/`getSession()` from `@/lib/auth-server.ts`
 - **Emit socket events AFTER database commits** so clients receive updated data
@@ -294,6 +300,7 @@ After deploy, update `NEXT_PUBLIC_SOCKET_URL` in Vercel to the Render URL and re
 | Notification utils | `utils/notification-utils.ts` (NOT a server action, try/catch wrapped) |
 | Sprint components | `components/sprint/*` (all accept `readOnly?: boolean`) |
 | DnD hook (infinite loop prone) | `hooks/use-kanban-board.ts` (uses `boardRef` for stale safety) |
+| Board (client-only wrapper) | `components/kanban/kanban-board-dynamic.tsx` (dynamic import with `ssr: false` — fixes dnd-kit hydration mismatch) |
 | Board templates | `lib/board-templates.ts` |
 | Shared board query | `getUserBoards()` in `actions/board-actions.ts` |
 | Offline sync | `lib/offline-db.ts` (IndexedDB), `lib/offline-sync.ts`, `lib/store/use-offline-store.ts` |
