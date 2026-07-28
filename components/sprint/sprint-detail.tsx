@@ -351,11 +351,6 @@ export function SprintDetail({
                       <Badge variant="secondary" className={PRIORITY_COLORS[task.priority]}>
                         {task.priority}
                       </Badge>
-                      {task.storyPoints && (
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {task.storyPoints} pts
-                        </Badge>
-                      )}
                       <Badge variant="outline" className="text-xs">
                         {task.column?.name || "Unknown"}
                       </Badge>
@@ -434,17 +429,6 @@ export function SprintDetail({
                   <SelectItem value="SUBTASK">Subtask</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>Story Points</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={editForm.storyPoints}
-                onChange={(e) => setEditForm((f) => ({ ...f, storyPoints: e.target.value }))}
-                placeholder="e.g. 1, 2, 3, 5, 8, 13"
-              />
             </div>
           </div>
           <DialogFooter>
