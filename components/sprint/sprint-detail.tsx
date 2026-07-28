@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { getSprintDetail, getSprintMetrics, removeTaskFromSprint, updateTaskIssueFields } from '@/actions'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -103,6 +103,7 @@ export function SprintDetail({
   readOnly?: boolean
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [sprint, setSprint] = useState<SprintData | null>(null)
   const [metrics, setMetrics] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -219,6 +220,34 @@ export function SprintDetail({
         <Badge variant="secondary" className={STATUS_COLORS[sprint.status]}>
           {sprint.status}
         </Badge>
+      </div>
+
+      {/* Nav tabs */}
+      <div className="flex items-center gap-1 border-b border-hairline pb-0">
+        {[
+          { label: 'Detail', href: `${basePath}/sprints/${sprintId}` },
+          { label: 'Plan', href: `${basePath}/sprints/${sprintId}/plan` },
+          { label: 'Board', href: `${basePath}/sprints/${sprintId}/board` },
+          { label: 'Review', href: `${basePath}/sprints/${sprintId}/review` },
+          { label: 'Retro', href: `${basePath}/sprints/${sprintId}/retro` },
+        ].map((tab) => {
+          const isActive = pathname === tab.href
+          return (
+            <Button
+              key={tab.label}
+              variant="ghost"
+              size="sm"
+              className={`rounded-b-none border-b-2 transition-colors ${
+                isActive
+                  ? 'border-accent text-accent'
+                  : 'border-transparent text-muted-text hover:text-ink hover:border-hairline'
+              }`}
+              onClick={() => router.push(tab.href)}
+            >
+              {tab.label}
+            </Button>
+          )
+        })}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

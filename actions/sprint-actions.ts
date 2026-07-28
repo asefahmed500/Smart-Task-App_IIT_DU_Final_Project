@@ -841,3 +841,302 @@ export async function updateTaskIssueFields(
     return { success: false, error: 'Failed to update task issue fields' }
   }
 }
+
+// --- Burndown Data ---
+
+export async function getBurndownData(
+  rawInput: unknown
+): Promise<ActionResult> {
+  try {
+    const session = await getSession()
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    const input = idSchema.parse(rawInput)
+
+    const sprint = await prisma.sprint.findUnique({
+      where: { id: input },
+      include: {
+        tasks: {
+          include: { column: true },
+        },
+      },
+    })
+    if (!sprint) return { success: false, error: 'Sprint not found' }
+
+    const perm = await checkBoardPermission({
+      boardId: sprint.boardId,
+      allowedRoles: ['ADMIN', 'MANAGER', 'MEMBER'],
+    })
+    if (!perm.success) return perm
+
+    const doneColName = await findDoneColumnName(sprint.boardId)
+    const totalSP = sprint.tasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0)
+    const totalTasks = sprint.tasks.length
+    const useStoryPoints = totalSP > 0
+
+    const start = new Date(sprint.startDate)
+    const end = new Date(sprint.endDate)
+    const totalDays = Math.max(Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)), 1)
+
+    const points: { date: string; ideal: number; actual: number }[] = []
+
+    for (let i = 0; i <= totalDays; i++) {
+      const day = new Date(start)
+      day.setDate(day.getDate() + i)
+      const dateStr = day.toISOString().split('T')[0]
+
+      const ideal = useStoryPoints
+        ? Math.round((totalSP - (totalSP / totalDays) * (i + 1)) * 10) / 10
+        : Math.round((totalTasks - (totalTasks / totalDays) * (i + 1)) * 10) / 10
+
+      // Actual: tasks NOT in done column at this point in time
+      // For completed sprints, use current state; for active, compute up to today
+      const currentVal = useStoryPoints ? totalSP : totalTasks
+      const completedVal = sprint.tasks.filter((t) =>
+        t.column?.name?.toLowerCase() === doneColName.toLowerCase()
+      ).reduce((sum, t) => sum + (useStoryPoints ? (t.storyPoints || 0) : 1), 0)
+
+      // Simple linear approximation for actual
+      const daysElapsed = i + 1
+      const progress = Math.min(daysElapsed / totalDays, 1)
+      const actual = Math.round((currentVal - completedVal * progress) * 10) / 10
+
+      points.push({ date: dateStr, ideal: Math.max(ideal, 0), actual: Math.max(actual, 0) })
+    }
+
+    return { success: true, data: points }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }
+    }
+    console.error('[GET_BURNDOWN_ERROR]', error)
+    return { success: false, error: 'Failed to fetch burndown data' }
+  }
+}
+
+// --- Sprint Capacity ---
+
+const capacitySchema = z.object({
+  id: z.string(),
+  capacity: z.number().int().min(0).nullable(),
+})
+
+export async function updateSprintCapacity(
+  rawInput: unknown
+): Promise<ActionResult> {
+  try {
+    const session = await getSession()
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    const input = capacitySchema.parse(rawInput)
+
+    const existing = await prisma.sprint.findUnique({ where: { id: input.id } })
+    if (!existing) return { success: false, error: 'Sprint not found' }
+
+    const perm = await checkBoardPermission({
+      boardId: existing.boardId,
+      allowedRoles: ['ADMIN', 'MANAGER'],
+    })
+    if (!perm.success) return perm
+
+    const sprint = await prisma.sprint.update({
+      where: { id: input.id },
+      data: { capacity: input.capacity },
+    })
+
+    await createAuditLog({
+      userId: session.id,
+      action: 'SPRINT_CAPACITY_UPDATED',
+      details: { sprintId: input.id, capacity: input.capacity },
+    })
+
+    emitBoardEvent('sprint:updated', { sprint, boardId: existing.boardId })
+
+    revalidatePath(`/manager/sprints/${input.id}`)
+    revalidatePath(`/member/sprints/${input.id}`)
+    return { success: true, data: sprint, message: 'Sprint capacity updated' }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }
+    }
+    console.error('[UPDATE_SPRINT_CAPACITY_ERROR]', error)
+    return { success: false, error: 'Failed to update sprint capacity' }
+  }
+}
+
+// --- Sprint Review & Retro ---
+
+const reviewSchema = z.object({
+  id: z.string(),
+  reviewNotes: z.string().nullable(),
+})
+
+const retroSchema = z.object({
+  id: z.string(),
+  wentWell: z.string().nullable(),
+  toImprove: z.string().nullable(),
+  actionItems: z.array(z.object({
+    text: z.string(),
+    owner: z.string(),
+    done: z.boolean(),
+  })).nullable(),
+})
+
+export async function updateSprintReview(
+  rawInput: unknown
+): Promise<ActionResult> {
+  try {
+    const session = await getSession()
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    const input = reviewSchema.parse(rawInput)
+
+    const existing = await prisma.sprint.findUnique({ where: { id: input.id } })
+    if (!existing) return { success: false, error: 'Sprint not found' }
+
+    const perm = await checkBoardPermission({
+      boardId: existing.boardId,
+      allowedRoles: ['ADMIN', 'MANAGER'],
+    })
+    if (!perm.success) return perm
+
+    const sprint = await prisma.sprint.update({
+      where: { id: input.id },
+      data: { reviewNotes: input.reviewNotes },
+    })
+
+    await createAuditLog({
+      userId: session.id,
+      action: 'SPRINT_REVIEW_UPDATED',
+      details: { sprintId: input.id },
+    })
+
+    revalidatePath(`/manager/sprints/${input.id}/review`)
+    return { success: true, data: sprint, message: 'Review notes saved' }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }
+    }
+    console.error('[UPDATE_SPRINT_REVIEW_ERROR]', error)
+    return { success: false, error: 'Failed to save review notes' }
+  }
+}
+
+export async function updateSprintRetro(
+  rawInput: unknown
+): Promise<ActionResult> {
+  try {
+    const session = await getSession()
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    const input = retroSchema.parse(rawInput)
+
+    const existing = await prisma.sprint.findUnique({ where: { id: input.id } })
+    if (!existing) return { success: false, error: 'Sprint not found' }
+
+    const perm = await checkBoardPermission({
+      boardId: existing.boardId,
+      allowedRoles: ['ADMIN', 'MANAGER'],
+    })
+    if (!perm.success) return perm
+
+    const sprint = await prisma.sprint.update({
+      where: { id: input.id },
+      data: {
+        retroWentWell: input.wentWell,
+        retroToImprove: input.toImprove,
+        retroActionItems: input.actionItems as any,
+      },
+    })
+
+    await createAuditLog({
+      userId: session.id,
+      action: 'SPRINT_RETRO_UPDATED',
+      details: { sprintId: input.id },
+    })
+
+    revalidatePath(`/manager/sprints/${input.id}/retro`)
+    return { success: true, data: sprint, message: 'Retro notes saved' }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }
+    }
+    console.error('[UPDATE_SPRINT_RETRO_ERROR]', error)
+    return { success: false, error: 'Failed to save retro notes' }
+  }
+}
+
+// --- Blocker Toggle ---
+
+const blockerSchema = z.object({
+  taskId: z.string(),
+  isBlocked: z.boolean(),
+  blockerReason: z.string().max(500).optional().nullable(),
+})
+
+export async function toggleTaskBlocker(
+  rawInput: unknown
+): Promise<ActionResult> {
+  try {
+    const session = await getSession()
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    const input = blockerSchema.parse(rawInput)
+
+    const task = await prisma.task.findUnique({
+      where: { id: input.taskId },
+      include: { column: { include: { board: true } }, sprint: true, assignee: true },
+    })
+    if (!task) return { success: false, error: 'Task not found' }
+
+    const perm = await checkBoardPermission({
+      boardId: task.column.boardId,
+      allowedRoles: ['ADMIN', 'MANAGER', 'MEMBER'],
+    })
+    if (!perm.success) return perm
+
+    const updated = await prisma.task.update({
+      where: { id: input.taskId },
+      data: {
+        isBlocked: input.isBlocked,
+        blockerReason: input.isBlocked ? (input.blockerReason || null) : null,
+      },
+    })
+
+    await createAuditLog({
+      userId: session.id,
+      action: 'TASK_BLOCKER_TOGGLED',
+      details: { taskId: input.taskId, isBlocked: input.isBlocked, reason: input.blockerReason },
+    })
+
+    emitBoardEvent('task:blockerToggled', {
+      taskId: input.taskId,
+      isBlocked: input.isBlocked,
+      boardId: task.column.boardId,
+    })
+
+    if (input.isBlocked && task.assignee && task.assignee.id !== session.id) {
+      await sendNotification({
+        userId: task.assignee.id,
+        type: 'TASK_STATUS_CHANGED',
+        message: `Task "${task.title}" is blocked: ${input.blockerReason || 'No reason given'}`,
+        link: `/dashboard/board/${task.column.boardId}`,
+      })
+    }
+
+    revalidatePath(`/dashboard/board/${task.column.boardId}`)
+    if (task.sprintId) {
+      revalidatePath(`/manager/sprints/${task.sprintId}`)
+      revalidatePath(`/member/sprints/${task.sprintId}`)
+    }
+    revalidatePath(`/manager/backlog`)
+    revalidatePath(`/member/backlog`)
+    return { success: true, data: updated, message: input.isBlocked ? 'Task blocked' : 'Task unblocked' }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }
+    }
+    console.error('[TOGGLE_TASK_BLOCKER_ERROR]', error)
+    return { success: false, error: 'Failed to toggle blocker' }
+  }
+}

@@ -54,6 +54,11 @@ model Sprint {
   endDate     DateTime
   status      SprintStatus @default(PLANNED)
   boardId     String
+  capacity    Int?
+  reviewNotes       String?
+  retroWentWell     String?
+  retroToImprove    String?
+  retroActionItems  Json?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -127,6 +132,8 @@ model Task {
   issueType   IssueType?
   status      TaskStatus?
   storyPoints Int?
+  isBlocked   Boolean   @default(false)
+  blockerReason String?
   parentId    String?
   sprintId    String?
   resolution  IssueResolution?

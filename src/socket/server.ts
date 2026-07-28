@@ -290,6 +290,9 @@ io.on('connection', (socket: Socket) => {
   socket.on('task:issueFieldsUpdated', (data: { boardId: string; taskId: string }) => {
     socket.to(`board:${data.boardId}`).emit('task:issueFieldsUpdated', data)
   })
+  socket.on('task:blockerToggled', (data: { boardId: string; taskId: string; isBlocked: boolean }) => {
+    socket.to(`board:${data.boardId}`).emit('task:blockerToggled', data)
+  })
 
   // Epic event relay
   socket.on('epic:created', (data: { boardId: string; epic: any }) => {

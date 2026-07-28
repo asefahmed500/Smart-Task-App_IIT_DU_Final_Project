@@ -66,6 +66,8 @@ export interface Task {
   issueType: IssueType | null;
   status: TaskStatus | null;
   storyPoints: number | null;
+  isBlocked: boolean;
+  blockerReason: string | null;
   parentId: string | null;
   sprintId: string | null;
   resolution: IssueResolution | null;
@@ -186,6 +188,11 @@ export interface Sprint {
   endDate: string | Date;
   status: SprintStatus;
   boardId: string;
+  capacity: number | null;
+  reviewNotes: string | null;
+  retroWentWell: string | null;
+  retroToImprove: string | null;
+  retroActionItems: { text: string; owner: string; done: boolean }[] | null;
   createdAt: string | Date;
   updatedAt: string | Date;
   board?: { id: string; name: string };
