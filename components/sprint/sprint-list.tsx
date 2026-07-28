@@ -154,10 +154,11 @@ export function SprintList({
     return `${days} day${days !== 1 ? 's' : ''}`
   }
 
-  const filteredSprints =
-    statusFilter === 'all'
-      ? sprints
-      : sprints.filter((s) => s.status === statusFilter)
+  const filteredSprints = (statusFilter === 'all' ? sprints : sprints.filter((s) => s.status === statusFilter))
+    .sort((a, b) => {
+      const order = { ACTIVE: 0, PLANNED: 1, COMPLETED: 2, CANCELLED: 3 }
+      return (order[a.status as keyof typeof order] ?? 99) - (order[b.status as keyof typeof order] ?? 99)
+    })
 
   if (loading) {
     return (
@@ -241,10 +242,18 @@ export function SprintList({
           {filteredSprints.map((sprint) => {
             const config = STATUS_CONFIG[sprint.status] || STATUS_CONFIG.PLANNED
             return (
-              <Card key={sprint.id} className="hover:shadow-md transition-shadow">
+              <Card key={sprint.id} className={`hover:shadow-md transition-shadow ${sprint.status === 'ACTIVE' ? 'ring-2 ring-emerald-500/30 border-emerald-500' : ''}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{sprint.name}</CardTitle>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      {sprint.status === 'ACTIVE' && (
+                        <span className="relative flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                        </span>
+                      )}
+                      {sprint.name}
+                    </CardTitle>
                     <Badge variant="secondary" className={config.color}>
                       <span className="flex items-center gap-1">
                         {config.icon}
@@ -303,6 +312,16 @@ export function SprintList({
                     >
                       <Play className="h-3 w-3 mr-1" />
                       Start
+                    </Button>
+                  )}
+                  {!readOnly && sprint.status === 'ACTIVE' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => router.push(`${basePath}/sprints/${sprint.id}/board`)}
+                    >
+                      Board
                     </Button>
                   )}
                   {!readOnly && sprint.status === 'ACTIVE' && (

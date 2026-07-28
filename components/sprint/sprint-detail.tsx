@@ -269,14 +269,11 @@ export function SprintDetail({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Story Points</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Remaining</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">
-              {metrics?.completedStoryPoints || 0}
-              <span className="text-lg text-muted-foreground font-normal">
-                {' / '}{metrics?.totalStoryPoints || 0}
-              </span>
+              {(metrics?.totalTasks || 0) - (metrics?.completedTasks || 0)}
             </p>
           </CardContent>
         </Card>

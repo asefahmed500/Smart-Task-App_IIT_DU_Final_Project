@@ -155,10 +155,10 @@ export function SprintPlanningBoard({
     return t.title.toLowerCase().includes(q) || (t.description?.toLowerCase() || '').includes(q)
   })
 
-  const totalAssignedSP = sprintTasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0)
+  const totalAssigned = sprintTasks.length
   const capacity = sprint?.capacity || 0
-  const capacityPct = capacity > 0 ? Math.round((totalAssignedSP / capacity) * 100) : 0
-  const overCapacity = capacity > 0 && totalAssignedSP > capacity
+  const capacityPct = capacity > 0 ? Math.round((totalAssigned / capacity) * 100) : 0
+  const overCapacity = capacity > 0 && totalAssigned > capacity
 
   if (loading) {
     return (
@@ -217,7 +217,7 @@ export function SprintPlanningBoard({
                     value={capacityInput}
                     onChange={(e) => setCapacityInput(e.target.value)}
                     className="w-20 h-8 text-sm"
-                    placeholder="SP"
+                    placeholder="Tasks"
                   />
                   <Button size="sm" variant="outline" className="h-8" onClick={handleSaveCapacity}>
                     Save
@@ -228,7 +228,7 @@ export function SprintPlanningBoard({
                 </div>
               ) : (
                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditCapacity(true)} disabled={readOnly}>
-                  {capacity > 0 ? `${capacity} SP` : 'Set capacity'}
+                  {capacity > 0 ? `${capacity} tasks` : 'Set capacity'}
                 </Button>
               )}
             </div>
@@ -245,7 +245,7 @@ export function SprintPlanningBoard({
               </div>
               <div className="flex justify-between text-xs text-muted-text">
                 <span>
-                  {totalAssignedSP} / {capacity} SP ({capacityPct}%)
+                  {totalAssigned} / {capacity} tasks ({capacityPct}%)
                 </span>
                 {overCapacity && <span className="text-red-500 font-medium">Over capacity!</span>}
               </div>

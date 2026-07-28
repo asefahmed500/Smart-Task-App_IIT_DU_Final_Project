@@ -14,7 +14,7 @@ interface BurndownChartProps {
   height?: number
 }
 
-export function BurndownChart({ data, useStoryPoints = true, height = 250 }: BurndownChartProps) {
+export function BurndownChart({ data, useStoryPoints = false, height = 250 }: BurndownChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center h-[250px] text-muted-text text-sm">

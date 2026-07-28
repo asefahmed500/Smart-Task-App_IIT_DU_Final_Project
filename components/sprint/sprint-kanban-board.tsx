@@ -587,13 +587,9 @@ export function SprintKanbanBoard({
             </p>
           </Card>
           <Card className="p-3 border-hairline">
-            <p className="text-xs text-muted-text">Story Points</p>
+            <p className="text-xs text-muted-text">Remaining</p>
             <p className="text-lg font-bold">
-              {metrics.completedStoryPoints}
-              <span className="text-sm text-muted-text font-normal">
-                {' '}
-                / {metrics.totalStoryPoints}
-              </span>
+              {metrics.totalTasks - metrics.completedTasks}
             </p>
           </Card>
           <Card className="p-3 border-hairline">
