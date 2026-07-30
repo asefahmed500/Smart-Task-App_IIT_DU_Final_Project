@@ -4,7 +4,7 @@ import { decrypt } from '@/lib/auth'
 // Protected routes that require authentication
 const protectedRoutes = ['/dashboard', '/boards', '/settings', '/admin', '/manager', '/member']
 // Public routes that should not be accessible when authenticated
-const publicRoutes = ['/login', '/signup', '/']
+const publicRoutes = ['/login', '/signup', '/', '/forgot-password', '/reset-password']
 
 export default async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname
