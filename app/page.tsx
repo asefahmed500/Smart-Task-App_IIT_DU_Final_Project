@@ -23,32 +23,36 @@ export default async function LandingPage() {
     <div className="flex flex-col min-h-screen bg-canvas text-ink selection:bg-accent-soft selection:text-accent">
 
       {/* Navbar */}
-      <header className="px-4 sm:px-6 lg:px-10 h-16 flex items-center border-b border-hairline bg-canvas/80 backdrop-blur-md sticky top-0 z-50">
-        <Link className="flex items-center gap-2 shrink-0" href="/">
-          <LogoIcon size={30} />
-          <span className="text-sm font-semibold text-ink tracking-tight">SmartTask</span>
-        </Link>
-        <nav className="hidden md:flex ml-10 gap-8">
-          {[
-            { label: "Features", href: "#features" },
-            { label: "AI", href: "#ai-features" },
-            { label: "Pricing", href: "#pricing" },
-            { label: "Demo", href: "#demo" },
-          ].map((l) => (
-            <Link key={l.href} className="text-sm text-body-text hover:text-ink transition-colors" href={l.href}>
-              {l.label}
+      <header className="sticky top-0 z-50 px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4">
+        <nav className="mx-auto flex max-w-5xl h-14 items-center gap-4 sm:gap-6 rounded-full border border-hairline bg-canvas/90 px-3 sm:px-5 shadow-md backdrop-blur-md">
+          <Link className="flex items-center gap-2 shrink-0 pl-1 sm:pl-1.5" href="/">
+            <LogoIcon size={28} />
+            <span className="text-sm font-semibold text-ink tracking-tight">SmartTask</span>
+          </Link>
+          <div className="hidden md:flex items-center gap-7 ml-2">
+            {[
+              { label: "Features", href: "#features" },
+              { label: "AI", href: "#ai-features" },
+              { label: "Pricing", href: "#pricing" },
+              { label: "Demo", href: "#demo" },
+            ].map((l) => (
+              <Link key={l.href} className="text-sm text-body-text hover:text-ink transition-colors" href={l.href}>
+                {l.label}
+              </Link>
+            ))}
+          </div>
+          <div className="hidden md:flex ml-auto items-center gap-2">
+            <Link href="/login" className="text-sm text-body-text hover:text-ink transition-colors px-3 py-1.5 rounded-full hover:bg-canvas-soft">
+              Log in
             </Link>
-          ))}
+            <Link href="/signup" className="inline-flex items-center justify-center rounded-full bg-ink text-on-primary px-4 py-2 text-sm font-medium hover:bg-ink-primary-active transition-colors">
+              Sign up
+            </Link>
+          </div>
+          <div className="ml-auto md:hidden">
+            <MobileNav />
+          </div>
         </nav>
-        <div className="hidden md:flex ml-auto items-center gap-3">
-          <Link href="/login" className="text-sm text-body-text hover:text-ink transition-colors px-3 py-1.5">
-            Log in
-          </Link>
-          <Link href="/signup" className="inline-flex items-center justify-center rounded-lg bg-ink text-on-primary px-4 py-2 text-sm font-medium hover:bg-ink-primary-active transition-colors">
-            Sign up
-          </Link>
-        </div>
-        <MobileNav />
       </header>
 
       <main className="flex-1">

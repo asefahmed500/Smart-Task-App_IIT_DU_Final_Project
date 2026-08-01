@@ -27,7 +27,7 @@ import { undoLastAction } from '@/actions/board-actions'
 import { Loader2, CalendarDays, UserCircle } from 'lucide-react'
 import { useOfflineStore } from '@/lib/store/use-offline-store'
 import { User } from '@/types/kanban'
-import { Priority } from '@/generated/prisma/enums'
+import { Priority } from '@/generated/prisma'
 
 interface AddTaskDialogProps {
   isOpen: boolean

@@ -6,6 +6,8 @@ Real-time Kanban board with RBAC, WIP limits, offline, undo via audit log, task 
 
 **Stack:** Next.js 16 (App Router), React 19, Prisma v7 + PostgreSQL (driver adapter `@prisma/adapter-pg` wrapping `pg.Pool` — NOT `@prisma/adapter-neon`), Socket.io standalone, Tailwind CSS 4, shadcn/radix-nova, Zustand, Zod v4
 
+**Docs:** `OVERVIEW.md` (deep architecture), `VERCEL.md` + `RAILWAY.md` (deployment), `GEMINI.md` (legacy overview).
+
 ## Commands
 
 | Command | Description |
@@ -19,7 +21,7 @@ Real-time Kanban board with RBAC, WIP limits, offline, undo via audit log, task 
 | `npm run seed` | Seeds DB from `.env.local` |
 | `npm run socket:dev` | Standalone Socket.io only (`npx tsx src/socket/server.ts`) |
 
-**Verification order:** `typecheck` → `build` — no test suite.
+**Verification order:** `typecheck` → `build` — no test suite (vitest installed but unused). `tsconfig.json` excludes `scripts/` and `scratch/` — code there isn't typechecked (runs via `npx tsx`); put one-off scripts there, not in `src/`.
 
 **PowerShell:** does NOT support `&&`. Use `;` or `if ($?) { cmd2 }`.
 
@@ -28,16 +30,16 @@ Real-time Kanban board with RBAC, WIP limits, offline, undo via audit log, task 
 **Required** in `.env.local`: `DATABASE_URL`, `JWT_SECRET`.  
 **Vercel needs** env vars: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `NEXT_PUBLIC_SOCKET_URL`, `NEXT_PUBLIC_APP_URL`, `ALLOWED_ORIGIN`, `PORT=3002`.
 
-- `NEXT_PUBLIC_SOCKET_URL` is missing from `.env.example` but required for production.
-- `.env.example` has hardcoded SMTP creds — treat as compromised, never copy to production.
-- `.env.local` is dev source of truth. Production reads `.env`/`.env.production` via `NODE_ENV`.
-- Supabase: `?pgbouncer=true` on `DATABASE_URL` (pooled, port 6543), separate `DIRECT_URL` (port 5432).
+- `.env.example` is gitignored and absent from the repo — README's `cp .env.example .env.local` will fail. Create `.env.local` by hand (`DATABASE_URL`, `JWT_SECRET`).
+- `.env.local` is dev source of truth. Production reads `.env`/`.env.production` via `NODE_ENV` (also gitignored — set vars in the deploy dashboard instead).
+- Supabase: `?pgbouncer=true` on `DATABASE_URL` (pooled, port 6543), separate `DIRECT_URL` (port 5432). `prisma.config.ts` resolves `DIRECT_URL` fallback `DATABASE_URL` for schema ops.
+- `NEXT_PUBLIC_SOCKET_URL` must point at the deployed Socket.IO server or the browser won't connect.
 
 ## Architecture
 
 - **Port 3002** (Next.js), port 3001 (Socket.io). Dev uses `concurrently`.
 - **`proxy.ts`** at root (not `middleware.ts`) — Next.js 16 auto-detects it. Handles auth guards + RBAC redirects.
-- **ESM** (`"type": "module"`). Config files use `.mjs`. No `.cjs`.
+- **ESM** (`"type": "module"`). Config files use `.mjs`. (`scripts/update-imports.cjs` is a leftover one-off migration tool — ignore.)
 - **`@/`** path alias maps to project root (`./*` in tsconfig).
 - **Landing page** `/` — authenticated users redirect to role dashboard, logged-out users see static marketing.
 
@@ -54,7 +56,7 @@ Client output: `generated/prisma` (gitignored). Import from `lib/prisma.ts`. `po
 ### Socket.io (standalone)
 `src/socket/server.ts` — own Prisma + pg pool. Imports from relative `../../generated/prisma` (`@/` unavailable). Background worker runs every 60s (overdue/due-date checks, 90-day audit cleanup). `GET /health` for deployment health checks.
 
-**Known inconsistency:** socket worker hardcodes `column: { name: { not: 'Done' } }` (cannot import `findDoneColumnName()`). App code must still use `findDoneColumnName()`.
+**Known inconsistency:** socket worker hardcodes `column: { name: { not: 'Done' } }`. `findDoneColumnName()` lives only in `actions/sprint-actions.ts` and is **not exported** — never hardcode "Done" elsewhere; add the helper where you need it.
 
 `utils/socket-emitter.ts` is a Socket.io **client** — server actions emit through it.
 
@@ -111,7 +113,7 @@ New notification type requires: `NotifType` union member, `notifTypeToPrefKey` e
 | `/manager/sprints/calendar` | Month calendar with sprint bars |
 | `/manager/backlog` | Unscheduled tasks (implicit: `sprintId=null`, `parentId=null`, not in done column) |
 
-Member routes replicate at `/member/*` with `readOnly` flag.
+Member pages reuse the same sprint components at `/member/*` with `basePath="/member"` — but only detail, board, and calendar exist (no plan/review/retro).
 
 **Lifecycle:** PLANNED → ACTIVE → COMPLETED (or CANCELLED). CANCELLED → PLANNED allowed. Cannot delete ACTIVE sprints.
 - No overlapping sprints per board. Only one ACTIVE per board (atomic `$transaction`).
@@ -166,9 +168,10 @@ Member routes replicate at `/member/*` with `readOnly` flag.
 
 ## Production Deployment
 
-**Vercel (Next.js):** `npx vercel --prod --yes` after `typecheck` + `build`. Required env vars listed above.  
-**Render (Socket.IO):** Web Service — Build: `npm install`, Start: `npx tsx src/socket/server.ts`. Do NOT set `PORT` (Render injects it).  
-After Render deploy, update `NEXT_PUBLIC_SOCKET_URL` in Vercel and redeploy.
+Deployment is split: **Vercel** hosts Next.js, **Railway** hosts the standalone Socket.IO server (`railway.toml`). See `VERCEL.md` and `RAILWAY.md` for full guides.
+- **Vercel:** `npx vercel --prod --yes` after `typecheck` + `build`. Required env vars listed above.
+- **Railway (socket):** build `npx prisma generate`, start `npx tsx src/socket/server.ts`. Server reads `SOCKET_PORT` → `PORT` → `3001`; do NOT set `PORT` (Railway injects it).
+- After a socket deploy, update `NEXT_PUBLIC_SOCKET_URL` on Vercel and redeploy.
 
 ## Test Accounts
 
