@@ -27,8 +27,9 @@ Real-time Kanban board with RBAC, WIP limits, offline, undo via audit log, task 
 
 ## Environment
 
-**Required** in `.env.local`: `DATABASE_URL`, `JWT_SECRET`.  
-**Vercel needs** env vars: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `NEXT_PUBLIC_SOCKET_URL`, `NEXT_PUBLIC_APP_URL`, `ALLOWED_ORIGIN`, `PORT=3002`.
+**Required** in `.env.local`: `DATABASE_URL`, `JWT_SECRET`, `SOCKET_INTERNAL_TOKEN`.  
+**Vercel needs** env vars: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `SOCKET_INTERNAL_TOKEN`, `NEXT_PUBLIC_SOCKET_URL`, `NEXT_PUBLIC_APP_URL`, `ALLOWED_ORIGIN`, `PORT=3002`.  
+**Render (socket server) needs** the same `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `SOCKET_INTERNAL_TOKEN`, `ALLOWED_ORIGIN`, `NODE_ENV=production`. Render injects `PORT` automatically — do NOT set it manually.
 
 - `.env.example` is gitignored and absent from the repo — README's `cp .env.example .env.local` will fail. Create `.env.local` by hand (`DATABASE_URL`, `JWT_SECRET`).
 - `.env.local` is dev source of truth. Production reads `.env`/`.env.production` via `NODE_ENV` (also gitignored — set vars in the deploy dashboard instead).
@@ -44,7 +45,11 @@ Real-time Kanban board with RBAC, WIP limits, offline, undo via audit log, task 
 - **Landing page** `/` — authenticated users redirect to role dashboard, logged-out users see static marketing.
 
 ### Auth
-Custom JWT via `jose` (HS256, 7-day expiry), HTTP-only cookies + localStorage (for Socket.IO handshake). Login: `POST /api/auth/login` (API route, not server action). JWT includes `passwordVersion`; `getSession()` re-validates `isActive` + `passwordVersion` each call. API routes use `lib/auth-server.ts` for cookies — NOT `next/headers` cookies directly (Turbopack 404).
+Custom JWT via `jose` (HS256, 7-day expiry), **httpOnly cookie only** (no localStorage). Login: `POST /api/auth/login` (API route, not server action). JWT includes `passwordVersion`; `getSession()` re-validates `isActive` + `passwordVersion` each call. API routes use `lib/auth-server.ts` for cookies — NOT `next/headers` cookies directly (Turbopack 404).
+
+**Socket.IO auth:** The browser fetches a short-lived token from `GET /api/auth/socket-token` (same-origin, reads the httpOnly cookie, returns JWT in-memory via `utils/socket-auth.ts`). The socket client uses an `auth` callback that re-fetches on every connect/reconnect — **never localStorage** (which caused stale-JWT mismatches on role switch). Server actions use `SOCKET_INTERNAL_TOKEN` to authenticate as a trusted internal emitter (can notify any user; browser sockets can only notify themselves). `SOCKET_INTERNAL_TOKEN` must be set on **both Vercel and Render** with the same value.
+
+**Login redirect:** Login/signup/proxy redirect **directly** to the role page (`/admin`, `/manager`, `/member`), bypassing `/dashboard` — the `/dashboard` server-component `redirect()` triggered a Next.js 16 Turbopack "negative time stamp" `performance.measure` error.
 
 ### Prisma v7
 Client output: `generated/prisma` (gitignored). Import from `lib/prisma.ts`. `postinstall` runs `prisma generate`.
@@ -58,10 +63,25 @@ Client output: `generated/prisma` (gitignored). Import from `lib/prisma.ts`. `po
 
 **Known inconsistency:** socket worker hardcodes `column: { name: { not: 'Done' } }`. `findDoneColumnName()` lives only in `actions/sprint-actions.ts` and is **not exported** — never hardcode "Done" elsewhere; add the helper where you need it.
 
-`utils/socket-emitter.ts` is a Socket.io **client** — server actions emit through it.
+`utils/socket-emitter.ts` is a Socket.io **client** — server actions emit through it (async `getSocket()` — server uses `SOCKET_INTERNAL_TOKEN`, browser uses `fetchSocketToken()`).
+
+### Service Worker (`public/sw.js`)
+- **Network-first** for page navigations (cache-first caused stale data after create operations — the SW served the old cached page instead of fresh server data).
+- **Bypasses** `/api/`, `/_next/data/`, and auth routes entirely (never cached).
+- Cache version is `smart-task-vN`; bump on breaking SW changes to force activation (`skipWaiting` + `clients.claim` auto-activate).
+- Users may need one hard reload (Ctrl+Shift+R) after a SW update.
+
+### Dark Mode
+**Removed** — no toggle, no `next-themes`, no ThemeProvider, no `.dark` CSS block. The class-based `@custom-variant dark` is kept in `globals.css` so shadcn `dark:` utilities stay **inert** (only activate with `.dark` on `<html>`, which never happens). Without it, Tailwind v4 falls back to `prefers-color-scheme` and dark styles would reappear.
+
+### Typography
+- **Inter** is the primary font (loaded via `next/font/google` as `--font-sans`).
+- Weights: **400** body, **500** subtitles, **600** headlines (**never 700** — `font-bold` replaced with `font-semibold` app-wide).
+- Headline tracking: H1 `-0.02em`, H2/H3 `-0.01em` (set in `globals.css` `@layer base`).
+- `-webkit-font-smoothing: antialiased` + `-moz-osx-font-smoothing: grayscale` on `body`.
 
 ### Tailwind CSS 4
-`app/globals.css`: `@import "tailwindcss"`, `@plugin "../node_modules/tailwindcss-animate"`, `@custom-variant dark`, dual `@theme` + `@theme inline`. PostCSS via `@tailwindcss/postcss`.
+`app/globals.css`: `@import "tailwindcss"`, `@plugin "../node_modules/tailwindcss-animate"`, `@custom-variant dark` (inert — see Dark Mode above), dual `@theme` + `@theme inline`. PostCSS via `@tailwindcss/postcss`.
 
 Named tokens: `bg-canvas`, `text-ink`, `text-body-text`, `text-muted-text`, `bg-accent`, `bg-accent-soft`, `bg-accent-strong`, `border-hairline`, `text-success`. Prefer these over hardcoded hex.
 
@@ -153,8 +173,12 @@ Member pages reuse the same sprint components at `/member/*` with `basePath="/me
 | Server actions barrel | `actions/index.ts` |
 | Socket server | `src/socket/server.ts` (no `@/` imports) |
 | Socket emitter (client) | `utils/socket-emitter.ts` |
+| Socket token fetcher | `utils/socket-auth.ts` (in-memory, no localStorage) |
+| Socket token API route | `app/api/auth/socket-token/route.ts` |
 | Notification helper | `utils/notification-utils.ts` (not server action) |
 | Auth server | `lib/auth-server.ts` |
+| Column helpers (server) | `lib/column-helpers.ts` (findDoneColumnName etc.) |
+| Column utils (pure/client) | `utils/column-utils.ts` (isDoneColumn etc.) |
 | Prisma client | `lib/prisma.ts` |
 | DnD hook | `hooks/use-kanban-board.ts` |
 | Board dynamic wrapper | `components/kanban/kanban-board-dynamic.tsx` |
@@ -164,21 +188,24 @@ Member pages reuse the same sprint components at `/member/*` with `basePath="/me
 | Design tokens | `app/globals.css` |
 | Offline sync | `lib/offline-db.ts`, `lib/offline-sync.ts`, `lib/store/use-offline-store.ts` |
 | Date picker | `components/ui/date-picker.tsx` |
+| Service worker | `public/sw.js` (network-first nav, bypasses API) |
 | Types | `types/kanban.ts` |
 
 ## Production Deployment
 
-Deployment is split: **Vercel** hosts Next.js, **Railway** hosts the standalone Socket.IO server (`railway.toml`). See `VERCEL.md` and `RAILWAY.md` for full guides.
-- **Vercel:** `npx vercel --prod --yes` after `typecheck` + `build`. Required env vars listed above.
-- **Railway (socket):** build `npx prisma generate`, start `npx tsx src/socket/server.ts`. Server reads `SOCKET_PORT` → `PORT` → `3001`; do NOT set `PORT` (Railway injects it).
+Deployment is split: **Vercel** hosts Next.js, **Render** hosts the standalone Socket.IO server. See `VERCEL.md` for the Next.js guide.
+- **Vercel:** `npx vercel --prod --yes` after `typecheck` + `build`. Required env vars listed above (including `SOCKET_INTERNAL_TOKEN`).
+- **Render (socket):** build `npx prisma generate`, start `npx tsx src/socket/server.ts`. Render injects `PORT` automatically — do NOT set it manually.
+- **`SOCKET_INTERNAL_TOKEN` must be identical** on both Vercel and Render (server actions authenticate with it).
 - After a socket deploy, update `NEXT_PUBLIC_SOCKET_URL` on Vercel and redeploy.
 
 ## Test Accounts
 
 | Email | Password | Role |
 |-------|----------|------|
+| admin@gmail.com | admin123 | ADMIN |
+| manager@gmail.com | manager123 | MANAGER |
+| asefahmed500@gmail.com | asef123456 | MEMBER |
 | admin@smarttask.com | AdminPassword123! | ADMIN |
 | manager@smarttask.com | AdminPassword123! | MANAGER |
 | member@smarttask.com | AdminPassword123! | MEMBER |
-| admin@gmail.com | admin123 | ADMIN |
-| manager@gmail.com | manager123 | MANAGER |
