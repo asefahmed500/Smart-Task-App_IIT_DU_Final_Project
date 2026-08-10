@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/select"
 import { createAutomationRule, getAllBoards } from '@/actions/admin-actions'
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
 import { getAvailableTriggers, getAvailableConditions, getAvailableActions } from '@/utils/automation-utils'
 
 interface BoardOption {
@@ -35,7 +34,6 @@ export function AddRuleDialog() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [boards, setBoards] = useState<BoardOption[]>([])
-  const router = useRouter()
 
   const triggers = getAvailableTriggers()
   const conditions = getAvailableConditions()
@@ -67,10 +65,16 @@ export function AddRuleDialog() {
     }
 
     try {
-      await createAutomationRule(data)
+      const res = await createAutomationRule(data)
+      if (!res.success) {
+        toast.error(res.error || "Failed to create rule")
+        return
+      }
       toast.success("Automation rule created successfully")
       setOpen(false)
-      router.refresh()
+      // router.refresh() is unreliable for server-component list updates in
+      // Next.js 16 Turbopack dev; a location reload guarantees fresh data.
+      window.location.reload()
     } catch {
       toast.error("Failed to create rule")
     } finally {
