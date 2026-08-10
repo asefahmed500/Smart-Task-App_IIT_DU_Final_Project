@@ -7,13 +7,44 @@
 
 ---
 
+## Deep QA Pass 2 — Sub-feature Coverage (this round)
+
+| Feature | Operation | Verified |
+|---------|-----------|----------|
+| Attachments | Upload via `/api/attachments/upload` (server-side) | ✅ 200, stored as FileBlob |
+| Attachments | Serve via `/api/attachments/[id]/file` | ✅ correct bytes + content-type |
+| Attachments | UI attach flow (task details dialog) | ✅ file appears + success toast |
+| Attachments | Cascade delete (attachment → blob) | ✅ no orphans |
+| Checklist | Create checklist + item | ✅ persisted |
+| Checklist | Toggle item complete | ✅ DB update verified |
+| Time tracking | Log time entry | ✅ persisted + toast |
+| Issue links | Create BLOCKS link (search → select) | ✅ persisted in DB |
+| RBAC | Member direct URL to /admin/users | ✅ redirected to /member |
+| RBAC | Member has no create-board/column UI | ✅ hidden |
+| Mobile responsive | 390×844 viewport — no horizontal overflow | ✅ |
+| Mobile nav | Toggle Sidebar hamburger present | ✅ |
+
+## Bundle Size Optimization
+
+- **`recharts` (~1MB) was in the initial bundle of admin dashboard, admin reports, kanban board, and sprint board** (imported via chart components).
+- **Fixed:** `SystemActivityChart`, `BurndownChart`, and `BoardAnalyticsDialog` are now lazy-loaded via `next/dynamic` + `ssr: false` (`*-lazy.tsx` wrappers). recharts is now a separate on-demand chunk fetched only when a chart renders.
+
+## New Feature: Real Server-Side File Upload
+
+- Previously a **client-side simulation**: the browser read the whole file via `FileReader` and stored base64 data-URLs directly in the `Attachment.url` column (see `UPLOAD.md`).
+- **Now:** `POST /api/attachments/upload` authenticates (httpOnly cookie), validates size/type server-side, checks board permission, and stores bytes in a new `FileBlob` table. `GET /api/attachments/[id]/file` serves them. Client uploads the raw file via FormData (no client-side base64).
+- Schema: new `FileBlob` model, `Attachment.blob` relation (cascade delete). Run `prisma db push && prisma generate` + restart dev server after schema changes.
+
+---
+
 ## Roles Tested
 
 | Role | Account | Result |
 |------|---------|--------|
 | ADMIN | admin@gmail.com / admin123 | ✅ All admin + board + task features |
 | MANAGER | manager@gmail.com / manager123 | ✅ All manager + board + review features |
-| MEMBER | asefahmed500@gmail.com / asef123456 | ✅ Member board + task features (verified via shared board) |
+| MEMBER | member@smarttask.com / AdminPassword123! | ✅ Member board + RBAC + responsive |
+| MEMBER | asefahmed500@gmail.com / asef123456 | ⚠️ **password mismatch (401)** — account exists, `isActive`, but password differs from AGENTS.md (passwordVersion 3). Not a code bug; credential docs stale. |
 
 ---
 
@@ -96,9 +127,13 @@
 
 1. `router.refresh()` is unreliable for server-component list updates in **Next.js 16 Turbopack dev mode**. Fixed for user + rule creation via `window.location.reload()`. Other create/edit dialogs rely on client state + socket (work reliably); production build unaffected.
 2. The "negative time stamp" `performance.measure` error is a **Next.js dev-mode instrumentation artifact** — non-fatal, eliminated for login by skipping `/dashboard`.
+3. **Kanban drag-and-drop** could not be automated reliably (dnd-kit pointer sensors aren't triggered by headless CDP drag). The underlying `updateTaskStatus` business logic was verified via the review auto-move (APPROVED → Done) and is covered by the code audit.
+4. **`asefahmed500@gmail.com` password mismatch** — AGENTS.md lists `asef123456`, but the account returns 401 (passwordVersion 3). The login flow is correct; the credential in AGENTS.md is stale. Use `member@smarttask.com` / `AdminPassword123!` for MEMBER testing, or reset the password.
+5. **Undo** was verified only via toast presence + code audit (30s window, ~30 action types); the full interactive undo of every action type wasn't exhaustively re-tested this round.
+6. **Offline queue sync** — offline-mode task queueing is code-implemented but wasn't exercised with a real network drop this round (SW is now network-first for navigations, so stale-cache issues are eliminated).
 
 ---
 
 ## Cleanup
 
-All test data (QA Test Board, tasks, comments, review, sprint, automation rule, member additions, test users) was **deleted** after testing. DB returned to baseline: 12 users, 15 boards, 53 tasks, 2 sprints, 1 automation rule.
+All test data (Attachment Test Board, tasks, checklist, time entries, attachments/blobs, issue links, automation rule, member additions, test users) was **deleted** after testing. DB returned to baseline: 12 users, 15 boards, 53 tasks, 2 sprints, 1 automation rule. The remaining 3 attachments + 1 issue link are pre-existing production data (verified by older cuid IDs).
