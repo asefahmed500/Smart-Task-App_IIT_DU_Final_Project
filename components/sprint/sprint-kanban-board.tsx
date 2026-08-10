@@ -30,7 +30,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { createPortal } from 'react-dom'
-import { BurndownChart } from './burndown-chart'
+import { BurndownChart } from './burndown-chart-lazy'
 import { TaskDetailsDialog } from '@/components/kanban/task-details-dialog'
 import { AddTaskDialog } from '@/components/kanban/add-task-dialog'
 import {

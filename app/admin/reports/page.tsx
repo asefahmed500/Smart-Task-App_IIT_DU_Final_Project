@@ -5,7 +5,7 @@ import { getSystemReports } from '@/actions/admin-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, TrendingUp, Clock, AlertTriangle, Layers, Layout, Users, Zap, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { SystemActivityChart } from "@/components/admin/activity-chart"
+import { SystemActivityChart } from "@/components/admin/activity-chart-lazy"
 import { ReportExportButtons } from "@/components/report-export-buttons"
 
 const iconMap = {

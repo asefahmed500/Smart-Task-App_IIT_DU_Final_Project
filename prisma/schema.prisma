@@ -203,8 +203,22 @@ model Attachment {
   taskId    String
   createdAt DateTime @default(now())
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  blob      FileBlob?
 
   @@index([taskId])
+}
+
+// Actual file bytes for an attachment. Files are uploaded server-side to
+// POST /api/attachments/upload, validated (size/type/permission), stored here
+// as base64, and served via GET /api/attachments/[id]/file. Deleting the
+// attachment (or its task) cascades to the blob.
+model FileBlob {
+  id           String     @id @default(cuid())
+  data         String     // base64-encoded file content
+  size         Int
+  createdAt    DateTime   @default(now())
+  attachment   Attachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  attachmentId String     @unique
 }
 
 model Checklist {
