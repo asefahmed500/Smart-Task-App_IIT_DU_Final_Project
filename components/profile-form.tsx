@@ -122,7 +122,7 @@ export function ProfileForm({ user }: { user: UserProfile | null }) {
               </div>
             </div>
             <CardTitle className="mt-4 font-oswald uppercase text-xl truncate">{user?.name}</CardTitle>
-            <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-primary">{user?.role}</CardDescription>
+            <CardDescription className="uppercase tracking-widest text-[10px] font-semibold text-primary">{user?.role}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-4 border-t border-primary/5">
             <div className="flex items-center gap-3 text-sm">
@@ -190,7 +190,7 @@ export function ProfileForm({ user }: { user: UserProfile | null }) {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Full Name</FormLabel>
+                        <FormLabel className="uppercase text-[10px] font-semibold tracking-widest text-muted-foreground">Full Name</FormLabel>
                         <FormControl>
                           <Input placeholder="John Doe" {...field} className="bg-background/50 border-primary/10" />
                         </FormControl>
@@ -203,7 +203,7 @@ export function ProfileForm({ user }: { user: UserProfile | null }) {
                     name="image"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Avatar URL</FormLabel>
+                        <FormLabel className="uppercase text-[10px] font-semibold tracking-widest text-muted-foreground">Avatar URL</FormLabel>
                         <FormControl>
                           <Input placeholder="https://example.com/avatar.png" {...field} className="bg-background/50 border-primary/10" />
                         </FormControl>
@@ -238,7 +238,7 @@ export function ProfileForm({ user }: { user: UserProfile | null }) {
                   name="currentPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Current Password</FormLabel>
+                      <FormLabel className="uppercase text-[10px] font-semibold tracking-widest text-muted-foreground">Current Password</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Input 
@@ -269,7 +269,7 @@ export function ProfileForm({ user }: { user: UserProfile | null }) {
                     name="newPassword"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">New Password</FormLabel>
+                        <FormLabel className="uppercase text-[10px] font-semibold tracking-widest text-muted-foreground">New Password</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Input 
@@ -296,7 +296,7 @@ export function ProfileForm({ user }: { user: UserProfile | null }) {
                     name="confirmPassword"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Confirm New Password</FormLabel>
+                        <FormLabel className="uppercase text-[10px] font-semibold tracking-widest text-muted-foreground">Confirm New Password</FormLabel>
                         <FormControl>
                           <Input type="password" placeholder="••••••••" {...field} className="bg-background/50 border-primary/10" />
                         </FormControl>

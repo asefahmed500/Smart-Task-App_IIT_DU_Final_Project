@@ -69,7 +69,7 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
       <CardContent className="p-4 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <Badge variant="outline" className={cn("text-[10px] uppercase tracking-wider font-bold h-5 px-2", priorityColor)}>
+            <Badge variant="outline" className={cn("text-[10px] uppercase tracking-wider font-semibold h-5 px-2", priorityColor)}>
               {task.priority}
             </Badge>
             {task.epic && (

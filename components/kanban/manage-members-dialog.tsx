@@ -227,7 +227,7 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px] font-bold tracking-tighter h-5">
+                    <Badge variant="outline" className="text-[10px] font-semibold tracking-tighter h-5">
                       {member.role === 'ADMIN' ? <Shield className="size-3 mr-1" /> : <User className="size-3 mr-1" />}
                       {member.role}
                     </Badge>

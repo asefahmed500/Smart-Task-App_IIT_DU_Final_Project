@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-10">
           <Link href="/" className="flex items-center gap-2">
-            <div className="size-8 rounded-md bg-[#2C67F2] flex items-center justify-center text-white font-bold text-sm">
+            <div className="size-8 rounded-md bg-[#2C67F2] flex items-center justify-center text-white font-semibold text-sm">
               S
             </div>
             <span className="text-sm font-semibold text-[#1A1A1A] tracking-tight">SmartTask</span>

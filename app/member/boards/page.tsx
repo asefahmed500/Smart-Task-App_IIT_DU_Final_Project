@@ -46,7 +46,7 @@ export default function MemberBoardsPage() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold tracking-tight">Project Boards</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Project Boards</h1>
           <p className="text-muted-foreground">Workspaces where you are an active collaborator.</p>
         </div>
       </div>
@@ -89,7 +89,7 @@ export default function MemberBoardsPage() {
                     <AvatarFallback className="text-[10px] bg-muted">{board.owner.name?.[0] || board.owner.email[0].toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">Managed by</span>
+                    <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">Managed by</span>
                     <span className="text-xs font-medium truncate max-w-[100px]">{board.owner.name || board.owner.email}</span>
                   </div>
                 </div>

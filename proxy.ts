@@ -27,9 +27,12 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.nextUrl))
   }
 
-  // Redirect to dashboard if accessing login/signup with valid session
+  // Redirect to the role-specific dashboard if accessing login/signup with a
+  // valid session (bypass /dashboard to avoid a Next.js 16 Turbopack dev
+  // performance.measure error on its redirect-on-render).
   if (isPublicRoute && session && (path === '/login' || path === '/signup')) {
-    return NextResponse.redirect(new URL('/dashboard', req.nextUrl))
+    const dest = session.role === 'ADMIN' ? '/admin' : session.role === 'MANAGER' ? '/manager' : '/member'
+    return NextResponse.redirect(new URL(dest, req.nextUrl))
   }
 
   // RBAC Protections (Hierarchical)

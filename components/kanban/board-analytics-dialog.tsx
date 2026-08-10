@@ -57,7 +57,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
       <div className="w-full max-w-5xl max-h-[90vh] bg-card rounded-2xl border shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         <div className="p-6 border-b flex items-center justify-between bg-primary/5">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight uppercase font-oswald">{boardName} Analytics</h2>
+            <h2 className="text-2xl font-semibold tracking-tight uppercase font-oswald">{boardName} Analytics</h2>
             <p className="text-sm text-muted-foreground">Deep dive into workflow efficiency and delivery metrics.</p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
@@ -87,7 +87,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                     <CardTitle className="text-xs font-medium text-blue-600 uppercase tracking-wider">Avg. Cycle Time</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{(data.averageCycleTime ?? 0).toFixed(1)}d</div>
+                    <div className="text-2xl font-semibold">{(data.averageCycleTime ?? 0).toFixed(1)}d</div>
                     <p className="text-[10px] text-muted-foreground mt-1">Start to Finish</p>
                   </CardContent>
                 </Card>
@@ -96,7 +96,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                     <CardTitle className="text-xs font-medium text-purple-600 uppercase tracking-wider">Avg. Lead Time</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{(data.averageLeadTime ?? 0).toFixed(1)}d</div>
+                    <div className="text-2xl font-semibold">{(data.averageLeadTime ?? 0).toFixed(1)}d</div>
                     <p className="text-[10px] text-muted-foreground mt-1">Creation to Done</p>
                   </CardContent>
                 </Card>
@@ -105,7 +105,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                     <CardTitle className="text-xs font-medium text-green-600 uppercase tracking-wider">Throughput</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{data.completedTasks}</div>
+                    <div className="text-2xl font-semibold">{data.completedTasks}</div>
                     <p className="text-[10px] text-muted-foreground mt-1">Tasks completed (30d)</p>
                   </CardContent>
                 </Card>
@@ -114,7 +114,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                     <CardTitle className="text-xs font-medium text-amber-600 uppercase tracking-wider">Total Tasks</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{data.totalTasks}</div>
+                    <div className="text-2xl font-semibold">{data.totalTasks}</div>
                     <p className="text-[10px] text-muted-foreground mt-1">Active + Completed</p>
                   </CardContent>
                 </Card>
@@ -189,7 +189,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                       <div className="p-4 bg-muted/30 rounded-xl space-y-1 border border-primary/5">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">Cycle Time Efficiency</span>
-                          <span className="text-xs font-bold text-primary">{data.averageLeadTime ? Math.round(((data.averageCycleTime ?? 0) / data.averageLeadTime) * 100) : 0}%</span>
+                          <span className="text-xs font-semibold text-primary">{data.averageLeadTime ? Math.round(((data.averageCycleTime ?? 0) / data.averageLeadTime) * 100) : 0}%</span>
                         </div>
                         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                           <div 
@@ -205,7 +205,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                       <div className="p-4 bg-muted/30 rounded-xl space-y-1 border border-primary/5">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">Wait/Queue Time</span>
-                          <span className="text-xs font-bold text-amber-600">{(data.averageLeadTime - data.averageCycleTime).toFixed(1)} days</span>
+                          <span className="text-xs font-semibold text-amber-600">{(data.averageLeadTime - data.averageCycleTime).toFixed(1)} days</span>
                         </div>
                         <p className="text-[10px] text-muted-foreground pt-1">
                           Average time tasks spend in the backlog or queue before being started.
@@ -215,7 +215,7 @@ export function BoardAnalyticsDialog({ isOpen, onClose, boardId, boardName }: Bo
                     
                     <div className="flex flex-col items-center justify-center text-center p-6 bg-primary/5 rounded-2xl border border-primary/10">
                        <BarChart3 className="size-12 text-primary opacity-20 mb-4" />
-                       <h3 className="font-bold">Optimization Tip</h3>
+                       <h3 className="font-semibold">Optimization Tip</h3>
                        <p className="text-sm text-muted-foreground max-w-xs mt-1">
                          {data.averageLeadTime > 7 
                            ? "Your lead time is high. Consider reducing work-in-progress (WIP) limits to focus on finishing tasks faster."

@@ -58,10 +58,18 @@ export function AddUserDialog() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
     try {
-      await createUser(values)
+      const result = await createUser(values)
+      if (!result.success) {
+        toast.error(result.error || "Failed to create user")
+        return
+      }
       toast.success("User created successfully")
       setOpen(false)
       form.reset()
+      // router.refresh() is unreliable for server-component list updates in
+      // Next.js 16 Turbopack dev; a location reload guarantees fresh data
+      // (the SW now uses network-first for navigations).
+      window.location.reload()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create user")
     } finally {

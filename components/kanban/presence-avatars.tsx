@@ -30,12 +30,12 @@ export function PresenceAvatars({ users }: PresenceAvatarsProps) {
                 <TooltipTrigger asChild>
                   <Avatar className="border-2 border-background ring-2 ring-primary/5 size-8 hover:scale-110 transition-transform cursor-default">
                     <AvatarImage src={user.image || undefined} />
-                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold uppercase">
+                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold uppercase">
                       {user.name.split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-[10px] uppercase tracking-wider font-bold">
+                <TooltipContent side="bottom" className="text-[10px] uppercase tracking-wider font-semibold">
                   {user.name} (Viewing)
                 </TooltipContent>
               </Tooltip>
@@ -44,7 +44,7 @@ export function PresenceAvatars({ users }: PresenceAvatarsProps) {
         </AnimatePresence>
       </TooltipProvider>
       {users.length > 5 && (
-        <div className="size-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-bold text-muted-foreground ml-2">
+        <div className="size-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-semibold text-muted-foreground ml-2">
           +{users.length - 5}
         </div>
       )}

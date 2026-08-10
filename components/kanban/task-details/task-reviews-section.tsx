@@ -86,7 +86,7 @@ export function TaskReviewsSection({
       {isSubmittingReview && !activeReview && (
         <div className="p-4 rounded-xl border border-primary/10 bg-muted/20 space-y-4 animate-in zoom-in-95 duration-200">
           <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Select Reviewer</label>
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Select Reviewer</label>
             <Select value={selectedReviewer} onValueChange={setSelectedReviewer}>
               <SelectTrigger className="bg-background border-primary/10">
                 <SelectValue placeholder="Choose a member..." />
@@ -131,7 +131,7 @@ export function TaskReviewsSection({
                 <p className="text-[10px] text-muted-foreground">Reviewer: {activeReview.reviewer?.name}</p>
               </div>
             </div>
-            <Badge className={cn("text-[10px] font-bold", getStatusBadge('PENDING'))}>PENDING</Badge>
+            <Badge className={cn("text-[10px] font-semibold", getStatusBadge('PENDING'))}>PENDING</Badge>
           </div>
 
           {isReviewer && (
@@ -174,7 +174,7 @@ export function TaskReviewsSection({
 
       {hasHistory && (
         <div className="space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Review History</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Review History</p>
           {task.reviews?.filter(r => r.status !== 'PENDING').map((review) => (
             <div key={review.id} className="p-3 rounded-lg border border-primary/5 bg-muted/5 space-y-2">
               <div className="flex items-center justify-between">

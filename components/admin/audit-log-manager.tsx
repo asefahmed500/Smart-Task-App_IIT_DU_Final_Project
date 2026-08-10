@@ -186,7 +186,7 @@ export function AuditLogManager({ initialLogs }: AuditLogManagerProps) {
                         <User className="size-3 text-muted-foreground" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-sm font-bold leading-none">{log.user?.name || 'System'}</span>
+                        <span className="text-sm font-semibold leading-none">{log.user?.name || 'System'}</span>
                         <span className="text-[10px] text-muted-foreground">{log.user?.email || 'automated'}</span>
                       </div>
                     </div>

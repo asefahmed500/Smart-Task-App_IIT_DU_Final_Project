@@ -95,7 +95,7 @@ export function TaskHeader({ task, currentUser, onUpdate, onDelete, setTask, edi
           value={localTitle}
           onChange={(e) => setLocalTitle(e.target.value)}
           onBlur={handleTitleBlur}
-          className="text-2xl font-bold bg-transparent border-none p-0 focus-visible:ring-0 h-auto font-oswald uppercase tracking-tight"
+          className="text-2xl font-semibold bg-transparent border-none p-0 focus-visible:ring-0 h-auto font-oswald uppercase tracking-tight"
         />
       </DialogTitle>
     </DialogHeader>

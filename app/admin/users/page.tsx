@@ -10,7 +10,7 @@ export default async function AdminUsersPage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight font-oswald uppercase">User Management</h1>
+          <h1 className="text-3xl font-semibold tracking-tight font-oswald uppercase">User Management</h1>
           <p className="text-muted-foreground">Manage system users, assign roles, and handle account deletions.</p>
         </div>
         <AddUserDialog />

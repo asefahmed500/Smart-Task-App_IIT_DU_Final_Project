@@ -182,7 +182,7 @@ export function SprintPlanningBoard({
           Back
         </Button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold">{sprint.name} — Planning</h1>
+          <h1 className="text-xl font-semibold">{sprint.name} — Planning</h1>
           {sprint.goal && (
             <p className="text-sm text-muted-text flex items-center gap-1 mt-1">
               <Target className="h-3 w-3" />

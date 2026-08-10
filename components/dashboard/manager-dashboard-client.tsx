@@ -33,7 +33,7 @@ export function ManagerDashboardClient({ user, data }: ManagerDashboardClientPro
     <div className="space-y-6 pb-10">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold tracking-tight text-[#1A1A1A]">Manager Dashboard</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-[#1A1A1A]">Manager Dashboard</h1>
           <p className="text-[14px] text-[#5A5A5A]">Welcome back, {user.name}. Here&apos;s your team overview.</p>
         </div>
         <Button className="bg-[#3B82F6] text-white hover:bg-[#2558d6] h-9 text-sm" onClick={() => router.push('/manager/boards')}>
@@ -49,7 +49,7 @@ export function ManagerDashboardClient({ user, data }: ManagerDashboardClientPro
             <Layout className="size-4 text-[#3B82F6]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{data.boards.length}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{data.boards.length}</div>
             <p className="text-[12px] text-[#5A5A5A] mt-1.5">Active projects</p>
           </CardContent>
         </Card>
@@ -59,7 +59,7 @@ export function ManagerDashboardClient({ user, data }: ManagerDashboardClientPro
             <ListChecks className="size-4 text-[#3B82F6]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{data.totalTasks}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{data.totalTasks}</div>
             <p className="text-[12px] text-[#5A5A5A] mt-1.5">{data.completedThisWeek} completed this week</p>
           </CardContent>
         </Card>
@@ -69,7 +69,7 @@ export function ManagerDashboardClient({ user, data }: ManagerDashboardClientPro
             <Users className="size-4 text-[#3B82F6]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{data.teamMemberCount}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{data.teamMemberCount}</div>
             <p className="text-[12px] text-[#5A5A5A] mt-1.5">All members active</p>
           </CardContent>
         </Card>
@@ -79,7 +79,7 @@ export function ManagerDashboardClient({ user, data }: ManagerDashboardClientPro
             <AlertTriangle className="size-4 text-[#3B82F6]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{data.unassignedTasks}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{data.unassignedTasks}</div>
             <Badge variant="outline" className="mt-1.5 text-[11px] text-[#F59E0B] border-[#F59E0B]/30 bg-[#F59E0B]/5">Needs attention</Badge>
           </CardContent>
         </Card>

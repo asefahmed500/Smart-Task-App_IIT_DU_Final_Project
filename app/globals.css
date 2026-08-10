@@ -2,6 +2,10 @@
 
 @plugin "../node_modules/tailwindcss-animate";
 
+/* Dark mode is disabled at the feature level (no toggle/provider). Keep the
+   class-based variant so the shadcn `dark:` utilities stay inert — they only
+   activate when `.dark` is on <html>, which never happens now. Without this,
+   Tailwind v4 would fall back to prefers-color-scheme and re-enable dark mode. */
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -146,36 +150,6 @@
   --sidebar-ring: #2c67f2;
 }
 
-.dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #1a1a1a;
-  --card-foreground: #fafafa;
-  --popover: #1a1a1a;
-  --popover-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #0a0a0a;
-  --secondary: #1a1a1a;
-  --secondary-foreground: #fafafa;
-  --muted: #1a1a1a;
-  --muted-foreground: #b5b5b5;
-  --accent: #1a1a1a;
-  --accent-foreground: #2c67f2;
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  --border: #1a1a1a;
-  --input: #1a1a1a;
-  --ring: #2c67f2;
-  --sidebar: #0a0a0a;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #fafafa;
-  --sidebar-primary-foreground: #0a0a0a;
-  --sidebar-accent: #1a1a1a;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #1a1a1a;
-  --sidebar-ring: #2c67f2;
-}
-
 @layer base {
   * {
     @apply border-border;
@@ -191,10 +165,18 @@
     background-color: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    font-weight: 400;
     letter-spacing: -0.011em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  /* Typographic scale: headlines cap at 600 (never 700), tight negative tracking */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.011em;
+  }
+  h1 { letter-spacing: -0.02em; }
+  h2, h3 { letter-spacing: -0.01em; }
 }
 
 /* Attio display scale */

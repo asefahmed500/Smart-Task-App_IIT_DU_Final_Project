@@ -82,7 +82,7 @@ export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-xs uppercase font-bold tracking-widest text-muted-foreground">Board Name</Label>
+            <Label htmlFor="name" className="text-xs uppercase font-semibold tracking-widest text-muted-foreground">Board Name</Label>
             <Input
               id="name"
               value={name}
@@ -93,7 +93,7 @@ export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-xs uppercase font-bold tracking-widest text-muted-foreground">Description</Label>
+            <Label htmlFor="description" className="text-xs uppercase font-semibold tracking-widest text-muted-foreground">Description</Label>
             <Textarea
               id="description"
               value={description}

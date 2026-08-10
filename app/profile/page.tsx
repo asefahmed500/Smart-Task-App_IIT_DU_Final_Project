@@ -20,7 +20,7 @@ export default async function ProfilePage() {
   return (
     <div className="space-y-8 pb-10">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight text-[#1A1A1A]">
+        <h1 className="text-2xl font-semibold tracking-tight text-[#1A1A1A]">
           Profile
         </h1>
         <p className="text-[14px] text-[#5A5A5A]">Manage your personal information and account security.</p>

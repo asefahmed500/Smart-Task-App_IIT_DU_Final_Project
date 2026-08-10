@@ -23,7 +23,7 @@ export default async function AutomationPage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight font-oswald uppercase">Workflow <span className="text-primary">Automation</span></h1>
+          <h1 className="text-3xl font-semibold tracking-tight font-oswald uppercase">Workflow <span className="text-primary">Automation</span></h1>
           <p className="text-muted-foreground">Configure intelligent triggers and actions for the entire platform.</p>
         </div>
         <AddRuleDialog />
@@ -38,7 +38,7 @@ export default async function AutomationPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{rules.filter(r => r.enabled).length}</div>
+            <div className="text-2xl font-semibold">{rules.filter(r => r.enabled).length}</div>
             <p className="text-xs text-muted-foreground mt-1 text-green-500 font-medium">Running successfully</p>
           </CardContent>
         </Card>
@@ -51,7 +51,7 @@ export default async function AutomationPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.automationExecCount ?? 0}</div>
+            <div className="text-2xl font-semibold">{stats.automationExecCount ?? 0}</div>
             <p className="text-xs text-muted-foreground mt-1">Automated actions in the last 24h</p>
           </CardContent>
         </Card>
@@ -64,7 +64,7 @@ export default async function AutomationPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{rules.length}</div>
+            <div className="text-2xl font-semibold">{rules.length}</div>
             <p className="text-xs text-muted-foreground mt-1">Global & Board-level</p>
           </CardContent>
         </Card>

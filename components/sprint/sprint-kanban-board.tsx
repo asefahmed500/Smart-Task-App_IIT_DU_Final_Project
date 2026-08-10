@@ -534,7 +534,7 @@ export function SprintKanbanBoard({
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">{sprint.name}</h1>
+            <h1 className="text-xl font-semibold">{sprint.name}</h1>
             <Badge
               variant="secondary"
               className={
@@ -587,23 +587,23 @@ export function SprintKanbanBoard({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-3 border-hairline">
             <p className="text-xs text-muted-text">Total Tasks</p>
-            <p className="text-lg font-bold">{metrics.totalTasks}</p>
+            <p className="text-lg font-semibold">{metrics.totalTasks}</p>
           </Card>
           <Card className="p-3 border-hairline">
             <p className="text-xs text-muted-text">Completed</p>
-            <p className="text-lg font-bold text-green-600">
+            <p className="text-lg font-semibold text-green-600">
               {metrics.completedTasks}
             </p>
           </Card>
           <Card className="p-3 border-hairline">
             <p className="text-xs text-muted-text">Remaining</p>
-            <p className="text-lg font-bold">
+            <p className="text-lg font-semibold">
               {metrics.totalTasks - metrics.completedTasks}
             </p>
           </Card>
           <Card className="p-3 border-hairline">
             <p className="text-xs text-muted-text">Completion</p>
-            <p className="text-lg font-bold">{metrics.completionRate}%</p>
+            <p className="text-lg font-semibold">{metrics.completionRate}%</p>
           </Card>
         </div>
       )}
@@ -659,7 +659,7 @@ export function SprintKanbanBoard({
                         isOverWip ? 'bg-red-500' : 'bg-accent'
                       }`}
                     />
-                    <h3 className="text-xs font-bold uppercase tracking-wider">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider">
                       {col.name}
                     </h3>
                     <span

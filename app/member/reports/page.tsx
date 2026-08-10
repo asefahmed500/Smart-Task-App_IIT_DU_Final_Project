@@ -51,7 +51,7 @@ export default function MemberReportsPage() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight">Performance Report</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Performance Report</h1>
         <p className="text-muted-foreground">Insights into your personal productivity and task completion.</p>
       </div>
 
@@ -62,7 +62,7 @@ export default function MemberReportsPage() {
             <ListChecks className="size-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalTasks || 0}</div>
+            <div className="text-2xl font-semibold">{stats?.totalTasks || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">Total tasks in pipeline</p>
           </CardContent>
         </Card>
@@ -72,7 +72,7 @@ export default function MemberReportsPage() {
             <CheckCircle2 className="size-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats?.completedTasks || 0}</div>
+            <div className="text-2xl font-semibold text-green-600">{stats?.completedTasks || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">Successfully resolved</p>
           </CardContent>
         </Card>
@@ -82,7 +82,7 @@ export default function MemberReportsPage() {
             <Zap className="size-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats?.activeTasks || 0}</div>
+            <div className="text-2xl font-semibold text-blue-600">{stats?.activeTasks || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">Currently in progress</p>
           </CardContent>
         </Card>
@@ -92,7 +92,7 @@ export default function MemberReportsPage() {
             <Activity className="size-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{stats?.recentActivityCount || 0}</div>
+            <div className="text-2xl font-semibold text-purple-600">{stats?.recentActivityCount || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">Actions in last 7 days</p>
           </CardContent>
         </Card>
@@ -155,7 +155,7 @@ export default function MemberReportsPage() {
                       <metric.icon className={`size-4 ${metric.color}`} />
                       <span className="font-medium">{metric.label}</span>
                     </div>
-                    <span className="font-bold">{metric.value}%</span>
+                    <span className="font-semibold">{metric.value}%</span>
                   </div>
                   <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                     <div 

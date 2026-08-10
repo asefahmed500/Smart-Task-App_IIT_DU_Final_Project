@@ -132,7 +132,7 @@ export function SprintCalendar({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Sprint Calendar</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Sprint Calendar</h1>
           <p className="text-sm text-muted-text mt-1">{sprints.length} sprints</p>
         </div>
         <div className="flex items-center gap-2">
@@ -206,7 +206,7 @@ export function SprintCalendar({
                     } ${today ? 'bg-accent-soft/50' : ''}`}
                   >
                     <div className={`text-xs font-medium mb-1 px-1.5 py-0.5 rounded-full w-fit ${
-                      today ? 'bg-accent text-on-primary font-bold' : isCurrentMonth ? 'text-ink' : 'text-muted-text'
+                      today ? 'bg-accent text-on-primary font-semibold' : isCurrentMonth ? 'text-ink' : 'text-muted-text'
                     }`}>
                       {format(day, 'd')}
                     </div>

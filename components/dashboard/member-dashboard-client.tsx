@@ -40,7 +40,7 @@ export function MemberDashboardClient({ user, data }: MemberDashboardClientProps
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight text-[#1A1A1A]">Welcome back, {user.name}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-[#1A1A1A]">Welcome back, {user.name}</h1>
         <p className="text-[14px] text-[#5A5A5A]">Here&apos;s your productivity overview.</p>
       </div>
 
@@ -51,7 +51,7 @@ export function MemberDashboardClient({ user, data }: MemberDashboardClientProps
             <ListTodo className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{data.assignedTasks}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{data.assignedTasks}</div>
             <p className="text-[12px] text-[#5A5A5A] mt-1.5">{data.focusTasks.length} in focus</p>
           </CardContent>
         </Card>
@@ -61,7 +61,7 @@ export function MemberDashboardClient({ user, data }: MemberDashboardClientProps
             <CheckCircle2 className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{data.completedTasks}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{data.completedTasks}</div>
             <p className="text-[12px] text-[#5A5A5A] mt-1.5">{completionRate}% completion rate</p>
           </CardContent>
         </Card>
@@ -71,7 +71,7 @@ export function MemberDashboardClient({ user, data }: MemberDashboardClientProps
             <LayoutGrid className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{data.activeBoardCount}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{data.activeBoardCount}</div>
             <p className="text-[12px] text-[#5A5A5A] mt-1.5">Team boards</p>
           </CardContent>
         </Card>
@@ -81,7 +81,7 @@ export function MemberDashboardClient({ user, data }: MemberDashboardClientProps
             <Bell className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{data.unreadNotifications}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{data.unreadNotifications}</div>
             <Badge variant="outline" className="mt-1.5 text-[11px] text-[#2C67F2] border-[#2C67F2]/20 bg-[#2C67F2]/5">Unread</Badge>
           </CardContent>
         </Card>

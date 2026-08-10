@@ -119,7 +119,7 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, boardMemb
       >
         <div className="flex items-center gap-2">
            <div className="size-2 rounded-full bg-primary" />
-           <h2 className="font-oswald uppercase tracking-wider text-sm font-bold flex items-center gap-2">
+           <h2 className="font-oswald uppercase tracking-wider text-sm font-semibold flex items-center gap-2">
              {column.name}
              <span className={cn(
                "text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-sans tracking-normal",

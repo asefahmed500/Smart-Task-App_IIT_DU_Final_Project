@@ -154,7 +154,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
 
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Active Now</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Active Now</span>
                 <PresenceAvatars users={presence} />
                 <div
                   className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${

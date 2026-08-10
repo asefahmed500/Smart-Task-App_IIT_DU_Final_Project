@@ -200,9 +200,11 @@ export async function createUser(data: any): Promise<ActionResult> {
       }
     }
 
+    revalidatePath('/admin/users')
     revalidatePath('/admin')
     return { success: true, data: user }
   } catch (error) {
+    console.error('createUser error:', error)
     return { success: false, error: 'Failed to create user' }
   }
 }

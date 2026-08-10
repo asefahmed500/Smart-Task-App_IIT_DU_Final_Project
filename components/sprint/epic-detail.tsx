@@ -167,7 +167,7 @@ export function EpicDetail({
               className="w-5 h-5 rounded-full border-2 border-border"
               style={{ backgroundColor: epic.color }}
             />
-            <h1 className="text-2xl font-bold tracking-tight">{epic.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{epic.name}</h1>
           </div>
         </div>
         {!readOnly && (
@@ -202,7 +202,7 @@ export function EpicDetail({
                 {doneTasks}/{totalTasks} tasks completed
               </span>
             </div>
-            <span className="text-lg font-bold">{progress}%</span>
+            <span className="text-lg font-semibold">{progress}%</span>
           </div>
           <div className="w-full bg-muted rounded-full h-2.5">
             <div
@@ -220,19 +220,19 @@ export function EpicDetail({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{totalTasks}</div>
+            <div className="text-2xl font-semibold">{totalTasks}</div>
             <p className="text-xs text-muted-foreground">Total Tasks</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-emerald-500">{doneTasks}</div>
+            <div className="text-2xl font-semibold text-emerald-500">{doneTasks}</div>
             <p className="text-xs text-muted-foreground">Completed</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-blue-500">
+            <div className="text-2xl font-semibold text-blue-500">
               {totalTasks - doneTasks}
             </div>
             <p className="text-xs text-muted-foreground">Remaining</p>
@@ -240,7 +240,7 @@ export function EpicDetail({
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-muted-foreground">
+            <div className="text-2xl font-semibold text-muted-foreground">
               {epic.tasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0)}
             </div>
             <p className="text-xs text-muted-foreground">Story Points</p>

@@ -208,7 +208,7 @@ export function SprintDetail({
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{sprint.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{sprint.name}</h1>
             {sprint.goal && (
               <p className="text-muted-foreground text-sm mt-1 flex items-center gap-1">
                 <Target className="h-3 w-3" />
@@ -265,7 +265,7 @@ export function SprintDetail({
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{metrics?.totalTasks || 0}</p>
+            <p className="text-3xl font-semibold">{metrics?.totalTasks || 0}</p>
           </CardContent>
         </Card>
         <Card>
@@ -273,7 +273,7 @@ export function SprintDetail({
             <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{metrics?.completedTasks || 0}</p>
+            <p className="text-3xl font-semibold">{metrics?.completedTasks || 0}</p>
           </CardContent>
         </Card>
         <Card>
@@ -281,7 +281,7 @@ export function SprintDetail({
             <CardTitle className="text-sm font-medium text-muted-foreground">Remaining</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">
+            <p className="text-3xl font-semibold">
               {(metrics?.totalTasks || 0) - (metrics?.completedTasks || 0)}
             </p>
           </CardContent>
@@ -291,7 +291,7 @@ export function SprintDetail({
             <CardTitle className="text-sm font-medium text-muted-foreground">Completion</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{metrics?.completionRate || 0}%</p>
+            <p className="text-3xl font-semibold">{metrics?.completionRate || 0}%</p>
           </CardContent>
         </Card>
       </div>

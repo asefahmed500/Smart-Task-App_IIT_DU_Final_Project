@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { useTheme } from 'next-themes'
 import {
   LayoutDashboard,
   Users,
@@ -20,8 +19,6 @@ import {
   ChevronRight,
   Loader2,
   Zap,
-  Sun,
-  Moon,
 } from "lucide-react"
 
 import {
@@ -68,7 +65,6 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
   const { role } = user
   const router = useRouter()
   const pathname = usePathname()
-  const { resolvedTheme, setTheme } = useTheme()
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [creating, setCreating] = useState<string | null>(null)
 
@@ -124,11 +120,11 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
     <Sidebar variant="inset" {...props}>
       <SidebarHeader className="h-16 border-b border-sidebar-border px-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 flex flex-row items-center gap-2">
         <div className="size-8 bg-accent rounded-lg flex items-center justify-center shrink-0">
-          <span className="text-on-primary font-bold text-sm">ST</span>
+          <span className="text-on-primary font-semibold text-sm">ST</span>
         </div>
         <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-          <span className="font-bold text-sm leading-none text-sidebar-foreground">SmartTask</span>
-          <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mt-1">{role}</span>
+          <span className="font-semibold text-sm leading-none text-sidebar-foreground">SmartTask</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mt-1">{role}</span>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -196,20 +192,6 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
       <SidebarFooter className="border-t border-sidebar-border p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
-              tooltip="Toggle theme"
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-            >
-              {resolvedTheme === 'dark' ? (
-                <Sun className="size-4" />
-              ) : (
-                <Moon className="size-4" />
-              )}
-              <span>{resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
             <SidebarMenuButton className="h-12" asChild>
               <Link href="/profile" className="flex items-center">
                 <Avatar className="size-8 shrink-0">
@@ -233,8 +215,16 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
                 e.preventDefault()
                 const toastId = toast.loading('Logging out...')
                 try {
+                  // Tear down the socket so no stale connection survives the
+                  // session change (auth is now httpOnly-cookie-only, no token
+                  // mirror to clean up).
+                  try {
+                    const { getSocket } = await import('@/components/kanban/socket-hooks')
+                    getSocket()?.disconnect()
+                  } catch {
+                    /* socket may not be initialized */
+                  }
                   const res = await fetch('/api/auth/logout', { method: 'POST' })
-                  localStorage.removeItem('auth_token')
                   if (res.ok) {
                     toast.success('Logged out successfully', { id: toastId })
                     window.location.href = '/login'

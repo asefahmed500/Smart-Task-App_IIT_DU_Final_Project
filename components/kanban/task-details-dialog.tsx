@@ -353,10 +353,10 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
               <Tabs defaultValue="details" className="flex-1 flex flex-col">
                 <div className="px-6 border-b border-primary/5 bg-muted/10">
                   <TabsList className="h-12 bg-transparent gap-6">
-                    <TabsTrigger value="details" className="relative h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 text-xs font-bold uppercase tracking-wider">
+                    <TabsTrigger value="details" className="relative h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 text-xs font-semibold uppercase tracking-wider">
                       Details
                     </TabsTrigger>
-                    <TabsTrigger value="activity" className="relative h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 text-xs font-bold uppercase tracking-wider">
+                    <TabsTrigger value="activity" className="relative h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 text-xs font-semibold uppercase tracking-wider">
                       Activity & Comments
                       {((task.comments?.length || 0) > 0) && (
                         <Badge variant="secondary" className="ml-2 h-4 px-1 min-w-[16px] text-[10px]">
@@ -364,7 +364,7 @@ export function TaskDetailsDialog({ taskId, isOpen, onClose, boardMembers, curre
                         </Badge>
                       )}
                     </TabsTrigger>
-                    <TabsTrigger value="time" className="relative h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 text-xs font-bold uppercase tracking-wider">
+                    <TabsTrigger value="time" className="relative h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 text-xs font-semibold uppercase tracking-wider">
                       Time Tracking
                     </TabsTrigger>
                   </TabsList>

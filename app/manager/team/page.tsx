@@ -60,7 +60,7 @@ export default function ManagerTeamPage() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight">Team Members</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Team Members</h1>
         <p className="text-muted-foreground">Collaborators across all your project boards.</p>
       </div>
 
@@ -128,7 +128,7 @@ export default function ManagerTeamPage() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col gap-1 min-w-0">
-                  <h3 className="font-bold text-lg leading-none truncate group-hover:text-primary transition-colors">
+                  <h3 className="font-semibold text-lg leading-none truncate group-hover:text-primary transition-colors">
                     {member.name || 'Unnamed User'}
                   </h3>
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">

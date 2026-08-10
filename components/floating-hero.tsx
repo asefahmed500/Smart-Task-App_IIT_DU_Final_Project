@@ -128,7 +128,7 @@ function AnalyticsCard() {
           <div key={s.label}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-[9px] text-body-text">{s.label}</span>
-              <span className="text-[9px] font-bold text-ink">{s.value}</span>
+              <span className="text-[9px] font-semibold text-ink">{s.value}</span>
             </div>
             <div className="h-1.5 rounded-full bg-canvas-soft overflow-hidden">
               <motion.div
@@ -194,7 +194,7 @@ function StatBadge() {
     <div className="rounded-lg border border-hairline bg-canvas shadow-xl shadow-black/[0.1] px-3 py-2 flex items-center gap-2">
       <Clock className="size-4 text-success" />
       <div className="flex flex-col">
-        <span className="text-[14px] font-bold text-ink leading-none">50ms</span>
+        <span className="text-[14px] font-semibold text-ink leading-none">50ms</span>
         <span className="text-[8px] text-body-text mt-0.5">avg latency</span>
       </div>
     </div>

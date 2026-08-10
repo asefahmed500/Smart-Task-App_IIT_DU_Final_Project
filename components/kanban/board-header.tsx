@@ -39,7 +39,7 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="gap-2 h-8 text-[10px] uppercase font-bold tracking-wider rounded-full border-primary/20 hover:bg-primary/10 transition-all shadow-sm"
+                className="gap-2 h-8 text-[10px] uppercase font-semibold tracking-wider rounded-full border-primary/20 hover:bg-primary/10 transition-all shadow-sm"
                 onClick={() => {
                   const role = currentUser.role.toLowerCase()
                   router.push(`/${role}/boards`)
@@ -52,7 +52,7 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
               <div className="p-2 bg-primary/10 rounded-lg hidden sm:block">
                 <Layout className="size-5 text-primary" />
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-oswald uppercase text-foreground/90">{board.name}</h1>
+              <h1 className="text-2xl md:text-3xl font-semibold tracking-tight font-oswald uppercase text-foreground/90">{board.name}</h1>
             </div>
             <p className="text-muted-foreground max-w-2xl text-xs md:text-sm line-clamp-1 opacity-80 pl-[92px] sm:pl-[124px]">
               {board.description || 'Manage your team tasks and workflow efficiency.'}
@@ -130,7 +130,7 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex-shrink-0 mr-1">Members</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex-shrink-0 mr-1">Members</span>
           {board.members.slice(0, 8).map((member: User) => (
             <div
               key={member.id}
@@ -141,19 +141,19 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
                 {member.image ? (
                   <Image src={member.image} alt={member.name || ''} width={28} height={28} className="size-full object-cover" />
                 ) : (
-                  <span className="text-[9px] font-bold text-muted-foreground">{member.name?.[0]?.toUpperCase() || member.email[0]?.toUpperCase()}</span>
+                  <span className="text-[9px] font-semibold text-muted-foreground">{member.name?.[0]?.toUpperCase() || member.email[0]?.toUpperCase()}</span>
                 )}
               </div>
               <span className="text-[11px] font-medium text-foreground/80 max-w-[80px] truncate">
                 {member.name || member.email.split('@')[0]}
               </span>
               {member.id === board.ownerId && (
-                <span className="text-[8px] font-bold uppercase bg-primary/15 text-primary px-1 py-px rounded-full">Owner</span>
+                <span className="text-[8px] font-semibold uppercase bg-primary/15 text-primary px-1 py-px rounded-full">Owner</span>
               )}
             </div>
           ))}
           {board.members.length > 8 && (
-            <div className="flex items-center justify-center size-7 rounded-full ring-1 ring-background bg-primary/10 text-primary text-[9px] font-bold flex-shrink-0" title={`${board.members.length - 8} more members`}>
+            <div className="flex items-center justify-center size-7 rounded-full ring-1 ring-background bg-primary/10 text-primary text-[9px] font-semibold flex-shrink-0" title={`${board.members.length - 8} more members`}>
               +{board.members.length - 8}
             </div>
           )}

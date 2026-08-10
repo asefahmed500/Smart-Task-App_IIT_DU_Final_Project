@@ -2,12 +2,25 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { fetchSocketToken } from '@/utils/socket-auth'
 
 let socket: Socket | null = null
 
-function getAuthToken(): string | undefined {
-  if (typeof window === 'undefined') return undefined
-  return localStorage.getItem('auth_token') || undefined
+function buildSocket(): Socket {
+  return io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
+    transports: ['websocket', 'polling'],
+    // auth as a callback: evaluated on EVERY connect/reconnect, so the token
+    // is always the current session's (fetched from the httpOnly cookie via
+    // the same-origin API route — never localStorage).
+    auth: (cb) => {
+      fetchSocketToken().then((token) => cb({ token }))
+    },
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 30000,
+    randomizationFactor: 0.5,
+  })
 }
 
 interface PresenceUser {
@@ -29,15 +42,7 @@ export function useSocket(boardId?: string, user?: PresenceUser) {
 
   useEffect(() => {
     if (!socket) {
-      socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
-        transports: ['websocket', 'polling'],
-        auth: { token: getAuthToken() },
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 30000,
-        randomizationFactor: 0.5,
-      })
+      socket = buildSocket()
     }
 
     if (socket.connected) {
@@ -176,16 +181,7 @@ export function useNotificationListener(userId: string | undefined, onNotificati
 
 export function getSocket() {
   if (!socket) {
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
-      transports: ['websocket', 'polling'],
-      autoConnect: false,
-      auth: { token: getAuthToken() },
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 30000,
-      randomizationFactor: 0.5,
-    })
+    socket = buildSocket()
   }
   return socket
 }

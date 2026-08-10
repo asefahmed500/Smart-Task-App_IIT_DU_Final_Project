@@ -134,7 +134,7 @@ export default function AdminBoardsPage() {
       <div className="space-y-8 animate-in fade-in duration-500">
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-bold tracking-tight font-oswald uppercase">All Project Boards</h1>
+            <h1 className="text-3xl font-semibold tracking-tight font-oswald uppercase">All Project Boards</h1>
             <p className="text-muted-foreground">Comprehensive overview of every task board across the organization.</p>
           </div>
           <Button 
@@ -201,12 +201,12 @@ export default function AdminBoardsPage() {
                 
                 <div className="pt-4 border-t flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-accent flex items-center justify-center text-[10px] font-bold">
+                    <div className="size-6 rounded-full bg-accent flex items-center justify-center text-[10px] font-semibold">
                       {board.owner.name?.[0] || board.owner.email[0].toUpperCase()}
                     </div>
                     <span className="text-xs font-medium truncate max-w-[120px]">{board.owner.name || board.owner.email}</span>
                   </div>
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
                     <Calendar className="size-3" />
                     {new Date(board.createdAt).toLocaleDateString()}
                   </div>

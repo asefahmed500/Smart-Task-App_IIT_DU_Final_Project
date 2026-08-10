@@ -63,8 +63,8 @@ export function TaskTimeTab({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 flex items-center justify-between shadow-sm group hover:shadow-md transition-all">
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Total Time Spent</p>
-            <p className="text-3xl font-bold tracking-tighter">
+            <p className="text-[10px] font-semibold text-primary uppercase tracking-widest">Total Time Spent</p>
+            <p className="text-3xl font-semibold tracking-tighter">
               {hours}h {minutes}m
             </p>
           </div>
@@ -75,8 +75,8 @@ export function TaskTimeTab({
 
         <div className="p-6 rounded-2xl bg-muted/20 border border-primary/5 flex items-center justify-between shadow-sm group hover:shadow-md transition-all">
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Entries Count</p>
-            <p className="text-3xl font-bold tracking-tighter">{timeEntries.length}</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Entries Count</p>
+            <p className="text-3xl font-semibold tracking-tighter">{timeEntries.length}</p>
           </div>
           <div className="size-12 rounded-full bg-muted/10 flex items-center justify-center text-muted-foreground group-hover:scale-110 transition-transform">
             <History className="size-6" />
@@ -104,7 +104,7 @@ export function TaskTimeTab({
           <div className="p-6 rounded-2xl border border-primary/10 bg-muted/20 space-y-4 animate-in zoom-in-95 duration-200">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-xs font-bold">Duration (minutes)</Label>
+                <Label className="text-xs font-semibold">Duration (minutes)</Label>
                 <Input
                   type="number"
                   placeholder="e.g. 60"
@@ -115,7 +115,7 @@ export function TaskTimeTab({
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-bold">Description (optional)</Label>
+              <Label className="text-xs font-semibold">Description (optional)</Label>
               <Textarea
                 placeholder="What did you work on?"
                 value={timeDescription}
@@ -145,7 +145,7 @@ export function TaskTimeTab({
                   <div className="flex-1 space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <Label className="text-xs font-bold">Duration (minutes)</Label>
+                        <Label className="text-xs font-semibold">Duration (minutes)</Label>
                         <Input
                           type="number"
                           value={editDuration}
@@ -155,7 +155,7 @@ export function TaskTimeTab({
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold">Description</Label>
+                      <Label className="text-xs font-semibold">Description</Label>
                       <Textarea
                         value={editDescription}
                         onChange={(e) => setEditDescription(e.target.value)}

@@ -86,7 +86,7 @@ export function AuditLogControls({ onSearch, onActionFilter, onDateFilter, selec
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight font-oswald uppercase">System <span className="text-primary">Audit Trail</span></h1>
+          <h1 className="text-3xl font-semibold tracking-tight font-oswald uppercase">System <span className="text-primary">Audit Trail</span></h1>
           <p className="text-muted-foreground">Immutable record of every administrative and system action.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -128,7 +128,7 @@ export function AuditLogControls({ onSearch, onActionFilter, onDateFilter, selec
       {showFilters && (
         <div className="grid gap-4 md:grid-cols-3 p-4 rounded-lg border border-primary/10 bg-muted/20 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Action Type</label>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action Type</label>
             <Select value={selectedAction || 'all'} onValueChange={(val) => onActionFilter(val === 'all' ? null : val)}>
               <SelectTrigger className="bg-background/50 border-primary/10">
                 <SelectValue placeholder="All actions" />
@@ -142,7 +142,7 @@ export function AuditLogControls({ onSearch, onActionFilter, onDateFilter, selec
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">From Date</label>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">From Date</label>
             <Input 
               type="date" 
               value={localFrom} 
@@ -151,7 +151,7 @@ export function AuditLogControls({ onSearch, onActionFilter, onDateFilter, selec
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">To Date</label>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">To Date</label>
             <div className="flex gap-2">
               <Input 
                 type="date" 

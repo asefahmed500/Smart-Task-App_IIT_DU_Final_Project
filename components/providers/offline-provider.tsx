@@ -158,7 +158,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   return (
     <>
       {!isOnline && (
-        <div className="fixed top-0 left-0 right-0 z-[100] bg-destructive/90 text-destructive-foreground py-1.5 px-4 text-center text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-3 animate-in slide-in-from-top duration-300 backdrop-blur-sm">
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-destructive/90 text-destructive-foreground py-1.5 px-4 text-center text-xs font-semibold uppercase tracking-widest flex items-center justify-center gap-3 animate-in slide-in-from-top duration-300 backdrop-blur-sm">
           <WifiOff className="size-3 shrink-0" />
           <span>
             Offline — {queue.length} change{queue.length !== 1 ? "s" : ""} pending
@@ -196,7 +196,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       {failedActions.length > 0 && (
         <div className="fixed top-7 left-0 right-0 z-[99] flex justify-center px-4">
           <div className="w-full max-w-xl rounded-lg border border-destructive/30 bg-background/95 backdrop-blur-xl shadow-xl p-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-text px-2 pb-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-text px-2 pb-1">
               {failedActions.length} change{failedActions.length > 1 ? "s" : ""} failed to sync
             </p>
             <ul className="space-y-1 max-h-40 overflow-y-auto">

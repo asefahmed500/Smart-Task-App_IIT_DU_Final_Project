@@ -25,7 +25,7 @@ export default async function DashboardLayout({
             <div className="flex h-16 items-center border-b px-6 bg-background/95 backdrop-blur sticky top-0 z-10">
               <SidebarTrigger />
               <div className="ml-4 flex items-center gap-2 flex-1">
-                <span className="text-sm font-medium text-muted-foreground uppercase tracking-widest font-bold">
+                <span className="text-sm font-medium text-muted-foreground uppercase tracking-widest font-semibold">
                   {session.role} Workspace
                 </span>
               </div>

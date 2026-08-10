@@ -177,7 +177,7 @@ export default function ManagerBoardsPage() {
         <div className="size-20 bg-muted rounded-full flex items-center justify-center">
           <Layout className="size-10 text-muted-foreground" />
         </div>
-        <h2 className="text-2xl font-bold">Error Loading Boards</h2>
+        <h2 className="text-2xl font-semibold">Error Loading Boards</h2>
         <p className="text-muted-foreground max-w-md">{error}</p>
         <Button onClick={loadData} variant="outline">Retry</Button>
       </div>
@@ -188,7 +188,7 @@ export default function ManagerBoardsPage() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold tracking-tight">Manage Boards</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Manage Boards</h1>
           <p className="text-muted-foreground">Manage your project boards and team access.</p>
         </div>
         <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
@@ -263,7 +263,7 @@ export default function ManagerBoardsPage() {
                   </Avatar>
                   <span className="text-xs font-medium truncate max-w-[120px]">{board.owner.name || board.owner.email}</span>
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
                   <Calendar className="size-3" />
                   {new Date(board.createdAt).toLocaleDateString()}
                 </div>
@@ -354,7 +354,7 @@ export default function ManagerBoardsPage() {
                       </Avatar>
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">{user.name || user.email}</span>
-                        <span className="text-xs text-muted-foreground uppercase text-[10px] font-bold">{user.role}</span>
+                        <span className="text-xs text-muted-foreground uppercase text-[10px] font-semibold">{user.role}</span>
                       </div>
                     </div>
                     <Button 
@@ -371,7 +371,7 @@ export default function ManagerBoardsPage() {
                   <p className="text-xs text-center text-muted-foreground py-4">No users found</p>
                 )}
                 {searchQuery.length > 0 && searchQuery.length <= 2 && (
-                  <p className="text-[10px] text-center text-muted-foreground py-2 italic uppercase font-bold tracking-widest">Type at least 3 characters...</p>
+                  <p className="text-[10px] text-center text-muted-foreground py-2 italic uppercase font-semibold tracking-widest">Type at least 3 characters...</p>
                 )}
               </div>
             </div>

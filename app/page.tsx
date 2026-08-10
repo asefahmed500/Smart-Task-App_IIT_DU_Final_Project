@@ -152,7 +152,7 @@ export default async function LandingPage() {
               ].map((f) => (
                 <div key={f.title} className="bg-canvas p-6 lg:p-8 flex flex-col justify-between gap-4 hover:bg-canvas-soft transition-colors">
                   <div>
-                    <div className="text-2xl lg:text-3xl font-bold text-accent tracking-tight mb-0.5">{f.metric}</div>
+                    <div className="text-2xl lg:text-3xl font-semibold text-accent tracking-tight mb-0.5">{f.metric}</div>
                     <div className="text-xs text-body-text mb-3 lg:mb-4">{f.metricLabel}</div>
                     <h3 className="text-sm lg:text-base font-semibold text-ink mb-1.5">{f.title}</h3>
                     <p className="text-[13px] lg:text-sm text-body-text leading-relaxed">{f.desc}</p>
@@ -209,7 +209,7 @@ export default async function LandingPage() {
                 <div key={f.title} className="bg-canvas p-6 lg:p-8 flex flex-col justify-between gap-4 hover:bg-canvas-soft transition-colors">
                   <div>
                     <div className="inline-flex items-center gap-2 mb-3 lg:mb-4">
-                      <span className="text-accent font-bold text-sm bg-accent-soft px-2 py-0.5 rounded-md">{f.stat}</span>
+                      <span className="text-accent font-semibold text-sm bg-accent-soft px-2 py-0.5 rounded-md">{f.stat}</span>
                     </div>
                     <h3 className="text-sm lg:text-base font-semibold text-ink mb-1.5">{f.title}</h3>
                     <p className="text-[13px] lg:text-sm text-body-text leading-relaxed">{f.desc}</p>
@@ -247,7 +247,7 @@ export default async function LandingPage() {
                   <div>
                     <div className="text-sm font-semibold text-ink mb-1">{p.plan}</div>
                     <div className="flex items-baseline gap-1 mb-1">
-                      <span className="text-3xl lg:text-4xl font-bold text-ink tracking-tight">{p.price}</span>
+                      <span className="text-3xl lg:text-4xl font-semibold text-ink tracking-tight">{p.price}</span>
                       {p.period !== "forever" && p.period !== "tailored pricing" && (
                         <span className="text-sm text-body-text">/ {p.period}</span>
                       )}

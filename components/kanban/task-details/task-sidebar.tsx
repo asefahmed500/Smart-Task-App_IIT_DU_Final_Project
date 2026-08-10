@@ -66,7 +66,7 @@ export function TaskSidebar({
     <aside className="space-y-8 h-full pr-1">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-bold">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-semibold">
             <UserIcon className="size-3" />
             Assignee
           </Label>
@@ -108,7 +108,7 @@ export function TaskSidebar({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-bold">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-semibold">
             <ShieldCheck className="size-3" />
             Priority
           </Label>
@@ -123,16 +123,16 @@ export function TaskSidebar({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="URGENT" className="text-red-500 font-bold">URGENT</SelectItem>
-              <SelectItem value="HIGH" className="text-orange-500 font-bold">HIGH</SelectItem>
-              <SelectItem value="MEDIUM" className="text-blue-500 font-bold">MEDIUM</SelectItem>
-              <SelectItem value="LOW" className="text-green-500 font-bold">LOW</SelectItem>
+              <SelectItem value="URGENT" className="text-red-500 font-semibold">URGENT</SelectItem>
+              <SelectItem value="HIGH" className="text-orange-500 font-semibold">HIGH</SelectItem>
+              <SelectItem value="MEDIUM" className="text-blue-500 font-semibold">MEDIUM</SelectItem>
+              <SelectItem value="LOW" className="text-green-500 font-semibold">LOW</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-bold">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-semibold">
             <Clock className="size-3" />
             Due Date
           </Label>
@@ -146,7 +146,7 @@ export function TaskSidebar({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-bold">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-semibold">
             <Layers className="size-3" />
             Epic
           </Label>
@@ -182,7 +182,7 @@ export function TaskSidebar({
         </div>
 
         <div className="space-y-3 pt-2">
-          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-bold">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 font-semibold">
             <TagIcon className="size-3" />
             Labels
           </Label>
@@ -210,7 +210,7 @@ export function TaskSidebar({
               </PopoverTrigger>
               <PopoverContent className="w-48 p-2 bg-background/95 backdrop-blur-md border-primary/10" align="start">
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase px-2 py-1 tracking-widest">Select Label</p>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase px-2 py-1 tracking-widest">Select Label</p>
                   {boardTags
                     .filter(t => !task.tags?.some(tt => tt.id === t.id))
                     .map((tag) => (
@@ -237,7 +237,7 @@ export function TaskSidebar({
 
       <div className="pt-6 border-t border-primary/5 space-y-4">
         <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-3">
-          <div className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest">
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-primary uppercase tracking-widest">
             <AlertCircle className="size-3" />
             Task Status
           </div>

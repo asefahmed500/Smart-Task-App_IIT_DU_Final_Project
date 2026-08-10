@@ -100,7 +100,7 @@ export function SprintReview({
           Back
         </Button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold">{sprint.name} — Review</h1>
+          <h1 className="text-xl font-semibold">{sprint.name} — Review</h1>
           {sprint.goal && (
             <p className="text-sm text-muted-text flex items-center gap-1 mt-1">
               <Target className="h-3 w-3" />
@@ -119,7 +119,7 @@ export function SprintReview({
               <CardTitle className="text-xs text-muted-text">Total Tasks</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{metrics.totalTasks}</p>
+              <p className="text-2xl font-semibold">{metrics.totalTasks}</p>
             </CardContent>
           </Card>
           <Card className="border-hairline">
@@ -127,7 +127,7 @@ export function SprintReview({
               <CardTitle className="text-xs text-muted-text">Completed</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-green-600">{metrics.completedTasks}</p>
+              <p className="text-2xl font-semibold text-green-600">{metrics.completedTasks}</p>
             </CardContent>
           </Card>
           <Card className="border-hairline">
@@ -135,7 +135,7 @@ export function SprintReview({
               <CardTitle className="text-xs text-muted-text">Story Points</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{metrics.completedStoryPoints}<span className="text-sm text-muted-text"> / {metrics.totalStoryPoints}</span></p>
+              <p className="text-2xl font-semibold">{metrics.completedStoryPoints}<span className="text-sm text-muted-text"> / {metrics.totalStoryPoints}</span></p>
             </CardContent>
           </Card>
           <Card className="border-hairline">
@@ -143,7 +143,7 @@ export function SprintReview({
               <CardTitle className="text-xs text-muted-text">Completion</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{metrics.completionRate}%</p>
+              <p className="text-2xl font-semibold">{metrics.completionRate}%</p>
             </CardContent>
           </Card>
         </div>

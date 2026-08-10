@@ -86,7 +86,7 @@ export default async function AdminPage() {
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight text-[#1A1A1A]">System Intelligence</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-[#1A1A1A]">System Intelligence</h1>
         <p className="text-[14px] text-[#5A5A5A]">Centralized oversight and resource optimization.</p>
       </div>
 
@@ -97,7 +97,7 @@ export default async function AdminPage() {
             <Users className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{stats.userCount}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{stats.userCount}</div>
             <div className="flex items-center gap-1 mt-1.5">
               <TrendingUp className="size-3 text-[#22C55E]" />
               <span className="text-[12px] text-[#22C55E] font-medium">+2.5%</span>
@@ -112,7 +112,7 @@ export default async function AdminPage() {
             <Layout className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{stats.boardCount}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{stats.boardCount}</div>
             <p className="text-[12px] text-[#5A5A5A] mt-1.5">Global distribution</p>
           </CardContent>
         </Card>
@@ -123,7 +123,7 @@ export default async function AdminPage() {
             <ShieldCheck className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#1A1A1A]">{stats.logCount}</div>
+            <div className="text-2xl font-semibold text-[#1A1A1A]">{stats.logCount}</div>
             <p className="text-[12px] text-[#5A5A5A] mt-1.5">Last 24 hours activity</p>
           </CardContent>
         </Card>
@@ -134,7 +134,7 @@ export default async function AdminPage() {
             <Activity className="size-4 text-[#2C67F2]" />
           </CardHeader>
           <CardContent>
-            <div className={cn("text-2xl font-bold", stats.dbStatus === 'STABLE' ? "text-[#22C55E]" : "text-[#F59E0B]")}>
+            <div className={cn("text-2xl font-semibold", stats.dbStatus === 'STABLE' ? "text-[#22C55E]" : "text-[#F59E0B]")}>
               {stats.dbStatus}
             </div>
             <p className="text-[12px] text-[#5A5A5A] mt-1.5">Latency: {stats.latency}</p>

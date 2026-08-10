@@ -1,17 +1,17 @@
 import { io, Socket } from 'socket.io-client'
+import { fetchSocketToken } from '@/utils/socket-auth'
 
 let socket: Socket | null = null
 
-function getSocket(): Socket {
+async function getSocket(): Promise<Socket> {
   if (!socket) {
-    // On the server (server actions), use the internal token so the standalone
-    // Socket.IO server authenticates the connection without needing a user JWT
-    // (which only lives in the browser's localStorage). In the browser, fall
-    // back to the auth_token mirror for the user's own connection.
+    // Server-side (server actions): use the internal token so the standalone
+    // Socket.IO server authenticates without a user JWT (which only exists in
+    // the httpOnly cookie, unreachable from server action code).
+    // Browser-side: fetch the token from the same-origin /api/auth/socket-token
+    // route (reads the httpOnly cookie) — never localStorage.
     const isServer = typeof window === 'undefined'
-    const token = isServer
-      ? process.env.SOCKET_INTERNAL_TOKEN
-      : localStorage.getItem('auth_token')
+    const token = isServer ? process.env.SOCKET_INTERNAL_TOKEN : await fetchSocketToken()
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001', {
       transports: ['websocket', 'polling'],
       autoConnect: true,
@@ -26,7 +26,7 @@ function getSocket(): Socket {
   return socket
 }
 
-function emitOrQueue(s: Socket, event: string, data: any) {
+async function emitOrQueue(s: Socket, event: string, data: any) {
   if (s.connected) {
     s.emit(event, data)
   } else {
@@ -41,7 +41,7 @@ function emitOrQueue(s: Socket, event: string, data: any) {
   }
 }
 
-export function emitNotification(data: {
+export async function emitNotification(data: {
   userId: string
   type: string
   message: string
@@ -49,17 +49,17 @@ export function emitNotification(data: {
   notificationId: string
 }) {
   try {
-    const s = getSocket()
-    emitOrQueue(s, 'notification', data)
+    const s = await getSocket()
+    await emitOrQueue(s, 'notification', data)
   } catch (error) {
     console.error('Socket notification error:', error)
   }
 }
 
-export function emitBoardEvent(event: string, data: any) {
+export async function emitBoardEvent(event: string, data: any) {
   try {
-    const s = getSocket()
-    emitOrQueue(s, event, data)
+    const s = await getSocket()
+    await emitOrQueue(s, event, data)
   } catch (error) {
     console.error(`Socket event error (${event}):`, error)
   }

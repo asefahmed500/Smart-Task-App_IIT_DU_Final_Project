@@ -107,7 +107,7 @@ export default function ManagerAnalyticsPage() {
         <div className="size-20 bg-muted rounded-full flex items-center justify-center">
           <BarChart3 className="size-10 text-muted-foreground" />
         </div>
-        <h2 className="text-2xl font-bold">No Data Available</h2>
+        <h2 className="text-2xl font-semibold">No Data Available</h2>
         <p className="text-muted-foreground max-w-md">
           {error || "We couldn't find any task activity on your boards. Start moving tasks to see performance metrics here."}
         </p>
@@ -121,7 +121,7 @@ export default function ManagerAnalyticsPage() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold tracking-tight">Board Analytics</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Board Analytics</h1>
           <p className="text-muted-foreground">Real-time performance metrics and flow analysis across your projects.</p>
         </div>
         
@@ -173,7 +173,7 @@ export default function ManagerAnalyticsPage() {
             <TrendingUp className="size-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.overallCompletionRate}%</div>
+            <div className="text-2xl font-semibold">{data.overallCompletionRate}%</div>
             <div className="flex items-center text-xs text-muted-foreground mt-1">
               Avg. across all boards
             </div>
@@ -185,7 +185,7 @@ export default function ManagerAnalyticsPage() {
             <CheckCircle2 className="size-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.totalCompleted}</div>
+            <div className="text-2xl font-semibold">{data.totalCompleted}</div>
             <p className="text-xs text-muted-foreground mt-1">Total tasks completed</p>
           </CardContent>
         </Card>
@@ -195,7 +195,7 @@ export default function ManagerAnalyticsPage() {
             <Clock className="size-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.avgCycleTime}d</div>
+            <div className="text-2xl font-semibold">{data.avgCycleTime}d</div>
             <p className="text-xs text-muted-foreground mt-1">Time from start to finish</p>
           </CardContent>
         </Card>
@@ -205,7 +205,7 @@ export default function ManagerAnalyticsPage() {
             <AlertCircle className="size-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.bottlenecks.length}</div>
+            <div className="text-2xl font-semibold">{data.bottlenecks.length}</div>
             <Badge variant="secondary" className="mt-1 bg-amber-500/10 text-amber-600 border-amber-500/20">
               {data.bottlenecks.length > 0 ? "Review Required" : "Flow is healthy"}
             </Badge>
@@ -278,7 +278,7 @@ export default function ManagerAnalyticsPage() {
                 <div key={board.name} className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium truncate max-w-[200px]">{board.name}</span>
-                    <span className="text-muted-foreground font-bold">{board.completionRate}%</span>
+                    <span className="text-muted-foreground font-semibold">{board.completionRate}%</span>
                   </div>
                   <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                     <div 
@@ -312,7 +312,7 @@ export default function ManagerAnalyticsPage() {
             <CardDescription>Avg. days from creation to completion.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center h-[300px]">
-             <div className="text-6xl font-bold text-primary mb-2">{data.avgLeadTime}d</div>
+             <div className="text-6xl font-semibold text-primary mb-2">{data.avgLeadTime}d</div>
              <p className="text-muted-foreground">Average Lead Time</p>
              <div className="mt-8 grid grid-cols-2 gap-8 text-center w-full max-w-sm">
                 <div>
@@ -410,7 +410,7 @@ export default function ManagerAnalyticsPage() {
               {data.advancedData.priorityBreakdown.map((item: any, index: number) => (
                 <div key={item.priority} className="flex items-center justify-between p-3 rounded-lg border border-primary/5 bg-muted/10">
                   <div className="flex items-center gap-3">
-                    <div className={`size-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                    <div className={`size-8 rounded-full flex items-center justify-center text-xs font-semibold ${
                       item.priority === 'URGENT' ? 'bg-red-500/10 text-red-500' :
                       item.priority === 'HIGH' ? 'bg-orange-500/10 text-orange-500' :
                       item.priority === 'MEDIUM' ? 'bg-yellow-500/10 text-yellow-500' :
@@ -424,7 +424,7 @@ export default function ManagerAnalyticsPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold">{item.avgCompletionTime?.toFixed(1)}d</p>
+                    <p className="text-sm font-semibold">{item.avgCompletionTime?.toFixed(1)}d</p>
                     <p className="text-[10px] text-muted-foreground">avg completion</p>
                   </div>
                 </div>
@@ -449,7 +449,7 @@ export default function ManagerAnalyticsPage() {
               {data.advancedData.assigneeLeaderboard.map((item: any, index: number) => (
                 <div key={item.userId} className="flex items-center justify-between p-3 rounded-lg border border-primary/5 bg-muted/10">
                   <div className="flex items-center gap-3">
-                    <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                    <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
                       {index + 1}
                     </div>
                     <div>
@@ -458,11 +458,11 @@ export default function ManagerAnalyticsPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <p className="text-sm font-bold">{item.completed}</p>
+                      <p className="text-sm font-semibold">{item.completed}</p>
                       <p className="text-[10px] text-muted-foreground">completed</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold">{item.avgCycleTime?.toFixed(1)}d</p>
+                      <p className="text-sm font-semibold">{item.avgCycleTime?.toFixed(1)}d</p>
                       <p className="text-[10px] text-muted-foreground">avg cycle</p>
                     </div>
                   </div>

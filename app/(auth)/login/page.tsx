@@ -30,10 +30,12 @@ export default function LoginPage() {
       const data = await res.json()
 
       if (res.ok) {
-        if (data.token) {
-          localStorage.setItem('auth_token', data.token)
-        }
-        router.push('/dashboard')
+        // Redirect directly to the role-specific dashboard, bypassing
+        // /dashboard (whose server-component redirect triggered a Next.js 16
+        // Turbopack "negative time stamp" performance.measure error).
+        const role = data?.user?.role
+        const dest = role === 'ADMIN' ? '/admin' : role === 'MANAGER' ? '/manager' : '/member'
+        router.push(dest)
         router.refresh()
       } else {
         setError(data.error || 'Invalid email or password')
@@ -50,7 +52,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-10">
           <Link href="/" className="flex items-center gap-2">
-            <div className="size-8 rounded-md bg-[#2C67F2] flex items-center justify-center text-white font-bold text-sm">
+            <div className="size-8 rounded-md bg-[#2C67F2] flex items-center justify-center text-white font-semibold text-sm">
               S
             </div>
             <span className="text-sm font-semibold text-[#1A1A1A] tracking-tight">SmartTask</span>

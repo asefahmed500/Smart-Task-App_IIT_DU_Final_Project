@@ -62,7 +62,7 @@ export default function ReportsPage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight font-oswald uppercase">System <span className="text-primary">Intelligence</span></h1>
+          <h1 className="text-3xl font-semibold tracking-tight font-oswald uppercase">System <span className="text-primary">Intelligence</span></h1>
           <p className="text-muted-foreground">High-level overview of organizational productivity and flow metrics.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -98,7 +98,7 @@ export default function ReportsPage() {
                 </div>
               </CardHeader>
               <CardContent className="relative z-10">
-                <div className="text-3xl font-bold tracking-tighter">{m.value}</div>
+                <div className="text-3xl font-semibold tracking-tighter">{m.value}</div>
                 <div className="flex items-center gap-2 mt-2">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                     m.change.startsWith('+') ? 'bg-green-500/10 text-green-500' : 
