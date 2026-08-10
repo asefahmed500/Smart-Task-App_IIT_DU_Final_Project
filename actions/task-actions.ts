@@ -753,6 +753,9 @@ export async function toggleReaction(input: {
   const { commentId, emoji } = input
   const validation = idSchema.safeParse(commentId)
   if (!validation.success) return { success: false, error: "Invalid comment ID" }
+  if (typeof emoji !== "string" || [...emoji].length < 1 || [...emoji].length > 4) {
+    return { success: false, error: "Invalid emoji" }
+  }
 
   const session = await getSession()
   if (!session) return { success: false, error: "Unauthorized" }
@@ -812,6 +815,9 @@ export async function addChecklist(input: { taskId: string, title: string }): Pr
   const { taskId, title } = input
   const validation = idSchema.safeParse(taskId)
   if (!validation.success) return { success: false, error: 'Invalid Task ID' }
+  if (typeof title !== 'string' || title.trim().length < 1 || title.trim().length > 200) {
+    return { success: false, error: 'Checklist title must be 1-200 characters' }
+  }
 
   const perm = await checkTaskPermission({ taskId })
   if (!perm.success) return perm

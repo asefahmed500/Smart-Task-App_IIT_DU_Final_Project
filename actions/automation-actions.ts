@@ -290,6 +290,11 @@ export async function getAutomationRules(input?: { boardId?: string }): Promise<
   const session = await getSession()
   if (!session) return { success: false, error: 'Unauthorized' }
 
+  // Enforce board-scoped RBAC: system-wide rules (no boardId) require ADMIN;
+  // board rules require board membership/ownership (manager+) or ADMIN.
+  const perm = await checkAutomationPermission(boardId || null)
+  if (!perm.success) return perm
+
   try {
     const rules = await prisma.automationRule.findMany({
       where: boardId ? { boardId } : undefined,

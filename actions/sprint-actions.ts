@@ -40,7 +40,7 @@ const sprintStatusSchema = z.object({
   status: z.enum(['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED']),
 })
 
-const idSchema = z.string()
+const idSchema = z.string().cuid()
 
 const assignTaskToSprintSchema = z.object({
   taskId: z.string(),

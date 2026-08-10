@@ -98,6 +98,10 @@ export async function getAdvancedReports(boardId: string): Promise<ActionResult>
   const session = await getSession()
   if (!session) return { success: false, error: 'Unauthorized' }
 
+  if (!boardId || typeof boardId !== 'string' || boardId.length < 20) {
+    return { success: false, error: 'Invalid board ID' }
+  }
+
   try {
     const board = await prisma.board.findUnique({
       where: { id: boardId },

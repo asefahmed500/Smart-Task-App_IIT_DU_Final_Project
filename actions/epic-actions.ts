@@ -28,7 +28,7 @@ const updateEpicSchema = z.object({
   status: z.enum(['BACKLOG', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
 })
 
-const idSchema = z.string()
+const idSchema = z.string().cuid()
 
 // --- Epic CRUD ---
 

@@ -22,9 +22,9 @@ const deleteIssueLinkSchema = z.object({
   id: z.string(),
 })
 
-const idSchema = z.string()
+const idSchema = z.string().cuid()
 
-const taskIdSchema = z.object({ taskId: z.string() })
+const taskIdSchema = z.object({ taskId: z.string().cuid() })
 
 // --- Issue Linking ---
 
