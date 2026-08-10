@@ -4,6 +4,10 @@ import prisma from '@/lib/prisma'
 import { login } from '@/lib/auth-server'
 import { createAuditLog } from '@/lib/create-audit-log'
 
+// Hash computed once at module load to equalize timing between "user not found"
+// and "wrong password" branches (mitigates user enumeration via timing).
+const DUMMY_HASH = bcrypt.hashSync('timing-attack-dummy-password', 12)
+
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
 const RATE_LIMIT_MAX_ATTEMPTS = 5
 
@@ -49,6 +53,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (!user) {
+      // Run a dummy bcrypt compare to equalize timing with the wrong-password path
+      await bcrypt.compare(password, DUMMY_HASH)
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 

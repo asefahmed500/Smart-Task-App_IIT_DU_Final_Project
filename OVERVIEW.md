@@ -197,8 +197,6 @@ graph TB
         SIGNUP_RT["POST /api/auth/signup"]
         LOGOUT_RT["POST /api/auth/logout"]
         ME_RT["GET /api/auth/me"]
-        REQ_RT["POST .../reset-password/request"]
-        CONF_RT["POST .../reset-password/confirm"]
     end
 
     subgraph "Server Modules"
@@ -228,8 +226,7 @@ graph TB
     SIGNUP_RT --> AUTH_SRV
     FORGOT_FORM -->|"requestPasswordReset()"| TOKEN_T
     TOKEN_T --> MAILER
-    RESET_FORM --> CONF_RT
-    CONF_RT -->|"validate + hash + update"| USER_T
+    RESET_FORM -->|"resetPassword()"| USER_T
     PROXY --> AUTH_LIB
 ```
 
@@ -319,13 +316,14 @@ flowchart TD
 
 ### Password Reset Flow
 
+> Password reset is implemented via **server actions** (`actions/auth-actions.ts`), not API routes. The old `/api/auth/reset-password/*` routes were removed as duplicates.
+
 ```mermaid
 sequenceDiagram
     participant Browser
-    participant Action as requestPasswordReset()
+    participant Action as actions/auth-actions.ts
     participant DB as PostgreSQL
     participant Mailer as Nodemailer
-    participant API as /reset-password/confirm
 
     Browser->>Action: requestPasswordReset(email)
     Action->>DB: user.findUnique(email)
@@ -337,16 +335,18 @@ sequenceDiagram
         Action-->>Browser: "If account exists, reset link sent."
     end
 
-    Browser->>API: POST /confirm (email, token, password)
-    API->>DB: passwordResetToken.findUnique(token)
-    API->>API: Verify email match + not expired
-    API->>DB: $transaction(user.update, token.delete)
-    API-->>Browser: "Password reset successfully"
+    Browser->>Action: resetPassword(token, password)
+    Action->>DB: passwordResetToken.findUnique(token)
+    Action->>Action: Verify not expired
+    Action->>DB: $transaction(user.update(password+passwordVersion), token.delete)
+    Action-->>Browser: "Password reset successfully"
 ```
 
 ### Why API Routes for Auth?
 
 Turbopack's dev server fails to resolve `cookies()` at runtime in server action files in certain edge cases. API routes with `'use server'` imports from `auth-server.ts` work reliably.
+
+> **Exception:** password reset (`requestPasswordReset` / `resetPassword`) is the one auth flow implemented as server actions in `actions/auth-actions.ts` — the forgot/reset forms call them directly and no session cookie is involved.
 
 ---
 

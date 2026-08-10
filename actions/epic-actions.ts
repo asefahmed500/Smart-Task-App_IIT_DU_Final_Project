@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { ActionResult } from '@/types/kanban'
 import { emitBoardEvent } from '@/utils/socket-emitter'
+import { isDoneColumn } from '@/utils/column-utils'
 import { createAuditLog } from '@/lib/create-audit-log'
 import { checkBoardPermission } from './board-actions'
 import { sendNotification } from '@/utils/notification-utils'
@@ -322,9 +323,7 @@ export async function getEpicDetail(
       select: { id: true, name: true, order: true },
       orderBy: { order: 'asc' },
     })
-    const doneCol = columns.find(
-      (c) => c.name.toLowerCase() === 'done' || c.name.toLowerCase() === 'completed' || c.name.toLowerCase() === 'resolved'
-    )
+    const doneCol = columns.find((c) => isDoneColumn(c.name))
     const doneColumnName = doneCol?.name || columns[columns.length - 1]?.name || 'Done'
 
     return { success: true, data: { ...epic, doneColumnName } }

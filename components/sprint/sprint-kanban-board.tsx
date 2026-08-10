@@ -297,6 +297,7 @@ export function SprintKanbanBoard({
   const [sprint, setSprint] = useState<any>(null)
   const [metrics, setMetrics] = useState<any>(null)
   const [burndownData, setBurndownData] = useState<any>(null)
+  const [burndownUseStoryPoints, setBurndownUseStoryPoints] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeTask, setActiveTask] = useState<any>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
@@ -347,7 +348,15 @@ export function SprintKanbanBoard({
       rebuildColumns(data)
     }
     if (metricsRes.success) setMetrics(metricsRes.data)
-    if (burndownRes.success) setBurndownData(burndownRes.data)
+    if (burndownRes.success) {
+      // Server now returns { points, useStoryPoints } — don't fabricate units
+      const bd = burndownRes.data as {
+        points?: { date: string; ideal: number; actual: number }[]
+        useStoryPoints?: boolean
+      } | null
+      setBurndownData(bd?.points || burndownRes.data)
+      setBurndownUseStoryPoints(bd?.useStoryPoints ?? false)
+    }
     setLoading(false)
   }
 
@@ -570,7 +579,7 @@ export function SprintKanbanBoard({
       {showBurndown && burndownData && burndownData.length > 0 && (
         <Card className="p-4 border-hairline">
           <h3 className="text-sm font-medium mb-3">Burndown</h3>
-          <BurndownChart data={burndownData} useStoryPoints={true} height={200} />
+          <BurndownChart data={burndownData} useStoryPoints={burndownUseStoryPoints} height={200} />
         </Card>
       )}
 

@@ -20,6 +20,11 @@ interface NotificationPrefs {
   newUserSignup: boolean
   boardMemberAdded: boolean
   boardMemberRemoved: boolean
+  epicUpdated: boolean
+  issueLinkUpdated: boolean
+  sprintStarted: boolean
+  sprintCompleted: boolean
+  taskAddedToSprint: boolean
   emailEnabled: boolean
   pushEnabled: boolean
 }
@@ -36,6 +41,11 @@ const PREF_LABELS: Record<keyof NotificationPrefs, { label: string; icon: React.
   newUserSignup: { label: 'New User Signup', icon: <Bell className="size-4" /> },
   boardMemberAdded: { label: 'Added to Board', icon: <Bell className="size-4" /> },
   boardMemberRemoved: { label: 'Removed from Board', icon: <Bell className="size-4" /> },
+  epicUpdated: { label: 'Epic Updated', icon: <Bell className="size-4" /> },
+  issueLinkUpdated: { label: 'Issue Link Updated', icon: <Bell className="size-4" /> },
+  sprintStarted: { label: 'Sprint Started', icon: <Bell className="size-4" /> },
+  sprintCompleted: { label: 'Sprint Completed', icon: <Bell className="size-4" /> },
+  taskAddedToSprint: { label: 'Task Added to Sprint', icon: <Bell className="size-4" /> },
   emailEnabled: { label: 'Email Notifications', icon: <Mail className="size-4" /> },
   pushEnabled: { label: 'Push Notifications', icon: <Smartphone className="size-4" /> },
 }

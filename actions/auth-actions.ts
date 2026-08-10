@@ -90,12 +90,12 @@ export async function resetPassword(token: string, password: string): Promise<Ac
     const user = await prisma.user.findUnique({ where: { email: resetToken.email } })
     if (!user) return { success: false, error: 'User no longer exists' }
 
-    const hashedPassword = await bcrypt.hash(password, 10)
+    const hashedPassword = await bcrypt.hash(password, 12)
 
     await prisma.$transaction([
       prisma.user.update({
         where: { email: resetToken.email },
-        data: { password: hashedPassword }
+        data: { password: hashedPassword, passwordVersion: { increment: 1 } }
       }),
       prisma.passwordResetToken.delete({
         where: { id: resetToken.id }
@@ -129,10 +129,17 @@ export async function updateProfile(data: z.infer<typeof updateProfileSchema>): 
 
   try {
     const updateData: any = { name: validation.data.name }
-    
+
+    // Avatar URL — previously the form field submitted this value but the
+    // server silently dropped it, so the avatar could never be updated.
+    if (validation.data.image !== undefined) {
+      updateData.image = validation.data.image || null
+    }
+
     // Handle password update if provided
     if (validation.data.password) {
-      updateData.password = await bcrypt.hash(validation.data.password, 10)
+      updateData.password = await bcrypt.hash(validation.data.password, 12)
+      updateData.passwordVersion = { increment: 1 }
     }
 
     const updatedUser = await prisma.user.update({
@@ -143,7 +150,7 @@ export async function updateProfile(data: z.infer<typeof updateProfileSchema>): 
     await createAuditLog({
       userId: session.id,
       action: 'UPDATE_PROFILE',
-      details: { name: validation.data.name, passwordChanged: !!validation.data.password }
+      details: { name: validation.data.name, imageChanged: validation.data.image !== undefined, passwordChanged: !!validation.data.password }
     })
 
     revalidatePath('/dashboard')
@@ -197,11 +204,11 @@ export async function changePassword(data: any): Promise<ActionResult> {
     const isMatch = await bcrypt.compare(validation.data.currentPassword, user.password)
     if (!isMatch) return { success: false, error: 'Incorrect current password' }
 
-    const hashedPassword = await bcrypt.hash(validation.data.newPassword, 10)
+    const hashedPassword = await bcrypt.hash(validation.data.newPassword, 12)
 
     await prisma.user.update({
       where: { id: session.id },
-      data: { password: hashedPassword }
+      data: { password: hashedPassword, passwordVersion: { increment: 1 } }
     })
 
     await createAuditLog({

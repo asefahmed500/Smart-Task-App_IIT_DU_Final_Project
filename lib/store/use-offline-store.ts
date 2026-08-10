@@ -53,12 +53,29 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
   updateAction: async (id, updates) => {
     await updateOfflineAction(id, updates)
     set((state) => {
-      const queue = state.queue.map((a) =>
-        a.id === id ? { ...a, ...updates } : a
-      )
-      const failed = queue.filter((a) => (a.retryCount ?? 0) >= 3)
-      const pending = queue.filter((a) => (a.retryCount ?? 0) < 3)
-      return { queue: pending, failedActions: failed }
+      const target =
+        state.queue.find((a) => a.id === id) ||
+        state.failedActions.find((a) => a.id === id)
+      if (!target) return state
+      const updated = { ...target, ...updates }
+      const isFailed = (updated.retryCount ?? 0) >= 3
+
+      // Move the action between the pending and failed lists instead of
+      // rebuilding `failedActions` from scratch (which silently dropped any
+      // previously-failed actions).
+      const queue = isFailed
+        ? state.queue.filter((a) => a.id !== id)
+        : state.queue.some((a) => a.id === id)
+          ? state.queue.map((a) => (a.id === id ? updated : a))
+          : [...state.queue, updated]
+
+      const failedActions = isFailed
+        ? state.failedActions.some((a) => a.id === id)
+          ? state.failedActions.map((a) => (a.id === id ? updated : a))
+          : [...state.failedActions, updated]
+        : state.failedActions.filter((a) => a.id !== id)
+
+      return { queue, failedActions }
     })
   },
 

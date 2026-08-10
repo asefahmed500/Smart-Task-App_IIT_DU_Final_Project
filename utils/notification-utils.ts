@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma'
 import { emitNotification } from '@/utils/socket-emitter'
+import { isDoneColumn } from '@/utils/column-utils'
 
 type NotifType =
   | 'TASK_ASSIGNED'
@@ -28,7 +29,8 @@ const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   'automationTriggered' | 'dueDateReminder' | 'overdueReminder' |
   'reviewRequested' | 'reviewCompleted' | 'newUserSignup' |
   'boardMemberAdded' | 'boardMemberRemoved' |
-  'epicUpdated' | 'issueLinkUpdated'
+  'epicUpdated' | 'issueLinkUpdated' |
+  'sprintStarted' | 'sprintCompleted' | 'taskAddedToSprint'
 >>> = {
   TASK_ASSIGNED: 'taskAssigned',
   TASK_STATUS_CHANGED: 'statusChanged',
@@ -41,9 +43,9 @@ const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   NEW_USER_SIGNUP: 'newUserSignup',
   BOARD_MEMBER_ADDED: 'boardMemberAdded',
   BOARD_MEMBER_REMOVED: 'boardMemberRemoved',
-  SPRINT_STARTED: 'taskAssigned',
-  SPRINT_COMPLETED: 'statusChanged',
-  TASK_ADDED_TO_SPRINT: 'taskAssigned',
+  SPRINT_STARTED: 'sprintStarted',
+  SPRINT_COMPLETED: 'sprintCompleted',
+  TASK_ADDED_TO_SPRINT: 'taskAddedToSprint',
   EPIC_CREATED: 'epicUpdated',
   EPIC_UPDATED: 'epicUpdated',
   EPIC_DELETED: 'epicUpdated',
@@ -57,6 +59,7 @@ const booleanPrefKeys = new Set([
   'reviewRequested', 'reviewCompleted', 'newUserSignup',
   'boardMemberAdded', 'boardMemberRemoved',
   'epicUpdated', 'issueLinkUpdated',
+  'sprintStarted', 'sprintCompleted', 'taskAddedToSprint',
 ]) as Set<string & keyof import('@/lib/prisma').NotificationPreference>
 
 export async function sendNotification(input: {
@@ -103,8 +106,9 @@ export async function checkDueDateReminders(): Promise<number> {
   const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000)
 
   // Find tasks with dueDate between now and 24 hours from now
-  // that haven't had a reminder sent yet (we track this via notification existence)
-  const tasksDueSoon = await prisma.task.findMany({
+  // that haven't had a reminder sent yet (we track this via notification existence).
+  // Exclude tasks already in a "done" column (dynamic token set, filtered client-side).
+  const tasksDueSoonRaw = await prisma.task.findMany({
     where: {
       dueDate: {
         gte: now,
@@ -121,6 +125,7 @@ export async function checkDueDateReminders(): Promise<number> {
       },
     },
   })
+  const tasksDueSoon = tasksDueSoonRaw.filter((t) => !isDoneColumn(t.column?.name))
 
   let reminderCount = 0
 
@@ -166,14 +171,13 @@ export async function checkDueDateReminders(): Promise<number> {
 export async function checkOverdueTasks(): Promise<number> {
   const now = new Date()
 
-  // Find tasks with dueDate in the past that are not in a "Done" column
-  const overdueTasks = await prisma.task.findMany({
+  // Find tasks with dueDate in the past that are not in a "done" column.
+  // Filter client-side because done-column names are a dynamic token set
+  // (done/completed/resolved/launch/closed/shipped — see utils/column-utils.ts).
+  const overdueTasksRaw = await prisma.task.findMany({
     where: {
       dueDate: {
         lt: now,
-      },
-      column: {
-        name: { not: { contains: 'done' }, mode: 'insensitive' },
       },
       assigneeId: { not: null },
     },
@@ -186,6 +190,7 @@ export async function checkOverdueTasks(): Promise<number> {
       },
     },
   })
+  const overdueTasks = overdueTasksRaw.filter((t) => !isDoneColumn(t.column?.name))
 
   let overdueCount = 0
 

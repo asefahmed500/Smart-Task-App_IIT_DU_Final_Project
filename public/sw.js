@@ -1,18 +1,27 @@
-const CACHE_NAME = 'smart-task-v2';
+const CACHE_NAME = 'smart-task-v3';
+// NOTE: do NOT precache /globals.css, /manifest.json or /dashboard —
+// Next.js serves CSS from hashed /_next/static paths, there is no
+// app/manifest.ts, and /dashboard 302-redirects per role, so all three
+// rejected cache.addAll() and broke the install.
 const ASSETS_TO_CACHE = [
   '/',
   '/login',
   '/signup',
-  '/dashboard',
-  '/globals.css',
-  '/manifest.json',
   '/favicon.ico',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      // Resolve each asset individually so a single 404 can't abort the
+      // whole install (which previously left the service worker unactivated).
+      return Promise.all(
+        ASSETS_TO_CACHE.map((url) =>
+          cache.add(url).catch(() => {
+            /* ignore individual cache misses */
+          })
+        )
+      );
     })
   );
   self.skipWaiting();
@@ -64,20 +73,3 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
-
-// Background Sync for offline actions
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-tasks') {
-    event.waitUntil(syncTasks());
-  }
-});
-
-async function syncTasks() {
-  // This would typically communicate with the client to trigger the sync logic in useOfflineStore
-  // or use a separate IndexedDB store directly.
-  // For this implementation, we'll let the OfflineProvider handle it via window events.
-  const allClients = await clients.matchAll();
-  allClients.forEach(client => {
-    client.postMessage({ type: 'SYNC_REQUIRED' });
-  });
-}

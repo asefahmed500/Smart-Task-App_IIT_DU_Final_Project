@@ -6,6 +6,8 @@ import { revalidatePath } from 'next/cache'
 import { evaluateAutomationRules } from './automation-actions'
 import { emitBoardEvent } from '@/utils/socket-emitter'
 import { sendNotification } from '@/utils/notification-utils'
+import { isDoneColumn, isInProgressColumn, isTodoColumn } from '@/utils/column-utils'
+import { extractMentions } from '@/utils/mention'
 import {
   createTaskSchema,
   updateTaskSchema,
@@ -159,7 +161,9 @@ export async function createTask(input: any): Promise<ActionResult> {
       columnName: column.name,
       boardId: column.boardId,
       priority: task.priority,
-      assigneeId: task.assigneeId
+      assigneeId: task.assigneeId,
+      issueType: task.issueType,
+      hasSprint: !!task.sprintId,
     }).catch(err => console.error('[AUTOMATION_ERROR]', err))
 
     if (task.assigneeId && task.assigneeId !== session.id) {
@@ -178,6 +182,8 @@ export async function createTask(input: any): Promise<ActionResult> {
         boardId: column.boardId,
         priority: task.priority,
         assigneeId: task.assigneeId,
+        issueType: task.issueType,
+        hasSprint: !!task.sprintId,
       }).catch(err => console.error('[AUTOMATION_ERROR]', err))
     }
 
@@ -223,7 +229,15 @@ export async function updateTask(input: { id: string } & any): Promise<ActionRes
       where: { id: taskId },
       data: {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        // Correctly handle all three cases: null clears the due date, a string
+        // parses it, and undefined leaves it untouched. Previously null was
+        // treated as undefined so due dates could never be cleared.
+        dueDate:
+          data.dueDate === null
+            ? null
+            : data.dueDate
+              ? new Date(data.dueDate)
+              : undefined,
         version: { increment: 1 }
       },
       include: { column: true }
@@ -260,6 +274,8 @@ export async function updateTask(input: { id: string } & any): Promise<ActionRes
         boardId: task.column.boardId,
         priority: task.priority,
         assigneeId: data.assigneeId,
+        issueType: task.issueType,
+        hasSprint: !!task.sprintId,
       }).catch(err => console.error('[AUTOMATION_ERROR]', err))
     }
 
@@ -271,7 +287,9 @@ export async function updateTask(input: { id: string } & any): Promise<ActionRes
       columnName: task.column.name,
       boardId: task.column.boardId,
       priority: task.priority,
-      assigneeId: task.assigneeId
+      assigneeId: task.assigneeId,
+      issueType: task.issueType,
+      hasSprint: !!task.sprintId,
     }).catch(err => console.error('[AUTOMATION_ERROR]', err))
 
     revalidatePath(`/dashboard/board/${task.column.boardId}`)
@@ -391,7 +409,9 @@ export async function updateTaskStatus(input: { taskId: string, columnId: string
       boardId: task.column.boardId,
       priority: task.priority,
       assigneeId: task.assigneeId,
-      previousColumnId: existingTask.columnId
+      previousColumnId: existingTask.columnId,
+      issueType: task.issueType,
+      hasSprint: !!task.sprintId,
     }).catch(err => console.error('[AUTOMATION_ERROR]', err))
 
     revalidatePath(`/dashboard/board/${task.column.boardId}`)
@@ -505,6 +525,35 @@ export async function getTaskDetails(input: { id: string }): Promise<ActionResul
 
 // --- COMMENTS ---
 
+/**
+ * Send COMMENT_MENTION notifications for every `@[id|Name]` token in `content`.
+ * Shared by addComment and editComment so edits re-notify newly-mentioned users.
+ */
+async function notifyMentions(
+  content: string,
+  opts: { taskId: string; taskTitle: string; boardId: string; actorName: string; actorId: string }
+): Promise<void> {
+  const mentions = extractMentions(content)
+  if (mentions.length === 0) return
+
+  const uniqueIds = [...new Set(mentions.map(m => m.userId))].filter(id => id !== opts.actorId)
+  if (uniqueIds.length === 0) return
+
+  const mentionedUsers = await prisma.user.findMany({
+    where: { id: { in: uniqueIds } },
+    select: { id: true, name: true },
+  })
+
+  for (const user of mentionedUsers) {
+    await sendNotification({
+      userId: user.id,
+      type: 'COMMENT_MENTION',
+      message: `${opts.actorName} mentioned you on task: ${opts.taskTitle}`,
+      link: `/dashboard/board/${opts.boardId}`,
+    })
+  }
+}
+
 export async function addComment(input: { taskId: string, content: string }): Promise<ActionResult> {
   const { taskId, content } = input
   const validation = createCommentSchema.safeParse({ taskId, content })
@@ -537,34 +586,14 @@ export async function addComment(input: { taskId: string, content: string }): Pr
     // Real-time update
     emitBoardEvent('task:updated', { boardId: taskData.column.boardId, taskId })
 
-    // Mentions
-    const mentionRegex = /@([\w\s]+?)(?=\s|$|[,.!?:;])/g
-    let mentionMatch
-    const mentionedNames: string[] = []
-    while ((mentionMatch = mentionRegex.exec(validation.data.content)) !== null) {
-      mentionedNames.push(mentionMatch[1].trim())
-    }
-    if (mentionedNames.length > 0) {
-      const mentionedUsers = await prisma.user.findMany({
-        where: {
-          OR: mentionedNames.map(name => ({
-            name: { contains: name, mode: 'insensitive' as const }
-          }))
-        },
-        select: { id: true, name: true }
-      })
-
-      for (const user of mentionedUsers) {
-        if (user.id !== session.id) {
-          await sendNotification({
-            userId: user.id,
-            type: 'COMMENT_MENTION',
-            message: `${session.name || 'Someone'} mentioned you on task: ${taskData.title}`,
-            link: `/dashboard/board/${taskData.column.boardId}`,
-          })
-        }
-      }
-    }
+    // Mentions — parse `@[id|Name]` tokens (multi-word safe) and notify
+    await notifyMentions(validation.data.content, {
+      taskId,
+      taskTitle: taskData.title,
+      boardId: taskData.column.boardId,
+      actorName: session.name || 'Someone',
+      actorId: session.id,
+    })
 
     return { success: true, data: comment }
   } catch (error) {
@@ -701,6 +730,15 @@ export async function editComment(input: {
       taskId: comment.taskId,
     })
 
+    // Re-parse mentions on edit so users added by the edit get notified
+    await notifyMentions(content, {
+      taskId: comment.taskId,
+      taskTitle: comment.task.title,
+      boardId: comment.task.column.boardId,
+      actorName: session.name || 'Someone',
+      actorId: session.id,
+    })
+
     return { success: true, data: updated }
   } catch (error) {
     console.error("[EDIT_COMMENT_ERROR]", error)
@@ -748,6 +786,17 @@ export async function toggleReaction(input: {
         reactions: { include: { user: { select: { id: true, name: true, image: true } } } },
         user: true,
       },
+    })
+
+    // Audit log + real-time broadcast so other clients see reaction changes live
+    await createAuditLog({
+      userId: session.id,
+      action: "TOGGLE_REACTION",
+      details: { commentId, emoji, taskId: comment.taskId, added: !existing },
+    })
+    emitBoardEvent("task:updated", {
+      boardId: comment.task.column.board.id,
+      taskId: comment.taskId,
     })
 
     return { success: true, data: updatedComment }
@@ -1231,11 +1280,18 @@ export async function submitForReview(input: { taskId: string, reviewerId: strin
     await sendNotification({
       userId: reviewerId,
       type: 'REVIEW_REQUESTED',
-      message: `${session.name} requested a review for: ${perm.task!.title}`,
+      message: `${session.name || 'Someone'} requested a review for: ${perm.task!.title}`,
       link: `/dashboard/board/${perm.task!.column.boardId}`,
     })
 
-    return { success: true, data: review }
+    // Return the fresh task (version was incremented above) so the client can
+    // keep its local copy in sync and avoid a false version-conflict.
+    const freshTask = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { column: true },
+    })
+
+    return { success: true, data: { review, task: freshTask } }
   } catch (error) {
     console.error('[SUBMIT_REVIEW_ERROR]', error)
     return { success: false, error: 'Failed to submit review' }
@@ -1275,41 +1331,30 @@ export async function completeReview(input: { id: string, status: any, feedback:
     })
 
     const statusValue = validation.data.status as string
-    let targetColumnName: string | null = null
+    // Resolve the target column using the shared helpers so non-standard
+    // column names (Completed/Resolved/Launch/Doing/Ready/...) still match.
+    const boardColumns = await prisma.column.findMany({
+      where: { boardId: updatedReview.task.column.boardId },
+      select: { id: true, name: true, order: true },
+      orderBy: { order: 'asc' },
+    })
+    let targetColumn: { id: string } | undefined
     if (statusValue === 'APPROVED') {
-      targetColumnName = 'Done'
+      targetColumn = boardColumns.find((c) => isDoneColumn(c.name)) || boardColumns[boardColumns.length - 1]
     } else if (statusValue === 'CHANGES_REQUESTED') {
-      targetColumnName = 'In Progress'
+      targetColumn = boardColumns.find((c) => isInProgressColumn(c.name)) || boardColumns[1] || boardColumns[0]
     } else if (statusValue === 'REJECTED') {
-      targetColumnName = 'To Do'
+      targetColumn = boardColumns.find((c) => isTodoColumn(c.name)) || boardColumns[0]
     }
 
     let movedColumnId: string | null = null
     let previousColumnId: string | null = null
 
-    if (targetColumnName) {
-      const boardColumns = await prisma.column.findMany({
-        where: { boardId: updatedReview.task.column.boardId },
-        select: { id: true, name: true, order: true },
-        orderBy: { order: 'asc' },
-      })
-      let targetColumn = boardColumns.find(
-        (c) => c.name.toLowerCase() === targetColumnName!.toLowerCase()
-      )
-      if (!targetColumn) {
-        if (statusValue === 'APPROVED') {
-          targetColumn = boardColumns[boardColumns.length - 1]
-        } else if (statusValue === 'CHANGES_REQUESTED') {
-          targetColumn = boardColumns[1] || boardColumns[0]
-        } else if (statusValue === 'REJECTED') {
-          targetColumn = boardColumns[0]
-        }
-      }
-      if (targetColumn && targetColumn.id !== updatedReview.task.columnId) {
-        previousColumnId = updatedReview.task.columnId
-        movedColumnId = targetColumn.id
+    if (targetColumn && targetColumn.id !== updatedReview.task.columnId) {
+      previousColumnId = updatedReview.task.columnId
+      movedColumnId = targetColumn.id
 
-await prisma.task.update({
+      await prisma.task.update({
         where: { id: updatedReview.taskId },
         data: { columnId: targetColumn.id, version: { increment: 1 } },
       })
@@ -1332,11 +1377,13 @@ await prisma.task.update({
         const moveNotifyUsers = new Set<string>()
         if (task.assigneeId && task.assigneeId !== session.id) moveNotifyUsers.add(task.assigneeId)
         if (task.creatorId && task.creatorId !== session.id) moveNotifyUsers.add(task.creatorId)
+        const movedColumnName =
+          boardColumns.find((c) => c.id === targetColumn!.id)?.name || ''
         for (const userId of moveNotifyUsers) {
           await sendNotification({
             userId,
             type: 'TASK_STATUS_CHANGED',
-            message: `Task "${task.title}" moved to ${targetColumnName} (review)`,
+            message: `Task "${task.title}" moved to ${movedColumnName} (review)`,
             link: `/dashboard/board/${task.column.boardId}`,
           })
         }
@@ -1345,13 +1392,14 @@ await prisma.task.update({
           taskId: task.id,
           taskTitle: task.title,
           columnId: targetColumn.id,
-          columnName: targetColumnName!,
+          columnName: movedColumnName,
           boardId: task.column.boardId,
           priority: task.priority as string,
           assigneeId: task.assigneeId,
           previousColumnId,
+          issueType: task.issueType,
+          hasSprint: !!task.sprintId,
         }).catch(err => console.error('[AUTOMATION_ERROR]', err))
-      }
       }
     }
 
@@ -1379,7 +1427,14 @@ await prisma.task.update({
       link: `/dashboard/board/${updatedReview.task.column.boardId}`,
     })
 
-    return { success: true, data: updatedReview }
+    // Re-fetch the task AFTER the auto-move so the client receives the current
+    // version + columnId (updatedReview.task still references the pre-move row).
+    const freshTask = await prisma.task.findUnique({
+      where: { id: updatedReview.taskId },
+      include: { column: true },
+    })
+
+    return { success: true, data: { ...updatedReview, task: freshTask } }
   } catch (error) {
     console.error('[COMPLETE_REVIEW_ERROR]', error)
     return { success: false, error: 'Failed to complete review' }

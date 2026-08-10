@@ -124,6 +124,7 @@ export function useBoardEvents(
       'task:sprintAssigned': (data) => onEvent('task:sprintAssigned', data),
       'task:sprintRemoved': (data) => onEvent('task:sprintRemoved', data),
       'task:issueFieldsUpdated': (data) => onEvent('task:issueFieldsUpdated', data),
+      'task:blockerToggled': (data) => onEvent('task:blockerToggled', data),
       // Epic events
       'epic:created': (data) => onEvent('epic:created', data),
       'epic:updated': (data) => onEvent('epic:updated', data),

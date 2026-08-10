@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   getBacklogTasks,
@@ -8,7 +8,6 @@ import {
   assignTaskToSprint,
   removeTaskFromSprint,
   updateSprintCapacity,
-  getSprintsByBoard,
 } from '@/actions'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -87,26 +86,19 @@ export function SprintPlanningBoard({
       setSprint(d)
       setSprintTasks(d.tasks || [])
       setCapacityInput(d.capacity?.toString() || '')
-    }
 
-    // Load backlog for this sprint's board
-    if (sprint?.board?.id) {
-      const backlogRes = await getBacklogTasks(sprint.board.id)
-      if (backlogRes.success) setBacklogTasks(backlogRes.data || [])
-    } else {
-      // First load - get sprint first then backlog
-      // Already handled in the above
+      // Load backlog using the FRESHLY-loaded board id (not the stale `sprint`
+      // state, which is still null on first render). Previously the backlog
+      // panel was always empty until an unrelated re-render.
+      const boardId = d.board?.id
+      if (boardId) {
+        const backlogRes = await getBacklogTasks(boardId)
+        if (backlogRes.success) setBacklogTasks(backlogRes.data || [])
+      }
     }
 
     setLoading(false)
   }
-
-  // When sprint loads, load backlog
-  useEffect(() => {
-    if (sprint?.board?.id && loading === false) {
-      // Already loaded in loadData
-    }
-  }, [sprint?.board?.id])
 
   async function handleAddToSprint(taskId: string) {
     const res = await assignTaskToSprint({ taskId, sprintId })

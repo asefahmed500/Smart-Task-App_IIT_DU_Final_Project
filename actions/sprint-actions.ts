@@ -9,6 +9,13 @@ import { emitBoardEvent } from '@/utils/socket-emitter'
 import { sendNotification } from '@/utils/notification-utils'
 import { createAuditLog } from '@/lib/create-audit-log'
 import { checkBoardPermission } from './board-actions'
+import { evaluateAutomationRules } from './automation-actions'
+import { findDoneColumnName } from '@/lib/column-helpers'
+import { isDoneColumn, isInProgressColumn, isTodoColumn } from '@/utils/column-utils'
+
+// NOTE: do NOT re-export the (sync) column helpers from this "use server"
+// file — Next.js only allows async function exports from server-action
+// modules, and re-exporting them also dragged prisma into client bundles.
 
 // --- Schemas ---
 
@@ -45,18 +52,6 @@ const removeTaskFromSprintSchema = z.object({
 })
 
 // --- Sprint CRUD ---
-
-async function findDoneColumnName(boardId: string): Promise<string> {
-  const columns = await prisma.column.findMany({
-    where: { boardId },
-    select: { id: true, name: true, order: true },
-    orderBy: { order: 'asc' },
-  })
-  const doneCol = columns.find(
-    (c) => c.name.toLowerCase() === 'done' || c.name.toLowerCase() === 'completed' || c.name.toLowerCase() === 'resolved'
-  )
-  return doneCol?.name || columns[columns.length - 1]?.name || 'Done'
-}
 
 export async function createSprint(
   rawInput: unknown
@@ -350,6 +345,20 @@ export async function updateSprintStatus(
           link: `/member/sprints/${input.id}`,
         })
       }
+      // Fire SPRINT_STARTED automation rules for each task in the sprint
+      for (const t of existing.tasks) {
+        evaluateAutomationRules('SPRINT_STARTED', {
+          taskId: t.id,
+          taskTitle: t.title,
+          columnId: t.columnId,
+          columnName: '',
+          boardId: existing.boardId,
+          priority: t.priority,
+          assigneeId: t.assigneeId,
+          issueType: t.issueType,
+          hasSprint: true,
+        }).catch((err) => console.error('[AUTOMATION_ERROR]', err))
+      }
     }
 
     // Notify board members when sprint completes
@@ -372,6 +381,20 @@ export async function updateSprintStatus(
             link: `/member/sprints/${input.id}`,
           })
         }
+      }
+      // Fire SPRINT_COMPLETED automation rules for each task in the sprint
+      for (const t of existing.tasks) {
+        evaluateAutomationRules('SPRINT_COMPLETED', {
+          taskId: t.id,
+          taskTitle: t.title,
+          columnId: t.columnId,
+          columnName: '',
+          boardId: existing.boardId,
+          priority: t.priority,
+          assigneeId: t.assigneeId,
+          issueType: t.issueType,
+          hasSprint: true,
+        }).catch((err) => console.error('[AUTOMATION_ERROR]', err))
       }
     }
 
@@ -869,7 +892,6 @@ export async function getBurndownData(
     })
     if (!perm.success) return perm
 
-    const doneColName = await findDoneColumnName(sprint.boardId)
     const totalSP = sprint.tasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0)
     const totalTasks = sprint.tasks.length
     const useStoryPoints = totalSP > 0
@@ -878,33 +900,69 @@ export async function getBurndownData(
     const end = new Date(sprint.endDate)
     const totalDays = Math.max(Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)), 1)
 
+    // Truthful "actual": reconstruct each task's completion time from the
+    // audit log (earliest UPDATE_TASK_STATUS* entry whose target column is a
+    // done column) instead of fabricating a linear approximation.
+    const sprintTaskIds = new Set(sprint.tasks.map((t) => t.id))
+    const statusLogs = await prisma.auditLog.findMany({
+      where: {
+        action: { in: ['UPDATE_TASK_STATUS', 'UPDATE_TASK_STATUS_OVERRIDE'] },
+        createdAt: { gte: start },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { createdAt: true, details: true },
+    })
+
+    const completionByTask = new Map<string, Date>()
+    for (const log of statusLogs) {
+      const details = log.details as any
+      if (
+        typeof details?.taskId === 'string' &&
+        sprintTaskIds.has(details.taskId) &&
+        typeof details.newStatus === 'string' &&
+        isDoneColumn(details.newStatus) &&
+        !completionByTask.has(details.taskId)
+      ) {
+        completionByTask.set(details.taskId, log.createdAt)
+      }
+    }
+
+    // Tasks already sitting in a done column when the sprint began (no log in
+    // the window) count as completed from day one.
+    for (const t of sprint.tasks) {
+      if (isDoneColumn(t.column?.name) && !completionByTask.has(t.id)) {
+        completionByTask.set(t.id, start)
+      }
+    }
+
     const points: { date: string; ideal: number; actual: number }[] = []
 
     for (let i = 0; i <= totalDays; i++) {
       const day = new Date(start)
       day.setDate(day.getDate() + i)
       const dateStr = day.toISOString().split('T')[0]
+      const dayEnd = new Date(day)
+      dayEnd.setHours(23, 59, 59, 999)
 
       const ideal = useStoryPoints
         ? Math.round((totalSP - (totalSP / totalDays) * (i + 1)) * 10) / 10
         : Math.round((totalTasks - (totalTasks / totalDays) * (i + 1)) * 10) / 10
 
-      // Actual: tasks NOT in done column at this point in time
-      // For completed sprints, use current state; for active, compute up to today
-      const currentVal = useStoryPoints ? totalSP : totalTasks
-      const completedVal = sprint.tasks.filter((t) =>
-        t.column?.name?.toLowerCase() === doneColName.toLowerCase()
-      ).reduce((sum, t) => sum + (useStoryPoints ? (t.storyPoints || 0) : 1), 0)
+      let completedUnits = 0
+      for (const t of sprint.tasks) {
+        const doneAt = completionByTask.get(t.id)
+        if (doneAt && doneAt <= dayEnd) {
+          completedUnits += useStoryPoints ? t.storyPoints || 0 : 1
+        }
+      }
 
-      // Simple linear approximation for actual
-      const daysElapsed = i + 1
-      const progress = Math.min(daysElapsed / totalDays, 1)
-      const actual = Math.round((currentVal - completedVal * progress) * 10) / 10
+      const currentVal = useStoryPoints ? totalSP : totalTasks
+      const actual = Math.round((currentVal - completedUnits) * 10) / 10
 
       points.push({ date: dateStr, ideal: Math.max(ideal, 0), actual: Math.max(actual, 0) })
     }
 
-    return { success: true, data: points }
+    return { success: true, data: { points, useStoryPoints } }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }

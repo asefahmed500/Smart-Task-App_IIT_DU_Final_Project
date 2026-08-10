@@ -3,10 +3,14 @@
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth-server'
 import { ActionResult } from '@/types/kanban'
+import { isDoneColumn } from '@/utils/column-utils'
 
 export async function getManagerDashboardData(): Promise<ActionResult> {
   const session = await getSession()
   if (!session) return { success: false, error: 'Unauthorized' }
+  if (session.role !== 'ADMIN' && session.role !== 'MANAGER') {
+    return { success: false, error: 'Unauthorized: Manager access required' }
+  }
 
   try {
     const boards = await prisma.board.findMany({
@@ -32,18 +36,23 @@ export async function getManagerDashboardData(): Promise<ActionResult> {
       where: {
         column: { 
           boardId: { in: boardIds },
-          name: { in: ['Done', 'done', 'Completed', 'completed'] } 
         },
         updatedAt: { gte: oneWeekAgo }
       }
     })
 
-    const allTeamTasks = await prisma.task.findMany({
+    const allTeamTasksRaw = await prisma.task.findMany({
       where: {
         column: { boardId: { in: boardIds } }
       },
       include: { column: true }
     })
+    // Recompute completedTasksThisWeek using the shared done-column helper
+    // (done/completed/resolved/launch) instead of a hardcoded name list.
+    const completedTasksThisWeekCorrect = allTeamTasksRaw.filter(
+      (t) => isDoneColumn(t.column?.name) && t.updatedAt >= oneWeekAgo
+    ).length
+    const allTeamTasks = allTeamTasksRaw
 
     const unassignedTasks = allTeamTasks.filter(t => !t.assigneeId).length
 
@@ -51,7 +60,7 @@ export async function getManagerDashboardData(): Promise<ActionResult> {
 
     for (const task of allTeamTasks) {
       const colName = task.column.name
-      if (!['Done', 'done', 'Completed', 'completed'].includes(colName)) {
+      if (!isDoneColumn(colName)) {
         columnStats.set(colName, (columnStats.get(colName) || 0) + 1)
       }
     }
@@ -74,7 +83,7 @@ export async function getManagerDashboardData(): Promise<ActionResult> {
           taskCount: b.columns.reduce((sum, col) => sum + col.tasks.length, 0)
         })),
         totalTasks: allTeamTasks.length,
-        completedThisWeek: completedTasksThisWeek,
+        completedThisWeek: completedTasksThisWeekCorrect,
         teamMemberCount: allMemberIds.size,
         unassignedTasks,
         bottleneckColumns
@@ -99,6 +108,12 @@ export async function getAdvancedReports(boardId: string): Promise<ActionResult>
     })
 
     if (!board) return { success: false, error: 'Board not found' }
+
+    // RBAC: admins allowed; otherwise must be owner or board member
+    const isMember = board.members.some((m) => m.id === session.id)
+    if (session.role !== 'ADMIN' && board.ownerId !== session.id && !isMember) {
+      return { success: false, error: 'Access denied: you are not a member of this board' }
+    }
 
     const tasks = await prisma.task.findMany({
       where: { column: { boardId } },
@@ -159,7 +174,7 @@ export async function getAdvancedReports(boardId: string): Promise<ActionResult>
           startTime = transitionTime
         }
 
-        if (['done', 'completed'].includes(details.newStatus.toLowerCase())) {
+        if (typeof details.newStatus === 'string' && isDoneColumn(details.newStatus)) {
           if (!completionTime) completionTime = transitionTime
         } else {
           completionTime = null
@@ -192,17 +207,20 @@ export async function getAdvancedReports(boardId: string): Promise<ActionResult>
 
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    
+
     const throughputData: Record<string, number> = {}
     for (let i = 0; i < 30; i++) {
       const d = new Date()
-      d.setDate(thirtyDaysAgo.getDate() + i)
+      d.setDate(d.getDate() - (29 - i))
       throughputData[d.toISOString().split('T')[0]] = 0
     }
 
     tasks.forEach(task => {
       const logs = taskLogs.get(task.id) || []
-      const doneLog = logs.find(log => ['done', 'completed'].includes((log.details as any).newStatus.toLowerCase()))
+      const doneLog = logs.find(log => {
+        const ns = (log.details as any).newStatus
+        return typeof ns === 'string' && isDoneColumn(ns)
+      })
       if (doneLog && doneLog.createdAt >= thirtyDaysAgo) {
         const dateStr = doneLog.createdAt.toISOString().split('T')[0]
         if (throughputData[dateStr] !== undefined) {
@@ -261,19 +279,13 @@ export async function getMemberDashboardData(): Promise<ActionResult> {
       where: { userId: session.id, isRead: false }
     })
 
-    const activeTasks = myTasks.filter(t => {
-      const status = t.column.name.toLowerCase()
-      return !['done', 'completed'].includes(status)
-    })
+    const activeTasks = myTasks.filter(t => !isDoneColumn(t.column.name))
 
     return {
       success: true,
       data: {
         assignedTasks: myTasks.length,
-        completedTasks: myTasks.filter(t => {
-          const status = t.column.name.toLowerCase()
-          return ['done', 'completed'].includes(status)
-        }).length,
+        completedTasks: myTasks.filter(t => isDoneColumn(t.column.name)).length,
         activeBoardCount: myBoards.length,
         unreadNotifications,
         myTasks: myTasks.map(t => ({

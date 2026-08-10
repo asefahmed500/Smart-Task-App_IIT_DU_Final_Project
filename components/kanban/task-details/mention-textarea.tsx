@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { User } from '@/types/kanban'
 import { cn } from '@/utils/utils'
+import { buildMentionToken } from '@/utils/mention'
 
 interface MentionTextareaProps {
   value: string
@@ -70,14 +71,19 @@ export function MentionTextarea({
     if (mentionStart === -1) return
     const beforeMention = value.slice(0, mentionStart)
     const afterQuery = value.slice(mentionStart + 1 + searchQuery.length)
-    const newValue = `${beforeMention}@${member.name || member.email} ${afterQuery}`
+    // Insert a delimited token so multi-word names parse reliably and the
+    // renderer can resolve the mention by userId (see utils/mention.ts).
+    const mentionName = member.name || member.email || 'User'
+    const token = buildMentionToken(member.id, mentionName)
+    const newValue = `${beforeMention}${token} ${afterQuery}`
     onChange(newValue)
     setShowSuggestions(false)
     setMentionStart(-1)
     setSearchQuery('')
 
-    const nameLength = (member.name || member.email).length
-    const newCursorPos = mentionStart + nameLength + 2
+    // @[ + id + | + name + ] + trailing space
+    const tokenLength = token.length + 1
+    const newCursorPos = mentionStart + tokenLength
     requestAnimationFrame(() => {
       textareaRef.current?.focus()
       textareaRef.current?.setSelectionRange(newCursorPos, newCursorPos)

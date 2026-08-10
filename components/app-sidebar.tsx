@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import {
   LayoutDashboard,
   Users,
@@ -18,6 +20,8 @@ import {
   ChevronRight,
   Loader2,
   Zap,
+  Sun,
+  Moon,
 } from "lucide-react"
 
 import {
@@ -63,6 +67,8 @@ interface AppSidebarProps {
 export function AppSidebar({ user, ...props }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const { role } = user
   const router = useRouter()
+  const pathname = usePathname()
+  const { resolvedTheme, setTheme } = useTheme()
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [creating, setCreating] = useState<string | null>(null)
 
@@ -129,16 +135,22 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
         <SidebarGroup>
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarMenu>
-            {items.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild tooltip={item.title}>
-                  <Link href={item.url}>
-                    <item.icon className="size-4" />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {items.map((item) => {
+              // Exact match for list pages; prefix match for nested routes
+              // (e.g. /manager/sprints/xyz highlights "Sprints").
+              const isActive =
+                pathname === item.url || pathname.startsWith(`${item.url}/`)
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title} isActive={isActive}>
+                    <Link href={item.url}>
+                      <item.icon className="size-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
           </SidebarMenu>
         </SidebarGroup>
 
@@ -183,6 +195,20 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-2">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
+              tooltip="Toggle theme"
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            >
+              {resolvedTheme === 'dark' ? (
+                <Sun className="size-4" />
+              ) : (
+                <Moon className="size-4" />
+              )}
+              <span>{resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton className="h-12" asChild>
               <Link href="/profile" className="flex items-center">

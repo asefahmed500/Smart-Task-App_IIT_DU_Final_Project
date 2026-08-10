@@ -30,20 +30,24 @@ export async function POST(request: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: 'MEMBER' // Default role
-      }
-    })
+    // Create user + notification preferences atomically
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          role: 'MEMBER' // Default role
+        }
+      })
 
-    // Create default notification preferences
-    await prisma.notificationPreference.create({
-      data: {
-        userId: user.id,
-      }
+      await tx.notificationPreference.create({
+        data: {
+          userId: created.id,
+        }
+      })
+
+      return created
     })
 
     // Notify admins of new user signup
@@ -52,36 +56,34 @@ export async function POST(request: Request) {
     // Log the user in immediately after signup
     const sessionToken = await login({ id: user.id, email: user.email, name: user.name, image: user.image, role: user.role })
 
-    // Auto-create a welcome board for new members
-    if (user.role === 'MEMBER') {
-      try {
-        const welcomeBoard = await prisma.board.create({
-          data: {
-            name: `${name}'s Board`,
-            description: 'Your personal board to explore and manage tasks',
-            ownerId: user.id,
-            members: {
-              connect: { id: user.id }
-            },
-            columns: {
-              create: [
-                { name: 'To Do', order: 0 },
-                { name: 'In Progress', order: 1 },
-                { name: 'Done', order: 2 }
-              ]
-            }
+    // Auto-create a welcome board for the new member
+    try {
+      const welcomeBoard = await prisma.board.create({
+        data: {
+          name: `${name}'s Board`,
+          description: 'Your personal board to explore and manage tasks',
+          ownerId: user.id,
+          members: {
+            connect: { id: user.id }
+          },
+          columns: {
+            create: [
+              { name: 'To Do', order: 0 },
+              { name: 'In Progress', order: 1 },
+              { name: 'Done', order: 2 }
+            ]
           }
-        })
+        }
+      })
 
-        await sendNotification({
-          userId: user.id,
-          type: 'BOARD_MEMBER_ADDED',
-          message: 'Developer assigned you a board to check the functionality of the system',
-          link: `/dashboard/board/${welcomeBoard.id}`,
-        })
-      } catch (boardError) {
-        console.error('Welcome board creation failed:', boardError)
-      }
+      await sendNotification({
+        userId: user.id,
+        type: 'BOARD_MEMBER_ADDED',
+        message: `Welcome to SmartTask! Your board "${welcomeBoard.name}" is ready.`,
+        link: `/dashboard/board/${welcomeBoard.id}`,
+      })
+    } catch (boardError) {
+      console.error('Welcome board creation failed:', boardError)
     }
 
     return NextResponse.json({ 

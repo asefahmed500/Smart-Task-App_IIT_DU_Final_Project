@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache'
 import { createAutomationRuleSchema, updateAutomationRuleSchema, idSchema } from '@/lib/schemas'
 import { ActionResult } from '@/types/kanban'
 import { createAuditLog } from '@/lib/create-audit-log'
+import { isDoneColumn, isInProgressColumn, isTodoColumn } from '@/utils/column-utils'
 
 export type Trigger = 'TASK_CREATED' | 'TASK_MOVED' | 'TASK_UPDATED' | 'TASK_ASSIGNED' | 'SPRINT_STARTED' | 'SPRINT_COMPLETED'
 export type Action = 'SEND_NOTIFICATION' | 'MOVE_TASK' | 'SET_PRIORITY' | 'ADD_TAG'
@@ -22,6 +23,8 @@ interface TaskContext {
   priority: string
   assigneeId: string | null
   previousColumnId?: string
+  issueType?: string | null
+  hasSprint?: boolean
 }
 
 // Internal evaluation logic (keep as is but exported for task-actions)
@@ -75,15 +78,22 @@ function evaluateCondition(condition: string, context: TaskContext): boolean {
       'priority=LOW': () => context.priority === 'LOW',
       'assignee=null': () => context.assigneeId === null,
       'assignee!=null': () => context.assigneeId !== null,
-      'column=In Progress': () => context.columnName.toLowerCase().includes('progress'),
-      'column=Done': () => context.columnName.toLowerCase().includes('done'),
-      'column=To Do': () => context.columnName.toLowerCase().includes('todo') || context.columnName.toLowerCase().includes('to do'),
+      'column=In Progress': () => isInProgressColumn(context.columnName),
+      'column=Done': () => isDoneColumn(context.columnName),
+      'column=To Do': () => isTodoColumn(context.columnName),
+      'issueType=BUG': () => (context.issueType ?? '') === 'BUG',
+      'issueType=FEATURE': () => (context.issueType ?? '') === 'FEATURE',
+      'issueType=STORY': () => (context.issueType ?? '') === 'STORY',
+      'hasSprint=true': () => context.hasSprint === true,
+      'hasSprint=false': () => context.hasSprint === false,
     }
 
+    // Unknown conditions fail CLOSED (do not fire) rather than open, so a typo'd
+    // or unimplemented condition never silently runs an action on every match.
     const evaluator = conditionMap[condition]
-    return evaluator ? evaluator() : true
+    return evaluator ? evaluator() : false
   } catch {
-    return true
+    return false
   }
 }
 

@@ -2,11 +2,11 @@ import { openDB, IDBPDatabase } from "idb"
 
 const DB_NAME = "smart-task-db"
 const STORE_NAME = "action-queue"
-const VERSION = 2
+const VERSION = 3
 
 export interface OfflineAction {
   id: string
-  type: "CREATE_TASK" | "MOVE_TASK" | "EDIT_TASK" | "ADD_COMMENT" | "UPDATE_TASK"
+  type: "CREATE_TASK" | "MOVE_TASK" | "EDIT_TASK" | "ADD_COMMENT" | "UPDATE_TASK" | "TOGGLE_CHECKLIST_ITEM"
   payload: any
   timestamp: number
   retryCount?: number
@@ -21,7 +21,17 @@ function getDB() {
     dbPromise = openDB(DB_NAME, VERSION, {
       upgrade(db) {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: "id" })
+          const store = db.createObjectStore(STORE_NAME, { keyPath: "id" })
+          store.createIndex("timestamp", "timestamp")
+        } else {
+          // v2 → v3 migration: add the timestamp index so the queue can be
+          // read back in FIFO order (indexedDB get() order is by key, not by
+          // insertion time).
+          // createIndex is only exposed on versionchange transactions
+          const existing = db.transaction(STORE_NAME, "versionchange").objectStore(STORE_NAME)
+          if (existing && !existing.indexNames.contains("timestamp")) {
+            existing.createIndex("timestamp", "timestamp")
+          }
         }
       },
     })
@@ -49,7 +59,8 @@ export async function addOfflineAction(
 export async function getOfflineActions(): Promise<OfflineAction[]> {
   const db = await getDB()
   if (!db) return []
-  return db.getAll(STORE_NAME)
+  // FIFO: oldest action first (timestamp index ascending)
+  return db.getAllFromIndex(STORE_NAME, "timestamp")
 }
 
 export async function deleteOfflineAction(id: string) {

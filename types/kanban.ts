@@ -156,6 +156,9 @@ export interface NotificationPreference {
   boardMemberRemoved: boolean;
   epicUpdated: boolean;
   issueLinkUpdated: boolean;
+  sprintStarted: boolean;
+  sprintCompleted: boolean;
+  taskAddedToSprint: boolean;
   emailEnabled: boolean;
   pushEnabled: boolean;
 }

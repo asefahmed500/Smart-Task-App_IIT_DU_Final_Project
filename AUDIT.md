@@ -104,11 +104,7 @@ Auth guards and RBAC redirects. Next.js 16 auto-detects `proxy.ts` instead of `m
 ### `app/api/auth/me/route.ts`
 `GET /api/auth/me` — Returns current session user or `{ user: null }`.
 
-### `app/api/auth/reset-password/request/route.ts`
-`POST /api/auth/reset-password/request` — Generates a crypto-random token (1-hour expiry), stores in `PasswordResetToken` table, sends reset email.
-
-### `app/api/auth/reset-password/confirm/route.ts`
-`POST /api/auth/reset-password/confirm` — Validates reset token, hashes new password, updates user, deletes token in a transaction.
+> Note: Password reset is implemented via **server actions** (`actions/auth-actions.ts`), not API routes. The old `app/api/auth/reset-password/*/route.ts` routes were removed as duplicates.
 
 ### `actions/auth-actions.ts`
 - `requestPasswordReset(email)` — Generates reset token, sends email
@@ -127,9 +123,9 @@ Auth guards and RBAC redirects. Next.js 16 auto-detects `proxy.ts` instead of `m
 | `/api/auth/logout` | POST | Clear session cookie |
 | `/api/auth/me` | GET | Return current session user |
 | `/api/auth/signup` | POST | Register new user + auto-login |
-| `/api/auth/reset-password/request` | POST | Generate password reset token + email |
-| `/api/auth/reset-password/confirm` | POST | Validate token + set new password |
 | `/api/notifications/check` | POST | Run due-date reminders + overdue checks (cron) |
+
+> Password reset uses server actions (`requestPasswordReset` / `resetPassword` in `actions/auth-actions.ts`), not API routes.
 
 ---
 
@@ -545,11 +541,11 @@ Seeds DB with 3 users (admin, manager, member), 2 boards with columns, 3 sample 
 | Category | Files | Lines (approx) |
 |----------|-------|----------------|
 | Server Actions (`actions/`) | 11 | ~3,800 |
-| API Routes (`app/api/`) | 7 | ~400 |
+| API Routes (`app/api/`) | 5 | ~300 |
 | Pages (`app/`) | 24 | ~3,500 |
 | Components (`components/`) | 55 | ~8,000 |
 | Custom Hooks (`hooks/`) | 11 | ~2,000 |
-| Library (`lib/`) | 10 | ~1,200 |
+| Library (`lib/`) | 11 | ~1,250 |
 | Utilities (`utils/`) | 6 | ~500 |
 | Types (`types/`) | 3 | ~200 |
 | Socket Server | 1 | ~310 |
@@ -557,7 +553,7 @@ Seeds DB with 3 users (admin, manager, member), 2 boards with columns, 3 sample 
 | Config & Middleware | 6 | ~200 |
 | Scripts | 7 | ~300 |
 | UI Components (shadcn) | 28 | ~3,500 |
-| **Total Source Files** | **~171** | **~24,400** |
+| **Total Source Files** | **~170** | **~24,300** |
 
 ---
 
@@ -566,7 +562,7 @@ Seeds DB with 3 users (admin, manager, member), 2 boards with columns, 3 sample 
 | Feature | Key Files |
 |---------|-----------|
 | **Auth (Login/Signup/Logout)** | `lib/auth.ts`, `lib/auth-server.ts`, `app/api/auth/*/route.ts`, `app/(auth)/*/page.tsx` |
-| **Password Reset** | `actions/auth-actions.ts`, `app/api/auth/reset-password/*/route.ts`, `utils/mail.ts` |
+| **Password Reset** | `actions/auth-actions.ts`, `utils/mail.ts` |
 | **RBAC / Middleware** | `proxy.ts`, `actions/admin-actions.ts` (`checkAdmin`), `actions/manager-actions.ts` (`checkManager`), `actions/board-actions.ts` (`checkBoardPermission`), `actions/task-actions.ts` (`checkTaskPermission`) |
 | **Kanban Board** | `components/kanban/kanban-board.tsx`, `hooks/use-kanban-board.ts`, `actions/board-actions.ts` |
 | **Task Management** | `actions/task-actions.ts`, `components/kanban/task-details-dialog.tsx`, `hooks/use-task/*.ts` |

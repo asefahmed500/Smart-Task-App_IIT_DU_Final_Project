@@ -108,6 +108,28 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
       }
     }
 
+    if (event === 'task:blockerToggled') {
+      if (data.userId === currentUser.id) return
+      const taskId = data.taskId as string | undefined
+      if (!taskId) return
+      setBoard((prev: Board) => {
+        let changed = false
+        const newColumns = prev.columns.map((col: Column) => {
+          const idx = col.tasks.findIndex((t: Task) => t.id === taskId)
+          if (idx === -1) return col
+          changed = true
+          const newTasks = [...col.tasks]
+          newTasks[idx] = {
+            ...newTasks[idx],
+            isBlocked: data.isBlocked as boolean,
+            blockerReason: (data.blockerReason as string | null) ?? null,
+          }
+          return { ...col, tasks: newTasks }
+        })
+        return changed ? { ...prev, columns: newColumns } : prev
+      })
+    }
+
     if (event === 'task:created') {
       if (data.task) {
         const newTask = data.task as Task
@@ -361,15 +383,30 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
                   version: activeTask.version
                 }
               })
-              
-              emitTaskMoved(board.id, {
-                taskId: activeId as string,
-                newColumnId: overColumnId,
-                oldColumnId,
-                userId: currentUser.id,
-                userName: currentUser.name || currentUser.email
+
+              // Optimistic UI: reflect the move locally so the board matches
+              // intent (previously nothing happened on screen). No socket emit —
+              // the Socket.IO client can't reach the server offline anyway.
+              setBoard((prev: Board) => {
+                const task = prev.columns
+                  .flatMap((c: Column) => c.tasks)
+                  .find((t: Task) => t.id === activeTask.id)
+                if (!task) return prev
+                const updatedTask = { ...task, columnId: overColumn.id }
+                return {
+                  ...prev,
+                  columns: prev.columns.map((col: Column) => {
+                    if (col.id === oldColumnId) {
+                      return { ...col, tasks: col.tasks.filter((t: Task) => t.id !== activeTask.id) }
+                    }
+                    if (col.id === overColumn.id && !col.tasks.some((t: Task) => t.id === activeTask.id)) {
+                      return { ...col, tasks: [...col.tasks, updatedTask] }
+                    }
+                    return col
+                  })
+                }
               })
-              
+
               toast.success(`Task moved locally (offline)`)
               return
             }

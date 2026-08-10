@@ -2,7 +2,8 @@ import {
   updateTaskStatus, 
   createTask, 
   addComment, 
-  updateTask 
+  updateTask,
+  toggleChecklistItem,
 } from '@/actions/task-actions'
 import { OfflineAction } from '@/lib/offline-db'
 
@@ -18,6 +19,9 @@ export async function syncOfflineAction(action: OfflineAction) {
         break
       case 'ADD_COMMENT':
         result = await addComment(action.payload)
+        break
+      case 'TOGGLE_CHECKLIST_ITEM':
+        result = await toggleChecklistItem(action.payload)
         break
       case 'UPDATE_TASK':
       case 'EDIT_TASK':

@@ -222,14 +222,23 @@ export function SprintDetail({
         </Badge>
       </div>
 
-      {/* Nav tabs */}
+      {/* Nav tabs — Plan/Review/Retro are manager-only routes; hide them for
+          members (those routes 404 at /member/*). */}
       <div className="flex items-center gap-1 border-b border-hairline pb-0">
         {[
           { label: 'Detail', href: `${basePath}/sprints/${sprintId}` },
-          { label: 'Plan', href: `${basePath}/sprints/${sprintId}/plan` },
+          ...(basePath !== '/member'
+            ? [
+                { label: 'Plan', href: `${basePath}/sprints/${sprintId}/plan` },
+              ]
+            : []),
           { label: 'Board', href: `${basePath}/sprints/${sprintId}/board` },
-          { label: 'Review', href: `${basePath}/sprints/${sprintId}/review` },
-          { label: 'Retro', href: `${basePath}/sprints/${sprintId}/retro` },
+          ...(basePath !== '/member'
+            ? [
+                { label: 'Review', href: `${basePath}/sprints/${sprintId}/review` },
+                { label: 'Retro', href: `${basePath}/sprints/${sprintId}/retro` },
+              ]
+            : []),
         ].map((tab) => {
           const isActive = pathname === tab.href
           return (

@@ -25,7 +25,7 @@ async function upsertUser(email: string, password: string, name: string, role: '
     console.log(`  User ${email} already exists, skipping.`)
     return existing
   }
-  const hash = await bcrypt.hash(password, 10)
+  const hash = await bcrypt.hash(password, 12)
   return prisma.user.create({
     data: { email, password: hash, name, role },
   })

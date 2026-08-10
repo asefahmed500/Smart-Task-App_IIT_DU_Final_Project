@@ -32,6 +32,7 @@ export const metadata: Metadata = {
 
 import { Toaster } from "sonner";
 import { OfflineProvider } from "@/components/providers/offline-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 
 export default function RootLayout({
   children,
@@ -41,9 +42,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${oswald.variable} ${sansFont.variable} ${serifFont.variable} ${monoFont.variable}`} suppressHydrationWarning>
       <body className="antialiased font-sans min-h-screen bg-background text-foreground">
-        <OfflineProvider>
-          {children}
-        </OfflineProvider>
+        <ThemeProvider>
+          <OfflineProvider>
+            {children}
+          </OfflineProvider>
+        </ThemeProvider>
         <Toaster position="top-right" richColors closeButton />
       </body>
     </html>

@@ -261,3 +261,21 @@ input:focus, select:focus, textarea:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-muted-text);
 }
+
+/* ----- Custom utilities used across the app (previously undefined) ----- */
+
+/* Oswald display face — wired to the loaded --font-oswald variable */
+.font-oswald {
+  font-family: var(--font-oswald), "Oswald", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Subtle film-grain texture; combined with opacity-[0.03] overlays */
+.bg-noise {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* Radial gradient that composes with Tailwind from/via/to stops */
+.bg-gradient-radial {
+  background-image: radial-gradient(circle at center, var(--tw-gradient-stops));
+}

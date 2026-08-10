@@ -328,47 +328,41 @@ Returns the current authenticated user or null.
 - Authenticated: `200 { user: { id, email, name, image, role } }`
 - Not authenticated: `200 { user: null }`
 
-### POST `/api/auth/reset-password/request`
+### Server Actions: Password Reset
+
+> Password reset is implemented via **server actions** in `actions/auth-actions.ts` (not API routes). The old `app/api/auth/reset-password/*/route.ts` routes were removed as duplicates. The forms at `/forgot-password` and `/reset-password` call `requestPasswordReset(email)` and `resetPassword(token, password)` directly.
+
+#### `requestPasswordReset(email)`
 
 Generates a password reset token and sends an email.
 
-**Request Body:**
-```json
-{ "email": "string" }
-```
-
 **Flow:**
-1. Validates email present → `400` if not
+1. Validates email with `forgotPasswordSchema` → returns `{ success: false, error }` if invalid
 2. Looks up user by email
-3. **Returns generic success message** even if user not found (prevents email enumeration)
+3. **Returns generic success message** even if user not found (prevents email enumeration; logs in non-prod)
 4. Generates token: `crypto.randomBytes(32).toString('hex')` → 64-char hex
 5. Token expiry: 1 hour (`Date.now() + 3600000`)
 6. `prisma.passwordResetToken.upsert({ where: { email }, ... })` — replaces any existing token
-7. Logs reset link to console (email sending via Nodemailer is in the server action path, not this API route)
+7. Sends reset email via `utils/mail.ts` (`sendPasswordResetEmail`), writes `PASSWORD_RESET_REQUESTED` audit log
 
-**Response:** Always `200 { message: "If an account exists with this email, a reset link has been sent." }`
+**Response:** Always `{ success: true, message: "If an account exists with this email, a reset link has been sent." }`
 
-### POST `/api/auth/reset-password/confirm`
+#### `resetPassword(token, password)`
 
 Validates a reset token and updates the password.
 
-**Request Body:**
-```json
-{ "email": "string", "token": "string", "password": "string" }
-```
-
 **Flow:**
-1. Validates all fields present → `400` if any missing
-2. Finds `PasswordResetToken` by token
-3. Verifies token email matches request email
-4. Checks expiry → deletes expired tokens, returns `400 "Token has expired"`
-5. `bcrypt.hash(password, 10)` — 10 salt rounds
-6. `prisma.$transaction([ user.update({ password: hash }), token.delete() ])` — atomic password update + token cleanup
-7. Returns `200 { message: "Password has been successfully reset" }`
+1. Validates with `resetPasswordSchema` → `{ success: false, error }` if invalid
+2. Finds `PasswordResetToken` by `token`
+3. Checks expiry → returns `"Invalid or expired token"` (expired tokens deleted on next attempt)
+4. Loads user by `resetToken.email`; returns `"User no longer exists"` if missing
+5. `bcrypt.hash(password, 12)` — 12 salt rounds
+6. `prisma.$transaction([ user.update({ password: hash, passwordVersion: { increment: 1 } }), token.delete() ])` — atomic password update + token cleanup + session invalidation
+7. Writes `PASSWORD_RESET_COMPLETED` audit log, returns `{ success: true, message: "Password reset successful. You can now log in." }`
 
 **Error Responses:**
-- `400` — Missing fields, invalid/expired token, email mismatch
-- `500` — Server error
+- `{ success: false, error }` — Invalid/expired token, missing user
+- `{ success: false, error: "Failed to reset password" }` — Server error
 
 ---
 
@@ -681,22 +675,20 @@ await createAuditLog({
 | 5 | `app/api/auth/signup/route.ts` | `POST` signup — create user (MEMBER), welcome board, auto-login, notify admins |
 | 6 | `app/api/auth/logout/route.ts` | `POST` logout — clear session cookie |
 | 7 | `app/api/auth/me/route.ts` | `GET` current user — returns session or null |
-| 8 | `app/api/auth/reset-password/request/route.ts` | `POST` request reset — generate token, log to console |
-| 9 | `app/api/auth/reset-password/confirm/route.ts` | `POST` confirm reset — validate token, update password |
-| 10 | `actions/auth-actions.ts` | Server actions: `requestPasswordReset`, `resetPassword`, `updateProfile`, `changePassword`, `getUserProfile` |
-| 11 | `lib/schemas.ts` | Zod schemas: `loginSchema`, `signupSchema`, `forgotPasswordSchema`, `resetPasswordSchema`, `updateProfileSchema` |
-| 12 | `types/kanban.ts` | TypeScript types: `Role`, `User`, `ActionResult<T>`, `NotificationPreference` |
-| 13 | `utils/mail.ts` | Nodemailer SMTP transport + `sendPasswordResetEmail()` |
-| 14 | `utils/notification-utils.ts` | `sendNotification()`, `notifyAdminsNewUser()` |
-| 15 | `lib/create-audit-log.ts` | `createAuditLog()` — writes to AuditLog table, auto-extracts IP |
-| 16 | `lib/audit.ts` | `getClientIp()` — reads `x-forwarded-for` / `x-real-ip` headers |
-| 17 | `prisma/schema.prisma` | Models: `User`, `PasswordResetToken`, `NotificationPreference`, `AuditLog`, `Role` enum |
-| 18 | `prisma/seed.ts` | Seeds 5 test accounts with hashed passwords |
-| 19 | `app/(auth)/login/page.tsx` | Login form UI |
-| 20 | `app/(auth)/signup/page.tsx` | Signup form UI |
-| 21 | `app/(auth)/forgot-password/page.tsx` | Forgot password form UI |
-| 22 | `app/(auth)/reset-password/page.tsx` | Reset password form UI |
-| 23 | `app/page.tsx` | Landing page — auth-aware redirect |
-| 24 | `app/dashboard/page.tsx` | Dashboard redirect — routes to role-specific page |
-| 25 | `components/notification-bell.tsx` | Notification bell with real-time updates |
-| 26 | `lib/prisma.ts` | Prisma client setup with `@prisma/adapter-pg` |
+| 8 | `actions/auth-actions.ts` | Server actions: `requestPasswordReset`, `resetPassword`, `updateProfile`, `changePassword`, `getUserProfile` |
+| 9 | `lib/schemas.ts` | Zod schemas: `loginSchema`, `signupSchema`, `forgotPasswordSchema`, `resetPasswordSchema`, `updateProfileSchema` |
+| 10 | `types/kanban.ts` | TypeScript types: `Role`, `User`, `ActionResult<T>`, `NotificationPreference` |
+| 11 | `utils/mail.ts` | Nodemailer SMTP transport + `sendPasswordResetEmail()` |
+| 12 | `utils/notification-utils.ts` | `sendNotification()`, `notifyAdminsNewUser()` |
+| 13 | `lib/create-audit-log.ts` | `createAuditLog()` — writes to AuditLog table, auto-extracts IP |
+| 14 | `lib/audit.ts` | `getClientIp()` — reads `x-forwarded-for` / `x-real-ip` headers |
+| 15 | `prisma/schema.prisma` | Models: `User`, `PasswordResetToken`, `NotificationPreference`, `AuditLog`, `Role` enum |
+| 16 | `prisma/seed.ts` | Seeds 5 test accounts with hashed passwords |
+| 17 | `app/(auth)/login/page.tsx` | Login form UI |
+| 18 | `app/(auth)/signup/page.tsx` | Signup form UI |
+| 19 | `app/(auth)/forgot-password/page.tsx` | Forgot password form UI |
+| 20 | `app/(auth)/reset-password/page.tsx` | Reset password form UI |
+| 21 | `app/page.tsx` | Landing page — auth-aware redirect |
+| 22 | `app/dashboard/page.tsx` | Dashboard redirect — routes to role-specific page |
+| 23 | `components/notification-bell.tsx` | Notification bell with real-time updates |
+| 24 | `lib/prisma.ts` | Prisma client setup with `@prisma/adapter-pg` |

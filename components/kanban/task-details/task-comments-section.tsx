@@ -9,19 +9,22 @@ import { formatDistanceToNow } from "date-fns"
 import { MentionTextarea } from "./mention-textarea"
 import { Badge } from "@/components/ui/badge"
 import { Reaction } from "@/types/kanban"
+import { MENTION_REGEX } from "@/utils/mention"
 
 const REACTION_EMOJIS = ["👍", "🚀", "❤️"]
 const FIVE_MINUTES_MS = 5 * 60 * 1000
 const COMMENTS_PER_PAGE = 5
-
-const MENTION_REGEX = /@([\w\s]+?)(?=\s|$|[,.!?:;])/g
 
 function renderCommentWithMentions(content: string, members: User[]) {
   const parts: React.ReactNode[] = []
   let lastIndex = 0
   let key = 0
 
-  const memberNames = new Set((members || []).map(m => m?.name).filter(Boolean))
+  // Resolve mention tokens by userId (names change; ids are stable)
+  const memberById = new Map<string, User>()
+  for (const m of members || []) {
+    if (m?.id) memberById.set(m.id, m)
+  }
 
   const regex = new RegExp(MENTION_REGEX.source, MENTION_REGEX.flags)
   let match
@@ -29,16 +32,19 @@ function renderCommentWithMentions(content: string, members: User[]) {
     if (match.index > lastIndex) {
       parts.push(content.slice(lastIndex, match.index))
     }
-    const mentionName = match[1].trim()
-    const isKnownMember = memberNames.has(mentionName)
-    if (isKnownMember) {
+    const userId = match[1].trim()
+    const fallbackName = match[2].trim()
+    const member = memberById.get(userId)
+    const displayName = member?.name || fallbackName || 'Unknown'
+    if (member) {
       parts.push(
         <span key={key++} className="inline-flex items-center px-1.5 py-0 mx-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">
-          @{mentionName}
+          @{displayName}
         </span>
       )
     } else {
-      parts.push(match[0])
+      // Mentioned user is no longer a board member — keep the text intact
+      parts.push(`@${displayName}`)
     }
     lastIndex = match.index + match[0].length
   }

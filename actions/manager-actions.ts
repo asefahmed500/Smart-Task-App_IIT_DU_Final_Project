@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth-server'
 import { ActionResult } from '@/types/kanban'
+import { isDoneColumn, isInProgressColumn } from '@/utils/column-utils'
 
 async function checkManager() {
   const session = await getSession()
@@ -145,7 +146,7 @@ export async function getManagerAnalytics(): Promise<ActionResult> {
 
     relevantChanges.forEach(log => {
       const details = log.details as any
-      if (details.newStatus === 'Done') {
+      if (isDoneColumn(details.newStatus)) {
         const date = log.createdAt.toISOString().split('T')[0]
         throughputMap.set(date, (throughputMap.get(date) || 0) + 1)
       }
@@ -156,19 +157,17 @@ export async function getManagerAnalytics(): Promise<ActionResult> {
       value
     }))
 
-    // 3. Cycle Time & Lead Time
-    const completedTasks = await prisma.task.findMany({
-      where: {
-        id: { in: taskIds },
-        column: { name: { contains: 'Done', mode: 'insensitive' } }
-      },
-      select: { id: true, createdAt: true, updatedAt: true }
+    // 3. Cycle Time & Lead Time — done-column tasks (handles done/completed/resolved/launch)
+    const completedTasksRaw = await prisma.task.findMany({
+      where: { id: { in: taskIds } },
+      select: { id: true, createdAt: true, updatedAt: true, column: { select: { name: true } } }
     })
+    const completedTasks = completedTasksRaw.filter((t) => isDoneColumn(t.column?.name))
 
     // Fetch all logs for these tasks to calculate cycle time
     // We already have relevantChanges, but we might need more history for lead time if they started >30 days ago
     // For lead time, we use task.createdAt, so we just need the completion log.
-    
+
     let totalLeadTime = 0
     let totalCycleTime = 0
     let leadTimeCount = 0
@@ -176,8 +175,8 @@ export async function getManagerAnalytics(): Promise<ActionResult> {
 
     completedTasks.forEach(task => {
       // Find the earliest completion log for this task
-      const completionLog = relevantChanges.find(log => 
-        (log.details as any).taskId === task.id && (log.details as any).newStatus === 'Done'
+      const completionLog = relevantChanges.find(log =>
+        (log.details as any).taskId === task.id && isDoneColumn((log.details as any).newStatus)
       )
 
       if (completionLog) {
@@ -186,12 +185,12 @@ export async function getManagerAnalytics(): Promise<ActionResult> {
         totalLeadTime += lead
         leadTimeCount++
 
-        // Cycle Time: From first move to "In Progress" to Done
-        const startLog = relevantChanges.find(log => 
-          (log.details as any).taskId === task.id && 
-          ['In Progress', 'Doing', 'Active'].includes((log.details as any).newStatus as string)
+        // Cycle Time: From first move to an "In Progress" column to Done
+        const startLog = relevantChanges.find(log =>
+          (log.details as any).taskId === task.id &&
+          isInProgressColumn((log.details as any).newStatus)
         )
-        
+
         if (startLog) {
           const cycle = completionLog.createdAt.getTime() - startLog.createdAt.getTime()
           totalCycleTime += cycle
@@ -214,21 +213,21 @@ export async function getManagerAnalytics(): Promise<ActionResult> {
     boards.forEach(board => {
       board.columns.forEach(col => {
         const status = col.name.toLowerCase()
-        if (status.includes('done') || status.includes('complete')) distribution[2].value += col.tasks.length
-        else if (status.includes('progress') || status.includes('doing')) distribution[1].value += col.tasks.length
+        if (isDoneColumn(col.name)) distribution[2].value += col.tasks.length
+        else if (isInProgressColumn(col.name)) distribution[1].value += col.tasks.length
         else if (status.includes('block')) distribution[3].value += col.tasks.length
         else distribution[0].value += col.tasks.length
       })
     })
 
     // 5. Bottlenecks
-    const bottlenecks = boards.flatMap(board => 
+    const bottlenecks = boards.flatMap(board =>
       board.columns.map(col => ({
         boardName: board.name,
         columnName: col.name,
         taskCount: col.tasks.length,
         wipLimit: col.wipLimit,
-        isBottleneck: col.wipLimit > 0 && col.tasks.length >= col.wipLimit && col.name !== 'Done'
+        isBottleneck: col.wipLimit > 0 && col.tasks.length >= col.wipLimit && !isDoneColumn(col.name)
       }))
     ).filter(b => b.isBottleneck).sort((a, b) => b.taskCount - a.taskCount)
 
@@ -236,7 +235,7 @@ export async function getManagerAnalytics(): Promise<ActionResult> {
     const boardStats = boards.map(board => {
       const total = board.columns.reduce((sum, col) => sum + col.tasks.length, 0)
       const done = board.columns
-        .filter(col => col.name.toLowerCase().includes('done'))
+        .filter(col => isDoneColumn(col.name))
         .reduce((sum, col) => sum + col.tasks.length, 0)
       
       return {

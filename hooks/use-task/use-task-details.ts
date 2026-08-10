@@ -90,7 +90,15 @@ export function useTaskDetails({ taskId, isOpen, onClose, currentUser, isAdmin }
 
       const result = await updateTask({ id: taskId, [field]: value, version: task.version })
       if (result.success) {
-        setTask({ ...task, [field]: value } as Task)
+        // Use server truth (incremented version + column) so the next edit
+        // doesn't trigger a false version-conflict.
+        const updated = result.data as Task
+        setTask({
+          ...task,
+          [field]: value,
+          version: updated?.version ?? task.version,
+          columnId: updated?.columnId ?? task.columnId,
+        } as Task)
         router.refresh()
         toast.success('Task updated', {
           action: {
@@ -131,7 +139,12 @@ export function useTaskDetails({ taskId, isOpen, onClose, currentUser, isAdmin }
         version: undefined // Force bypass
       })
       if (result.success) {
-        setTask({ ...task, [conflictData.field]: conflictData.value } as Task)
+        const updated = result.data as Task
+        setTask({
+          ...task,
+          [conflictData.field]: conflictData.value,
+          version: updated?.version ?? task.version,
+        } as Task)
         toast.success('Conflict resolved (overwritten)')
         setConflictModalOpen(false)
         setConflictData(null)

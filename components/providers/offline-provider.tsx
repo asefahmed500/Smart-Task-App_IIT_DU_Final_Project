@@ -4,9 +4,7 @@ import { useEffect, ReactNode, useCallback, useRef } from "react"
 import { useOfflineStore } from "@/lib/store/use-offline-store"
 import { toast } from "sonner"
 import { syncOfflineAction } from "@/lib/offline-sync"
-import { WifiOff, Trash2, RefreshCw } from "lucide-react"
-
-const MAX_RETRIES = 3
+import { WifiOff, Trash2, RefreshCw, X } from "lucide-react"
 
 export function OfflineProvider({ children }: { children: ReactNode }) {
   const {
@@ -22,6 +20,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     dismissFailed,
   } = useOfflineStore()
   const isSyncingRef = useRef(false)
+  const didInitialSyncRef = useRef(false)
 
   useEffect(() => {
     initQueue().catch((err) =>
@@ -45,36 +44,21 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
           await removeAction(action.id)
           successCount++
         } else {
-          const currentRetry = action.retryCount ?? 0
-          if (currentRetry + 1 >= MAX_RETRIES) {
-            await updateAction(action.id, {
-              retryCount: currentRetry + 1,
-              errorMsg: result?.error || "Sync failed",
-            })
-            failCount++
-          } else {
-            await updateAction(action.id, {
-              retryCount: currentRetry + 1,
-              errorMsg: result?.error || "Sync failed",
-            })
-            failCount++
-          }
+          // Both retry branches were identical — a failed action either still
+          // has retries left (stays in queue) or hits the cap (moves to the
+          // failed list via updateAction). Consolidate to one code path.
+          await updateAction(action.id, {
+            retryCount: (action.retryCount ?? 0) + 1,
+            errorMsg: result?.error || "Sync failed",
+          })
+          failCount++
         }
       } catch (error) {
-        const currentRetry = action.retryCount ?? 0
-        if (currentRetry + 1 >= MAX_RETRIES) {
-          await updateAction(action.id, {
-            retryCount: currentRetry + 1,
-            errorMsg: error instanceof Error ? error.message : "Unknown error",
-          })
-          failCount++
-        } else {
-          await updateAction(action.id, {
-            retryCount: currentRetry + 1,
-            errorMsg: error instanceof Error ? error.message : "Unknown error",
-          })
-          failCount++
-        }
+        await updateAction(action.id, {
+          retryCount: (action.retryCount ?? 0) + 1,
+          errorMsg: error instanceof Error ? error.message : "Unknown error",
+        })
+        failCount++
       }
     }
 
@@ -137,8 +121,15 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     window.addEventListener("offline", handleOffline)
     navigator.serviceWorker?.addEventListener("message", handleMessage)
 
-    if (navigator.onLine && queue.length > 0) {
-      syncQueue()
+    // Sync pending actions once on mount (page load while online). Do NOT run
+    // on every queue change — that caused a retry cascade where each failed
+    // attempt bumped retryCount, re-ran this effect, and immediately retried
+    // the same actions again. Online/SYNC_REQUIRED events handle the rest.
+    if (!didInitialSyncRef.current) {
+      didInitialSyncRef.current = true
+      if (navigator.onLine && useOfflineStore.getState().queue.length > 0) {
+        syncQueue()
+      }
     }
 
     return () => {
@@ -146,7 +137,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("offline", handleOffline)
       navigator.serviceWorker?.removeEventListener("message", handleMessage)
     }
-  }, [setOnline, syncQueue, queue.length])
+  }, [setOnline, syncQueue])
 
   const handleClearQueue = async () => {
     if (!confirm(`Clear ${queue.length + failedActions.length} pending actions? This cannot be undone.`)) {
@@ -198,6 +189,53 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
               <span>Dismiss All</span>
             </button>
           )}
+        </div>
+      )}
+
+      {/* Per-item failed-action retry list (only shown when something failed) */}
+      {failedActions.length > 0 && (
+        <div className="fixed top-7 left-0 right-0 z-[99] flex justify-center px-4">
+          <div className="w-full max-w-xl rounded-lg border border-destructive/30 bg-background/95 backdrop-blur-xl shadow-xl p-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-text px-2 pb-1">
+              {failedActions.length} change{failedActions.length > 1 ? "s" : ""} failed to sync
+            </p>
+            <ul className="space-y-1 max-h-40 overflow-y-auto">
+              {failedActions.map((a) => (
+                <li
+                  key={a.id}
+                  className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-destructive/5 hover:bg-destructive/10 transition-colors"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] font-mono font-semibold text-destructive shrink-0">
+                      {a.type}
+                    </span>
+                    {a.errorMsg && (
+                      <span className="text-[10px] text-muted-text truncate" title={a.errorMsg}>
+                        {a.errorMsg}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleRetryFailed(a.id)}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent/10 text-accent hover:bg-accent/20 transition-colors text-[10px] font-semibold"
+                      title={`Retry ${a.type}`}
+                    >
+                      <RefreshCw className="size-3" />
+                      Retry
+                    </button>
+                    <button
+                      onClick={() => dismissFailed(a.id)}
+                      className="flex items-center px-1.5 py-0.5 rounded bg-muted hover:bg-muted/70 transition-colors text-muted-text"
+                      title="Dismiss"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
       {children}

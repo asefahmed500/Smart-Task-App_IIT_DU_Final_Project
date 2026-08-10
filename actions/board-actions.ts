@@ -411,6 +411,18 @@ export async function deleteColumn(input: { columnId: string, boardId: string, t
 
     let finalTargetId = vTargetColumnId
 
+    // If the caller supplied a target column, verify it belongs to the SAME board
+    // so tasks can never be silently rehomed across boards.
+    if (finalTargetId) {
+      const targetInBoard = await prisma.column.findFirst({
+        where: { id: finalTargetId, boardId: vBoardId },
+        select: { id: true },
+      })
+      if (!targetInBoard) {
+        return { success: false, error: 'Target column does not belong to this board' }
+      }
+    }
+
     if (!finalTargetId) {
       const otherColumn = await prisma.column.findFirst({
         where: { boardId: vBoardId, id: { not: vColumnId } },
@@ -881,16 +893,19 @@ export async function undoLastAction(): Promise<ActionResult> {
         createdAt: { gte: thirtySecondsAgo },
         action: {
           in: [
-            'CREATE_TASK', 
-            'DELETE_TASK', 
+            'CREATE_TASK',
+            'DELETE_TASK',
             'UPDATE_TASK',
-            'UPDATE_TASK_STATUS', 
-            'UPDATE_TASK_STATUS_OVERRIDE', 
-            'CREATE_COLUMN', 
+            'UPDATE_TASK_STATUS',
+            'UPDATE_TASK_STATUS_OVERRIDE',
+            'CREATE_COLUMN',
             'DELETE_COLUMN',
             'UPDATE_COLUMN',
             'UPDATE_COLUMN_WIP_LIMIT',
             'REORDER_COLUMNS',
+            'UPDATE_BOARD',
+            'ADD_BOARD_MEMBER',
+            'REMOVE_BOARD_MEMBER',
             'DELETE_COMMENT',
             'DELETE_CHECKLIST_ITEM',
             'DELETE_ATTACHMENT',
@@ -1055,6 +1070,20 @@ export async function undoLastAction(): Promise<ActionResult> {
       }
 
       case 'CREATE_COLUMN': {
+        // Safety: if tasks were added to the new column within the undo window,
+        // rehome them to the nearest sibling BEFORE deleting — otherwise the
+        // Column→Task cascade would silently destroy them.
+        const sibling = await prisma.column.findFirst({
+          where: { boardId: details.boardId, id: { not: details.columnId } },
+          orderBy: { order: 'asc' },
+          select: { id: true },
+        })
+        if (sibling) {
+          await prisma.task.updateMany({
+            where: { columnId: details.columnId },
+            data: { columnId: sibling.id },
+          })
+        }
         await prisma.column.delete({ where: { id: details.columnId } })
         emitBoardEvent('column:deleted', { boardId: details.boardId, columnId: details.columnId })
         break

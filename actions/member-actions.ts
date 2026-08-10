@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth-server'
 import { ActionResult } from '@/types/kanban'
+import { isDoneColumn } from '@/utils/column-utils'
 
 async function checkMember() {
   const session = await getSession()
@@ -72,17 +73,22 @@ export async function getMemberStats(): Promise<ActionResult> {
   if (!auth.success) return auth
 
   try {
-    const totalTasks = await prisma.task.count({
-      where: { assigneeId: auth.session!.id }
-    })
-    
-    const completedTasks = await prisma.task.count({
-      where: { 
-        assigneeId: auth.session!.id,
-        column: { name: { contains: 'Done', mode: 'insensitive' } }
-      }
+    // Fetch this member's tasks once (with column name) so done-detection can use
+    // the shared isDoneColumn helper (done/completed/resolved/launch/closed/shipped)
+    // and so the 7-day velocity avoids an N+1 query.
+    const myTasks = await prisma.task.findMany({
+      where: { assigneeId: auth.session!.id },
+      select: {
+        id: true,
+        updatedAt: true,
+        createdAt: true,
+        dueDate: true,
+        column: { select: { name: true } },
+      },
     })
 
+    const totalTasks = myTasks.length
+    const completedTasks = myTasks.filter((t) => isDoneColumn(t.column?.name)).length
     const activeTasks = totalTasks - completedTasks
 
     // Daily velocity for the last 7 days
@@ -93,29 +99,17 @@ export async function getMemberStats(): Promise<ActionResult> {
       return d
     }).reverse()
 
-    const dailyCompletions = await Promise.all(last7Days.map(async (date) => {
+    const dailyCompletions = last7Days.map((date) => {
       const nextDay = new Date(date)
       nextDay.setDate(nextDay.getDate() + 1)
-
-      try {
-        const count = await prisma.task.count({
-          where: {
-            assigneeId: auth.session!.id,
-            updatedAt: { gte: date, lt: nextDay },
-            column: { name: { contains: 'Done', mode: 'insensitive' } }
-          }
-        })
-        return { 
-          day: date.toLocaleDateString('en-US', { weekday: 'short' }), 
-          tasks: count 
-        }
-      } catch {
-        return { 
-          day: date.toLocaleDateString('en-US', { weekday: 'short' }), 
-          tasks: 0 
-        }
+      const count = myTasks.filter(
+        (t) => isDoneColumn(t.column?.name) && t.updatedAt >= date && t.updatedAt < nextDay
+      ).length
+      return {
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        tasks: count,
       }
-    }))
+    })
 
     // Calculate accuracy (checklist completion)
     const assignedTasksWithChecklists = await prisma.task.findMany({
@@ -136,18 +130,13 @@ export async function getMemberStats(): Promise<ActionResult> {
     const accuracyRate = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 100
 
     // Calculate Completion Speed (On-time completion rate)
-    const doneTasksWithDates = await prisma.task.findMany({
-      where: {
-        assigneeId: auth.session!.id,
-        column: { name: { contains: 'Done', mode: 'insensitive' } },
-        dueDate: { not: null }
-      },
-      select: { updatedAt: true, dueDate: true }
-    })
+    const doneTasksWithDates = myTasks.filter(
+      (t) => isDoneColumn(t.column?.name) && t.dueDate !== null
+    )
 
     const onTimeCompletions = doneTasksWithDates.filter(t => t.updatedAt <= t.dueDate!).length
-    const completionSpeed = doneTasksWithDates.length > 0 
-      ? Math.round((onTimeCompletions / doneTasksWithDates.length) * 100) 
+    const completionSpeed = doneTasksWithDates.length > 0
+      ? Math.round((onTimeCompletions / doneTasksWithDates.length) * 100)
       : 100
 
     // Calculate Collaboration Rate (Tasks with comments or attachments)

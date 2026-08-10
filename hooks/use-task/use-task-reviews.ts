@@ -30,10 +30,16 @@ export function useTaskReviews({ taskId, task, setTask, currentUser, fetchTaskDe
       if (result.success && result.data) {
         setIsSubmittingReview(false)
         setSelectedReviewer('')
-        // Update task state with the new review
+        // Update task state with the new review + fresh version (submitForReview
+        // increments version on the server).
         if (task) {
-          const newReview = result.data as any
-          setTask({ ...task, reviews: [newReview, ...(task.reviews || [])] })
+          const data = result.data as any
+          const freshTask = data?.task
+          setTask({
+            ...task,
+            reviews: [data?.review || data, ...(task.reviews || [])],
+            version: freshTask?.version ?? task.version,
+          })
         }
         toast.success('Submitted for review', {
           action: {
@@ -70,12 +76,16 @@ export function useTaskReviews({ taskId, task, setTask, currentUser, fetchTaskDe
       const result = await completeReview({ id: activeReview.id, status, feedback: reviewFeedback })
       if (result.success && result.data) {
         setReviewFeedback('')
-        // Update task state
+        // Update task state — review status + fresh version/columnId from the
+        // post-move task so the next edit doesn't hit a false conflict.
         if (task) {
           const updatedReview = result.data as any
+          const freshTask = updatedReview?.task
           setTask({
             ...task,
-            reviews: task.reviews?.map(r => r.id === updatedReview.id ? updatedReview : r) || []
+            reviews: task.reviews?.map(r => r.id === updatedReview.id ? updatedReview : r) || [],
+            version: freshTask?.version ?? task.version,
+            columnId: freshTask?.columnId ?? task.columnId,
           })
         }
         toast.success(`Review completed: ${status}`, {

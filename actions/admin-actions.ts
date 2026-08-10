@@ -17,6 +17,7 @@ import {
   toggleAutomationRule 
 } from './automation-actions'
 import { createAuditLog } from '@/lib/create-audit-log'
+import { isDoneColumn } from '@/utils/column-utils'
 
 const createUserSchema = z.object({
   name: z.string().min(1).max(50),
@@ -67,6 +68,17 @@ export async function updateUserRole(input: { userId: string, role: Role }): Pro
   if (!auth.success) return auth
 
   try {
+    // Prevent demoting the last active admin
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, isActive: true } })
+    if (target?.role === 'ADMIN' && target.isActive && role !== 'ADMIN') {
+      const otherAdmins = await prisma.user.count({
+        where: { role: 'ADMIN', isActive: true, id: { not: userId } }
+      })
+      if (otherAdmins === 0) {
+        return { success: false, error: 'Cannot demote the last active admin' }
+      }
+    }
+
     const user = await prisma.user.update({
       where: { id: userId },
       data: { role },
@@ -97,6 +109,17 @@ export async function deleteUser(input: { userId: string }): Promise<ActionResul
   }
 
   try {
+    // Prevent deleting the last active admin
+    const target = await prisma.user.findUnique({ where: { id: vUserId }, select: { role: true, isActive: true } })
+    if (target?.role === 'ADMIN' && target.isActive) {
+      const otherAdmins = await prisma.user.count({
+        where: { role: 'ADMIN', isActive: true, id: { not: vUserId } }
+      })
+      if (otherAdmins === 0) {
+        return { success: false, error: 'Cannot delete the last active admin' }
+      }
+    }
+
     await prisma.user.delete({
       where: { id: vUserId },
     })
@@ -124,7 +147,7 @@ export async function createUser(data: any): Promise<ActionResult> {
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(validation.data.password, 10)
+    const hashedPassword = await bcrypt.hash(validation.data.password, 12)
     
     const user = await prisma.user.create({
       data: {
@@ -401,43 +424,29 @@ export async function getSystemReports(): Promise<ActionResult> {
   try {
     const safeNum = (p: Promise<number>) => p.catch(() => 0)
 
-    const [taskCount, completedTaskCount, userCount] = await Promise.all([
-      safeNum(prisma.task.count()),
-      safeNum(prisma.task.count({ 
-        where: { 
-          column: { 
-            name: { contains: 'Done', mode: 'insensitive' } 
-          } 
-        } 
-      })),
-      safeNum(prisma.user.count())
-    ])
+    // Fetch tasks with their column name so done-detection can use the shared
+    // isDoneColumn helper (handles done/completed/resolved/launch/closed/shipped).
+    const allTasksForStats = await prisma.task.findMany({
+      select: { id: true, createdAt: true, updatedAt: true, column: { select: { name: true } } },
+    })
+    const taskCount = allTasksForStats.length
+    const doneTasksForStats = allTasksForStats.filter((t) => isDoneColumn(t.column?.name))
+    const completedTaskCount = doneTasksForStats.length
+    const userCount = await safeNum(prisma.user.count())
 
     const completionRate = taskCount > 0 ? Math.round((completedTaskCount / taskCount) * 100) : 0
-    
-    // Fetch tasks that are in a "Done" column to calculate Lead/Cycle times
-    const doneTasks = await prisma.task.findMany({
-      where: {
-        column: {
-          name: { contains: 'Done', mode: 'insensitive' }
-        }
-      },
-      include: {
-        column: true
-      }
-    })
 
     // Calculate Lead Time (Created -> Done)
-    const leadTimes = doneTasks.map(task => {
+    const leadTimes = doneTasksForStats.map(task => {
       const duration = task.updatedAt.getTime() - task.createdAt.getTime()
       return duration / (1000 * 60 * 60 * 24) // Days
     })
-    const avgLeadTime = leadTimes.length > 0 
-      ? (leadTimes.reduce((a, b) => a + b, 0) / leadTimes.length).toFixed(1) 
+    const avgLeadTime = leadTimes.length > 0
+      ? (leadTimes.reduce((a, b) => a + b, 0) / leadTimes.length).toFixed(1)
       : "0"
 
     // Calculate Cycle Time (First move -> Done) - Approximated from first audit log of move
-    const taskIds = doneTasks.map(t => t.id)
+    const taskIds = doneTasksForStats.map(t => t.id)
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
@@ -449,18 +458,15 @@ export async function getSystemReports(): Promise<ActionResult> {
       select: { id: true, details: true, createdAt: true },
       orderBy: { createdAt: 'asc' }
     })
-    
+
     const relevantFirstMoves = firstMoves.filter(log => {
       const details = log.details as any
       return taskIds.includes(details.taskId)
     })
-    
-    // Simpler approximation for now: Cycle time is often 70% of lead time in typical flows, 
-    // or we can fetch audit logs for these tasks.
-    // Let's do a proper fetch for a few.
+
     const cycleTimeLogs = relevantFirstMoves
 
-    const cycleTimes = doneTasks.map(task => {
+    const cycleTimes = doneTasksForStats.map(task => {
       const firstMove = cycleTimeLogs.find(l => (l.details as any).taskId === task.id)
       if (!firstMove) return null
       const duration = task.updatedAt.getTime() - firstMove.createdAt.getTime()
@@ -471,21 +477,25 @@ export async function getSystemReports(): Promise<ActionResult> {
       ? (cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length).toFixed(1)
       : "0"
 
+    // Throughput: count UPDATE_TASK_STATUS logs whose target column is a done column
     const logs = await prisma.auditLog.findMany({
       where: {
-        action: 'UPDATE_TASK_STATUS',
-        details: { path: ['newStatus'], equals: 'Done' }
+        action: { in: ['UPDATE_TASK_STATUS', 'UPDATE_TASK_STATUS_OVERRIDE'] },
       },
-      select: { createdAt: true },
+      select: { createdAt: true, details: true },
       take: 500,
       orderBy: { createdAt: 'desc' }
+    })
+    const doneLogs = logs.filter((l) => {
+      const newStatus = (l.details as any)?.newStatus
+      return typeof newStatus === 'string' && isDoneColumn(newStatus)
     })
 
     const throughputData = Array.from({ length: 7 }).map((_, i) => {
       const d = new Date()
       d.setDate(d.getDate() - (6 - i))
       const dateStr = d.toISOString().split('T')[0]
-      const count = logs.filter(l => l.createdAt.toISOString().split('T')[0] === dateStr).length
+      const count = doneLogs.filter(l => l.createdAt.toISOString().split('T')[0] === dateStr).length
       return {
         name: d.toLocaleDateString('en-US', { weekday: 'short' }),
         value: count

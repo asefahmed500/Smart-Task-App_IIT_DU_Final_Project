@@ -29,7 +29,7 @@ export function useTaskChecklist({ taskId, task, setTask, fetchTaskDetails }: Us
   }
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
-  const { isOnline } = useOfflineStore()
+  const { isOnline, addAction } = useOfflineStore()
 
   const handleAddChecklist = async (title?: string) => {
     if (!taskId) return
@@ -154,17 +154,29 @@ export function useTaskChecklist({ taskId, task, setTask, fetchTaskDetails }: Us
 
   const handleToggleChecklistItem = async (itemId: string, isCompleted: boolean) => {
     try {
+      // Apply the optimistic UI update immediately in both paths
+      if (task) {
+        const updatedChecklists = (task.checklists || []).map((cl: Checklist) => ({
+          ...cl,
+          items: cl.items.map((item: ChecklistItem) =>
+            item.id === itemId ? { ...item, isCompleted } : item
+          )
+        }))
+        setTask({ ...task, checklists: updatedChecklists })
+      }
+
+      if (!isOnline) {
+        // Queue the toggle and let the OfflineProvider sync it on reconnect
+        await addAction({
+          type: 'TOGGLE_CHECKLIST_ITEM',
+          payload: { id: itemId, isCompleted },
+        })
+        toast.success('Item updated (offline — will sync)')
+        return
+      }
+
       const result = await toggleChecklistItem({ id: itemId, isCompleted })
       if (result.success) {
-        if (task) {
-          const updatedChecklists = (task.checklists || []).map((cl: Checklist) => ({
-            ...cl,
-            items: cl.items.map((item: ChecklistItem) => 
-              item.id === itemId ? { ...item, isCompleted } : item
-            )
-          }))
-          setTask({ ...task, checklists: updatedChecklists })
-        }
         toast.success('Item updated', {
           action: {
             label: 'Undo',

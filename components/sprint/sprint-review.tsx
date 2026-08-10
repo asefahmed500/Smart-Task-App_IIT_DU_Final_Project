@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { ArrowLeft, Target, CheckCircle, Award, TrendingUp, Save } from 'lucide-react'
+import { isDoneColumn } from '@/utils/column-utils'
 
 const ISSUE_TYPE_COLORS: Record<string, string> = {
   BUG: 'bg-red-100 text-red-800',
@@ -65,11 +66,11 @@ export function SprintReview({
   }
 
   const completedTasks = sprint?.tasks?.filter(
-    (t: any) => (t.column?.name || '').toLowerCase() === 'done' || (t.column?.name || '').toLowerCase() === 'completed'
+    (t: any) => isDoneColumn(t.column?.name)
   ) || []
 
   const incompleteTasks = sprint?.tasks?.filter(
-    (t: any) => !['done', 'completed'].includes((t.column?.name || '').toLowerCase())
+    (t: any) => !isDoneColumn(t.column?.name)
   ) || []
 
   if (loading) {
