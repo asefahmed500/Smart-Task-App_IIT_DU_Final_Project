@@ -1,9 +1,35 @@
 # SmartTask QA Test Report
 
-**Date:** 2026-08-10
+**Date:** 2026-08-10 (initial) / 2026-08-11 (latest updates)
 **Scope:** Full interactive E2E testing across all 3 roles, all features, all services
 **Environment:** localhost:3002 (Next.js), localhost:3001 (Socket.IO)
 **Method:** Real browser automation (`agent-browser`) — every operation acted + verified via UI, refresh persistence, and DB where practical.
+
+---
+
+## Latest Updates (2026-08-11)
+
+### Feature: Manager Team Performance (`/manager/team`)
+- New `getTeamMemberPerformance` server action (MANAGER/ADMIN only) aggregating each member's workload across all manager boards: total/completed/in-progress/overdue task counts, completion rate, and latest 20 tasks with board/column/sprint.
+- Member cards show live workload stats + completion-rate bar.
+- **View Tasks** opens a compact (384px) scrollable dialog; **Performance** opens a workload/insights dialog.
+
+### Feature/fix: Sprint UX
+- `/member/sprints` and `/manager/sprints` now default to the **first board that has sprints** (members were landing on a sprints-less board and seeing an empty list).
+- Managers can now **delete COMPLETED sprints** (delete button shows for all non-ACTIVE sprints; `deleteSprint` action already allowed it).
+- Verified member sprint cards are read-only (View Details only) and the sprint board shows sprint-filtered tasks + name/status/metrics.
+
+### Fix: Create/update data not showing until manual refresh
+- Root cause: `router.refresh()` is unreliable in Next.js 16 Turbopack dev. Replaced with `window.location.reload()` in add-column, add-task, rename-column, set-wip-limit, edit-board, manage-members, column-container. All board mutations now reflect immediately.
+
+### Fix: Notification cuid leak
+- DUE_DATE_REMINDER / OVERDUE messages previously embedded `(ID: <prisma-cuid>)`. Added a `dedupKey` column; dedup now uses `dedupKey` (`due:<id>` / `overdue:<id>`) and messages are clean ("Task X is overdue"). Applied in both `utils/notification-utils.ts` and `src/socket/server.ts`. `cleanMessage()` safety net strips residual tokens in the bell + toast.
+
+### Fix: Raw mention token display
+- Added `mentionToDisplayText()` (`@[id|Name]` → `@Name`) applied in the audit-trail COMMENT action details, review feedback, and notification bell — raw user ids are never shown.
+
+### Verified live (production)
+- 3-role login (admin/manager/member), board open, task create + persist + reload, comment add, admin user create + instant display, attachment upload route deployed, member login with updated password `asef123`.
 
 ---
 

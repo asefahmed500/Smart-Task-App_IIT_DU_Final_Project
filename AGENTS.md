@@ -156,6 +156,11 @@ Member pages reuse the same sprint components at `/member/*` with `basePath="/me
 - **Blockers on tasks:** `isBlocked` + `blockerReason` fields. Toggle via `toggleTaskBlocker()` in sprint-actions.
 - **Done column detection:** Use `findDoneColumnName()` (matches "done"/"completed"/"resolved", falls back to last column). Never hardcode.
 - **Signup:** Auto-creates `MEMBER` role, welcome board with 3 default columns.
+- **Sprint default board:** `/member/sprints` and `/manager/sprints` default to the FIRST board that has sprints (so the list is never empty); falls back to `boards[0]`.
+- **Sprint deletion:** Delete allowed for any non-ACTIVE sprint (PLANNED/COMPLETED/CANCELLED). The sprint-list card delete button shows for `status !== 'ACTIVE'`.
+- **Team performance:** `getTeamMemberPerformance()` (manager-actions) returns per-member task counts (total/completed/in-progress/overdue), completion rate, and latest 20 tasks across the manager's boards. Task model has NO direct `boardId` — filter via `column: { boardId: { in: ids } }`.
+- **Create/update list refresh:** `router.refresh()` is unreliable in Turbopack dev — board mutation dialogs use `window.location.reload()` after success.
+- **Notification dedup:** `Notification.dedupKey` field holds `due:<taskId>` / `overdue:<taskId>`; NEVER embed `(ID: <cuid>)` in user-facing messages (cleanMessage in notification-bell strips residuals).
 
 ## DnD Gotchas
 

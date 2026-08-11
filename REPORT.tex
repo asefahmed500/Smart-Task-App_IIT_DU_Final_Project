@@ -143,6 +143,10 @@ velocity, and metrics. \\
 \hline
 Epic Management & Epic CRUD, status state machine, task assignment. \\
 \hline
+Team Performance & Manager dashboard showing per-member workload (total,
+completed, in-progress, overdue tasks), completion rate, and a per-member task
+list for workload measurement. \\
+\hline
 Automation & Configurable rules triggered by task events, system-wide or
 board-scoped. \\
 \hline
@@ -600,7 +604,9 @@ deployed application. [INSERT FIGURE]
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.9\textwidth]{figures/screenshot-manager-team}
-  \caption{Team members page listing members across the manager's boards.}
+  \caption{Team members page with per-member workload statistics (total,
+  completed, in-progress, overdue tasks and completion rate) and a task-view
+  dialog, letting the manager measure each member's contribution.}
 \end{figure}
 
 \begin{figure}[h]
@@ -673,8 +679,8 @@ Sprint, Epic & Agile planning entities associated with a board. \\
 \hline
 IssueLink & Directed relations between tasks. \\
 \hline
-Notification, NotificationPreference & Notification records and per-user
-delivery preferences. \\
+Notification, NotificationPreference & Notification records (with a dedupKey
+for reminder de-duplication) and per-user delivery preferences. \\
 \hline
 AutomationRule & Trigger/action rules for workflow automation. \\
 \hline
