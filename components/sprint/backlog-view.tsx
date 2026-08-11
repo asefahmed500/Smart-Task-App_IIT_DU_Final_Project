@@ -59,6 +59,7 @@ interface Task {
   issueType: string | null
   storyPoints: number | null
   epicId: string | null
+  sprintId: string | null
   createdAt: string
   assignee: { id: string; name: string | null; image: string | null } | null
   tags: { id: string; name: string; color: string }[]
@@ -98,7 +99,7 @@ export function BacklogView({
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [assignDialogOpen, setAssignDialogOpen] = useState(false)
   const [targetSprint, setTargetSprint] = useState('')
-  const [editForm, setEditForm] = useState({ issueType: '', storyPoints: '', epicId: '' })
+  const [editForm, setEditForm] = useState({ issueType: '', storyPoints: '', epicId: '', sprintId: '' })
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [filterPriority, setFilterPriority] = useState('all')
@@ -144,6 +145,10 @@ export function BacklogView({
       storyPoints: editForm.storyPoints ? parseInt(editForm.storyPoints) : null,
       epicId: editForm.epicId || null,
     })
+    // If a sprint was chosen in the edit dialog, also assign the task to it.
+    if (editForm.sprintId) {
+      await assignTaskToSprint({ taskId: selectedTask.id, sprintId: editForm.sprintId })
+    }
     if (res.success) {
       toast.success('Task updated')
       setEditDialogOpen(false)
@@ -159,6 +164,7 @@ export function BacklogView({
       issueType: task.issueType || '',
       storyPoints: task.storyPoints?.toString() || '',
       epicId: task.epicId || '',
+      sprintId: task.sprintId || '',
     })
     setEditDialogOpen(true)
   }
@@ -334,7 +340,7 @@ export function BacklogView({
                       </span>
                     </div>
                   </div>
-                  {!readOnly && (
+                  {!readOnly && activeSprints.length > 0 && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -343,11 +349,15 @@ export function BacklogView({
                         e.stopPropagation()
                         openAssignDialog(task)
                       }}
-                      disabled={activeSprints.length === 0}
                     >
                       <Plus className="h-3 w-3 mr-1" />
                       Sprint
                     </Button>
+                  )}
+                  {!readOnly && activeSprints.length === 0 && (
+                    <span className="text-[10px] text-muted-foreground italic whitespace-nowrap">
+                      No active/planned sprint — create one on the Sprints page
+                    </span>
                   )}
                 </div>
               </CardContent>

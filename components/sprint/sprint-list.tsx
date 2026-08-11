@@ -232,7 +232,7 @@ export function SprintList({
             <h3 className="text-lg font-semibold">No sprints found</h3>
             <p className="text-muted-foreground text-sm mt-1 text-center max-w-sm">
               {sprints.length === 0
-                ? 'Create your first sprint to start planning work.'
+                ? `No sprints on "${boards.find((b) => b.id === boardId)?.name || 'this board'}" yet. ${readOnly ? '' : 'Click "New Sprint" to create one for this board.'}`
                 : 'No sprints match the selected filter.'}
             </p>
           </CardContent>

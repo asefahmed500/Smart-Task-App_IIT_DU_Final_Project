@@ -22,6 +22,7 @@ export default async function MemberSprintsPage({
       ],
     },
     select: { id: true, name: true },
+    orderBy: { createdAt: 'desc' }, // newest board first
   })
 
   if (boards.length === 0) {
@@ -32,16 +33,9 @@ export default async function MemberSprintsPage({
     )
   }
 
-  // Default to the first board that has sprints so the list is never empty
-  // on first load; fall back to the first board otherwise.
-  const sprintsByBoard = await prisma.sprint.findMany({
-    where: { boardId: { in: boards.map((b) => b.id) } },
-    select: { boardId: true },
-    distinct: ['boardId'],
-  })
-  const boardWithSprints = boards.find((b) => sprintsByBoard.some((s) => s.boardId === b.id))
-  const defaultBoardId = boardWithSprints?.id || boards[0].id
-  const boardId = params.boardId || defaultBoardId
+  // Default to the URL-selected board, otherwise the NEWEST board the member
+  // belongs to (no auto-jump to a sprinted board — use the clear selector).
+  const boardId = params.boardId || boards[0].id
 
   return <SprintList boardId={boardId} boards={boards} basePath="/member" readOnly />
 }
