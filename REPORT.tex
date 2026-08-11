@@ -13,6 +13,7 @@
 \usepackage{url}
 \usepackage{amsmath}
 \usepackage{booktabs}
+\usepackage{longtable}
 \usepackage{setspace}
 \usepackage{titlesec}
 \usepackage{float}
@@ -240,16 +241,18 @@ offline-aware caching through a service worker. The system is delivered as a web
 application and is deployed for production use.
 
 \section{Core Modules of the System}
-\begin{table}[ht!]
-\centering
-\small
-\caption{Core modules of the SmartTask system.}
-\label{tab:modules}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{|l|p{10.5cm}|}
+\begin{longtable}{|p{4.5cm}|p{11.5cm}|}
+\caption{Core modules of the SmartTask system.}\\
 \hline
 \textbf{Module} & \textbf{Description} \\
 \hline
+\endfirsthead
+\hline
+\textbf{Module} & \textbf{Description} \\
+\hline
+\endhead
+\hline
+\endlastfoot
 Authentication & Login, logout, sign-up, password reset, HTTP-only-cookie JWT
 sessions with session re-validation, profile and password management. \\
 \hline
@@ -306,9 +309,7 @@ Undo & 30-second undo window that reverses the most recent action. \\
 \hline
 Offline Support & Service-worker caching and offline-aware behaviour. \\
 \hline
-\end{tabular}%
-}
-\end{table}
+\end{longtable}
 
 \section{Thesis Organisation}
 The remainder of this report is organised as follows. Chapter~\ref{ch:lit} reviews
@@ -897,16 +898,18 @@ removes its stored file blob; and deleting a task removes its comments,
 checklists, time entries, and reviews.
 \end{sloppypar}
 
-\begin{table}[ht!]
-\centering
-\small
-\caption{Database tables and their purpose.}
-\label{tab:schema}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{|l|p{9.5cm}|}
+\begin{longtable}{|p{5.5cm}|p{10.5cm}|}
+\caption{Database tables and their purpose.}\\
 \hline
 \textbf{Table} & \textbf{Purpose} \\
 \hline
+\endfirsthead
+\hline
+\textbf{Table} & \textbf{Purpose} \\
+\hline
+\endhead
+\hline
+\endlastfoot
 User & Account credentials, role, active status, password version. \\
 \hline
 Board & Project board with owner and member relations. \\
@@ -946,9 +949,7 @@ AuditLog & Immutable log of user actions. \\
 \hline
 PasswordResetToken & One-hour tokens for password recovery. \\
 \hline
-\end{tabular}%
-}
-\end{table}
+\end{longtable}
 
 \section{Key Implementation Decisions}
 \subsection{Authentication}
