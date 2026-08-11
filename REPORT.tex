@@ -3,7 +3,7 @@
 % Full compilable project report
 % ============================================================================
 \documentclass[12pt,a4paper]{report}
-
+ 
 % ---------------------------------------------------------------------------
 % PACKAGES
 % ---------------------------------------------------------------------------
@@ -19,56 +19,91 @@
 \usepackage{placeins}
 \usepackage{caption}
 \usepackage[hidelinks]{hyperref}
-
+ 
 \onehalfspacing
 \raggedbottom
-% Images live in the SAME folder as this .tex file (copy them alongside).
-\graphicspath{{./}}
-
-% Safe fallback so the document compiles even if an image is missing.
+% dhaka.jpg / iit.png live next to this .tex file; screenshots live in figures/
+\graphicspath{{./}{figures/}}
+ 
+% Placeholder image so the document compiles even before you add real screenshots.
+% Delete this block once you have real files in figures/, or keep it as a safe fallback.
 \usepackage{xcolor}
 \newcommand{\placeholderfig}[1]{%
   \fbox{\parbox[c][3cm][c]{0.95\linewidth}{\centering\footnotesize\itshape #1 not found --
   replace with your screenshot/diagram}}%
 }
-
+ 
 \title{SmartTask -- Real-Time Collaborative Kanban Task Management System}
 \begin{document}
-
+ 
 % ---------------------------------------------------------------------------
 % TITLE PAGE
 % ---------------------------------------------------------------------------
 \begin{titlepage}
 \centering
-% \includegraphics[width=3cm]{du-crest} % uncomment once you have the crest image
-\vspace{0.5cm}
+
+% University of Dhaka Logo
+\IfFileExists{dhaka.jpg}
+  {\includegraphics[width=5 cm]{dhaka.jpg}}
+  {\placeholderfig{dhaka.jpg}}
+
+\vspace{0.1cm}
+
 {\Large\bfseries University of Dhaka\par}
 {\Large\bfseries Institute of Information Technology (IIT)\par}
-\vspace{1.5cm}
+
+\vspace{0.45cm}
+
 {\large\itshape Project\par}
 {\large\itshape On\par}
+
+\vspace{0.15cm}
+
+{\Large\bfseries
+``SmartTask -- Real-Time Collaborative Kanban Task Management System''
+\par}
+
 \vspace{0.5cm}
-{\Large\bfseries ``SmartTask -- Real-Time Collaborative Kanban Task Management System''\par}
-\vspace{2cm}
+
 {\itshape Submitted By\par}
-\vspace{0.3cm}
-\textbf{Name:} [INSERT YOUR NAME]\\
+
+\vspace{0.1cm}
+
+\textbf{Name:} Asef Ahmed \\
 \textbf{Exam Roll:} [INSERT ROLL]\\
 \textbf{ID:} [INSERT ID]\\
-\textbf{Batch:} [INSERT BATCH]\\
-\textbf{Session:} [INSERT SESSION]\par
-\vspace{1cm}
-{\itshape A project submitted to the Institute of Information Technology (IIT), DU\\
-for the partial fulfillment of the degree of [INSERT DEGREE NAME]\par}
-\vspace{2cm}
+\textbf{Batch:} 6th \\
+\textbf{Session:} [INSERT SESSION]
+
+\vspace{0.35cm}
+
+{\itshape
+A project submitted to the Institute of Information Technology (IIT), DU\\
+for the partial fulfillment of the degree of [INSERT DEGREE NAME]
+\par}
+
+\vspace{0.35cm}
+
+% IIT Logo
+\IfFileExists{iit.png}
+  {\includegraphics[width=1.8cm]{iit.png}}
+  {\placeholderfig{iit.png}}
+
+\vspace{0.1cm}
+
 {\itshape Supervised By\par}
-\vspace{0.3cm}
-\textbf{[INSERT SUPERVISOR NAME]}\\{}
-[INSERT SUPERVISOR DESIGNATION]\\{}
+
+\vspace{0.1cm}
+
+\textbf{[INSERT SUPERVISOR NAME]}\\
+[INSERT SUPERVISOR DESIGNATION]\\
 \textbf{Institute of Information Technology (IIT)}\\
-\textbf{University of Dhaka}\par
-\vspace{1.5cm}
+\textbf{University of Dhaka}
+
+\vspace{0.35cm}
+
 \textbf{Date:} [INSERT SUBMISSION DATE]
+
 \end{titlepage}
 
 % ---------------------------------------------------------------------------
