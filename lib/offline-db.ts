@@ -19,7 +19,7 @@ function getDB() {
   if (typeof window === "undefined") return null
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, VERSION, {
-      upgrade(db) {
+      upgrade(db, _oldVersion, _newVersion, transaction) {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           const store = db.createObjectStore(STORE_NAME, { keyPath: "id" })
           store.createIndex("timestamp", "timestamp")
@@ -27,8 +27,10 @@ function getDB() {
           // v2 → v3 migration: add the timestamp index so the queue can be
           // read back in FIFO order (indexedDB get() order is by key, not by
           // insertion time).
-          // createIndex is only exposed on versionchange transactions
-          const existing = db.transaction(STORE_NAME, "versionchange").objectStore(STORE_NAME)
+          // Use the transaction already active for this versionchange — calling
+          // db.transaction() here would start a NEW versionchange transaction
+          // while one is running (InvalidStateError).
+          const existing = transaction.objectStore(STORE_NAME)
           if (existing && !existing.indexNames.contains("timestamp")) {
             existing.createIndex("timestamp", "timestamp")
           }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-task-v5';
+const CACHE_NAME = 'smart-task-v6';
 // NOTE: do NOT precache /globals.css, /manifest.json or /dashboard —
 // Next.js serves CSS from hashed /_next/static paths, there is no
 // app/manifest.ts, and /dashboard 302-redirects per role, so all three
@@ -73,7 +73,10 @@ self.addEventListener('fetch', (event) => {
             }
             return fetchResponse
           })
-          .catch(() => cached || caches.match('/'))
+          .catch(() =>
+            cached ||
+            caches.match('/').then((r) => r || new Response('', { status: 503, headers: { 'Content-Type': 'text/html' } }))
+          )
       }
 
       // For static assets: cache-first (they're hashed/immutable)
@@ -91,9 +94,12 @@ self.addEventListener('fetch', (event) => {
         })
         return fetchResponse
       }).catch(() => {
+        // Always resolve to a Response — returning undefined to respondWith()
+        // throws "Failed to convert value to 'Response'".
         if (event.request.mode === 'navigate') {
-          return caches.match('/')
+          return caches.match('/').then((r) => r || new Response('', { status: 503, headers: { 'Content-Type': 'text/html' } }))
         }
+        return new Response('', { status: 404 })
       })
     })
   );
