@@ -195,6 +195,15 @@ Member pages reuse the same sprint components at `/member/*` with `basePath="/me
 | Date picker | `components/ui/date-picker.tsx` |
 | Service worker | `public/sw.js` (network-first nav, bypasses API) |
 | Types | `types/kanban.ts` |
+| Team performance action | `actions/manager-actions.ts` (`getTeamMemberPerformance`) |
+| File upload route | `app/api/attachments/upload/route.ts` + `[id]/file` serve route |
+
+## Documentation & Report
+
+- **`REPORT.tex`** — full compilable IIT-DU project report (title page, front matter, abstract, Ch 1-7, references). Uses `\IfFileExists{...}` so images load only if present. Fill the `[INSERT ...]` placeholders (name, roll, supervisor, dates).
+- **Images** — all report figures/screenshots live in the **project root** (not a `figures/` folder) so they sit beside `REPORT.tex` when compiling. `\graphicspath{{./}}`. 30 files: 5 Mermaid diagrams (`system-architecture`, `use-case-diagram`, `er-diagram`, `sequence-task-move`, `activity-sprint-lifecycle`) + 25 screenshots (`screenshot-login` … `screenshot-mobile`). `du-crest` is commented in the title page — uncomment once the student adds a crest image.
+- **`TEST-REPORT.md`** — QA test report (coverage matrix, bugs found/fixed, dated updates).
+- **`UPLOAD.md`** — file-upload architecture (server-side route, `FileBlob` storage, serve route).
 
 ## Production Deployment
 
@@ -210,7 +219,7 @@ Deployment is split: **Vercel** hosts Next.js, **Render** hosts the standalone S
 |-------|----------|------|
 | admin@gmail.com | admin123 | ADMIN |
 | manager@gmail.com | manager123 | MANAGER |
-| asefahmed500@gmail.com | asef123456 | MEMBER |
+| asefahmed500@gmail.com | asef123 | MEMBER |
 | admin@smarttask.com | AdminPassword123! | ADMIN |
 | manager@smarttask.com | AdminPassword123! | MANAGER |
 | member@smarttask.com | AdminPassword123! | MEMBER |
