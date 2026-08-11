@@ -60,7 +60,7 @@ export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps
             }
           }
         })
-        router.refresh()
+        window.location.reload()
         onClose()
       } else {
         toast.error(result.error || 'Failed to update board')

@@ -67,6 +67,7 @@ export async function sendNotification(input: {
   type: NotifType
   message: string
   link?: string
+  dedupKey?: string
 }): Promise<void> {
   try {
     const prefKey = notifTypeToPrefKey[input.type]
@@ -83,6 +84,7 @@ export async function sendNotification(input: {
         type: input.type,
         message: input.message,
         link: input.link ?? null,
+        dedupKey: input.dedupKey ?? null,
       },
     })
     emitNotification({
@@ -137,26 +139,24 @@ export async function checkDueDateReminders(): Promise<number> {
     where: {
       userId: { in: assigneeIds },
       type: 'DUE_DATE_REMINDER',
+      dedupKey: { in: tasksDueSoon.map((t) => `due:${t.id}`) },
     },
-    select: { userId: true, message: true },
+    select: { dedupKey: true },
   })
 
   const remindedSet = new Set<string>()
   for (const nr of existingReminders) {
-    for (const task of tasksDueSoon) {
-      if (task.id && nr.message.includes(task.id)) {
-        remindedSet.add(task.id)
-      }
-    }
+    if (nr.dedupKey) remindedSet.add(nr.dedupKey)
   }
 
   for (const task of tasksDueSoon) {
-    if (!task.assigneeId || remindedSet.has(task.id)) continue
+    if (!task.assigneeId || remindedSet.has(`due:${task.id}`)) continue
     await sendNotification({
       userId: task.assigneeId,
       type: 'DUE_DATE_REMINDER',
-      message: `Task "${task.title}" (ID: ${task.id}) is due within 24 hours`,
+      message: `Task "${task.title}" is due within 24 hours`,
       link: `/dashboard/board/${task.column.boardId}`,
+      dedupKey: `due:${task.id}`,
     })
     reminderCount++
   }
@@ -205,26 +205,24 @@ export async function checkOverdueTasks(): Promise<number> {
       userId: { in: overdueAssigneeIds },
       type: 'OVERDUE',
       createdAt: { gte: todayStart },
+      dedupKey: { in: overdueTasks.map((t) => `overdue:${t.id}`) },
     },
-    select: { message: true },
+    select: { dedupKey: true },
   })
 
   const overduedSet = new Set<string>()
   for (const no of existingOverdues) {
-    for (const task of overdueTasks) {
-      if (task.id && no.message.includes(task.id)) {
-        overduedSet.add(task.id)
-      }
-    }
+    if (no.dedupKey) overduedSet.add(no.dedupKey)
   }
 
   for (const task of overdueTasks) {
-    if (!task.assigneeId || overduedSet.has(task.id)) continue
+    if (!task.assigneeId || overduedSet.has(`overdue:${task.id}`)) continue
     await sendNotification({
       userId: task.assigneeId,
       type: 'OVERDUE',
-      message: `Task "${task.title}" (ID: ${task.id}) is overdue`,
+      message: `Task "${task.title}" is overdue`,
       link: `/dashboard/board/${task.column.boardId}`,
+      dedupKey: `overdue:${task.id}`,
     })
     overdueCount++
   }

@@ -75,14 +75,14 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, boardMemb
             const result = await undoLastAction()
             if (result.success) {
               toast.success('Column restored')
-              router.refresh()
+              window.location.reload()
             } else {
               toast.error(result.error || 'Failed to undo')
             }
           }
         }
       })
-      router.refresh()
+      window.location.reload()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to delete column'
       toast.error(message)

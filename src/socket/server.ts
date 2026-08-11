@@ -439,21 +439,21 @@ async function runBackgroundChecks() {
         })
         if (prefs?.overdueReminder === false) continue
 
-        // Dedup by task id embedded in the message (matches the created row)
+        // Dedup by dedupKey (not embedded in the user-facing message)
         const existing = await prisma.notification.findFirst({
           where: {
             userId: task.assignee.id,
             type: 'OVERDUE',
-            message: { contains: `(ID: ${task.id})` },
+            dedupKey: `overdue:${task.id}`,
             createdAt: { gte: oneDayAgo },
           },
         })
         if (existing) continue
 
-        const message = `Task "${task.title}" (ID: ${task.id}) is overdue!`
+        const message = `Task "${task.title}" is overdue`
         const link = `/dashboard/board/${task.column.boardId}`
         const notification = await prisma.notification.create({
-          data: { userId: task.assignee.id, type: 'OVERDUE', message, link },
+          data: { userId: task.assignee.id, type: 'OVERDUE', message, link, dedupKey: `overdue:${task.id}` },
         })
         io.to(`user:${task.assignee.id}`).emit('notification', {
           userId: task.assignee.id,
@@ -493,16 +493,16 @@ async function runBackgroundChecks() {
           where: {
             userId: task.assignee.id,
             type: 'DUE_DATE_REMINDER',
-            message: { contains: `(ID: ${task.id})` },
+            dedupKey: `due:${task.id}`,
             createdAt: { gte: oneDayAgo },
           },
         })
         if (existing) continue
 
-        const message = `Task "${task.title}" (ID: ${task.id}) is due soon!`
+        const message = `Task "${task.title}" is due soon`
         const link = `/dashboard/board/${task.column.boardId}`
         const notification = await prisma.notification.create({
-          data: { userId: task.assignee.id, type: 'DUE_DATE_REMINDER', message, link },
+          data: { userId: task.assignee.id, type: 'DUE_DATE_REMINDER', message, link, dedupKey: `due:${task.id}` },
         })
         io.to(`user:${task.assignee.id}`).emit('notification', {
           userId: task.assignee.id,

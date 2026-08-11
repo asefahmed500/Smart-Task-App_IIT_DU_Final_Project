@@ -10,6 +10,12 @@ import { useRouter } from 'next/navigation'
 import { cn } from '@/utils/utils'
 import { useNotificationListener } from '@/components/kanban/socket-hooks'
 import { toast } from 'sonner'
+import { mentionToDisplayText } from '@/utils/mention'
+
+/** Clean a notification message for display: strip raw mention tokens and any leaked IDs. */
+function cleanMessage(msg: string): string {
+  return mentionToDisplayText(msg).replace(/\s*\(ID:\s*[a-z0-9]+\)/gi, '')
+}
 
 interface Notification {
   id: string
@@ -44,7 +50,7 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
   }, [loadNotifications])
 
   const handleNewNotification = useCallback((newNotif: any) => {
-    toast(newNotif.message, {
+    toast(cleanMessage(newNotif.message), {
       description: 'You have a new notification',
       action: newNotif.link ? {
         label: 'View',
@@ -184,7 +190,7 @@ export function NotificationBell({ userId }: { userId: string | undefined }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={cn("text-sm line-clamp-2", !notification.isRead && "font-medium")}>
-                      {notification.message}
+                      {cleanMessage(notification.message)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {new Date(notification.createdAt).toLocaleDateString()}

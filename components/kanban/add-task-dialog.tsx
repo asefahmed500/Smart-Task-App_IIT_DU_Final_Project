@@ -104,7 +104,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
             const undoResult = await undoLastAction()
             if (undoResult.success) {
               toast.success('Task deleted')
-              router.refresh()
+              window.location.reload()
             } else {
               toast.error(undoResult.error || 'Failed to undo')
             }
@@ -115,7 +115,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
       setDescription('')
       setDueDate('')
       setAssigneeId('')
-      router.refresh()
+      window.location.reload()
       onClose()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to create task'

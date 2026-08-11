@@ -41,6 +41,7 @@ export function AddColumnDialog({ isOpen, onClose, boardId }: AddColumnDialogPro
             const undoResult = await undoLastAction()
             if (undoResult.success) {
               toast.success('Column deleted')
+              window.location.reload()
             } else {
               toast.error(undoResult.error || 'Failed to undo')
             }
@@ -49,6 +50,9 @@ export function AddColumnDialog({ isOpen, onClose, boardId }: AddColumnDialogPro
       })
       setName('')
       onClose()
+      // Reload so the new column appears immediately (socket update is not
+      // always delivered to the actor's own browser before the board re-renders).
+      window.location.reload()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to add column'
       toast.error(message)
