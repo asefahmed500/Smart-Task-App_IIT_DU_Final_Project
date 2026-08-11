@@ -1491,7 +1491,33 @@ export async function getTaskActivityLog(input: { id: string }): Promise<ActionR
       orderBy: { createdAt: 'desc' },
       take: 50
     })
-    return { success: true, data: logs }
+
+    // Resolve reviewer names so review entries render as plain text
+    // (e.g. "Submitted for review to Manager") instead of raw CUIDs.
+    const reviewerIds = logs
+      .filter((l) => l.action === 'SUBMIT_REVIEW' || l.action === 'COMPLETE_REVIEW')
+      .map((l) => (l.details as Record<string, unknown>)?.reviewerId as string | undefined)
+      .filter((id): id is string => !!id)
+
+    let reviewerNames: Record<string, string> = {}
+    if (reviewerIds.length > 0) {
+      const users = await prisma.user.findMany({
+        where: { id: { in: [...new Set(reviewerIds)] } },
+        select: { id: true, name: true, email: true },
+      })
+      reviewerNames = Object.fromEntries(users.map((u) => [u.id, u.name || u.email]))
+    }
+
+    const logsWithReviewerNames = logs.map((l) => {
+      if (l.action !== 'SUBMIT_REVIEW' && l.action !== 'COMPLETE_REVIEW') return l
+      const details = (l.details ?? {}) as Record<string, unknown>
+      const reviewerId = details.reviewerId as string | undefined
+      return reviewerId && reviewerNames[reviewerId]
+        ? { ...l, details: { ...details, reviewerName: reviewerNames[reviewerId] } }
+        : l
+    })
+
+    return { success: true, data: logsWithReviewerNames }
   } catch (error) {
     console.error('[GET_TASK_ACTIVITY_ERROR]', error)
     return { success: false, error: 'Failed to fetch activity log' }

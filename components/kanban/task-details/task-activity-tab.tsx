@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select"
 import { History, Filter, Clock } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { mentionToDisplayText } from '@/utils/mention'
+import { mentionToDisplayText, MENTION_REGEX } from '@/utils/mention'
 
 interface TaskActivityTabProps {
   activityLog: any[]
@@ -64,6 +64,17 @@ export function TaskActivityTab({
     if (action === 'UPDATE_TASK_STATUS' && d.newStatus && d.previousColumnId) {
       return `Moved to ${d.newStatus}`
     }
+    if (action === 'SUBMIT_REVIEW') {
+      return d.reviewerName ? `Submitted for review to ${d.reviewerName}` : 'Submitted for review'
+    }
+    if (action === 'COMPLETE_REVIEW') {
+      const statusText =
+        d.status === 'APPROVED' ? 'approved'
+        : d.status === 'REJECTED' ? 'rejected'
+        : d.status === 'CHANGES_REQUESTED' ? 'changes requested'
+        : 'completed'
+      return `Review ${statusText}`
+    }
     if (action.includes('CREATED')) {
       return d.title ? `Created task: ${d.title}` : 'Task created'
     }
@@ -101,6 +112,18 @@ export function TaskActivityTab({
             'taskId',
             'boardId',
             'columnId',
+            'reviewId',
+            'reviewerId',
+            'previousStatus',
+            'previousColumnId',
+            'oldColumnId',
+            'newColumnId',
+            'assigneeId',
+            'creatorId',
+            'targetUserId',
+            'userId',
+            'createdBy',
+            'version',
             'override',
             'previousState',
             'updatedFields',
@@ -110,7 +133,10 @@ export function TaskActivityTab({
       .filter(([, v]) => v !== null && v !== undefined && v !== '')
       .map(([k, v]) => {
         const label = FIELD_LABELS[k] || k
-        const value = typeof v === 'object' ? JSON.stringify(v) : String(v)
+        let value = typeof v === 'object' ? JSON.stringify(v) : String(v)
+        value = value
+          .replace(MENTION_REGEX, (_m, _id, name) => `@${(name || '').trim()}`)
+          .replace(/\s*\(ID:\s*[a-z0-9]+\)/gi, '')
         return `${label}: ${value}`
       })
     return parts.length > 0 ? parts.join(' • ') : ''
