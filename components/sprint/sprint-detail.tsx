@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { getSprintDetail, getSprintMetrics, removeTaskFromSprint, updateTaskIssueFields, updateSprintStatus } from '@/actions'
+import { mentionToDisplayText } from '@/utils/mention'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -445,11 +446,11 @@ export function SprintDetail({
                     >
                       {task.title}
                     </h3>
-                    {task.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                        {task.description}
-                      </p>
-                    )}
+{task.description && (
+                        <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
+                          {mentionToDisplayText(task.description)}
+                        </p>
+                      )}
                     <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-muted-foreground">
                       {task.assignee && (
                         <span className="flex items-center gap-1">

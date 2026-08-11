@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getEpicDetail, updateEpic } from '@/actions'
+import { mentionToDisplayText } from '@/utils/mention'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -303,11 +304,11 @@ export function EpicDetail({
                       )}
                     </div>
                     <h3 className="font-medium text-sm truncate">{task.title}</h3>
-                    {task.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-1 mt-1">
-                        {task.description}
-                      </p>
-                    )}
+{task.description && (
+                        <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
+                          {mentionToDisplayText(task.description)}
+                        </p>
+                      )}
                     <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
                       {task.assignee && (
                         <div className="flex items-center gap-1">

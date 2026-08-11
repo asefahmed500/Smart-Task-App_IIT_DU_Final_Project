@@ -853,7 +853,7 @@ export async function deleteChecklist(input: { id: string }): Promise<ActionResu
   try {
     const checklist = await prisma.checklist.findUnique({
       where: { id: checklistId },
-      include: { task: { include: { column: true } } }
+      include: { items: true, task: { include: { column: true } } }
     })
 
     if (!checklist) return { success: false, error: 'Checklist not found' }
@@ -870,6 +870,7 @@ export async function deleteChecklist(input: { id: string }): Promise<ActionResu
         taskId: checklist.taskId, 
         checklistId, 
         title: checklist.title,
+        items: checklist.items?.map((item) => ({ id: item.id, content: item.content, isCompleted: item.isCompleted })) || [],
         boardId: checklist.task.column.boardId 
       }
     })
@@ -1557,6 +1558,8 @@ export async function deleteTimeEntry(input: { entryId: string }): Promise<Actio
         taskId: entry.taskId,
         entryId,
         duration: entry.duration,
+        description: entry.description,
+        userId: entry.userId,
         boardId: entry.task.column.boardId
       }
     })
@@ -1606,6 +1609,8 @@ export async function updateTimeEntry(input: { entryId: string, duration: number
         taskId: entry.taskId,
         entryId,
         duration,
+        previousDuration: entry.duration,
+        previousDescription: entry.description,
         boardId: entry.task.column.boardId
       }
     })

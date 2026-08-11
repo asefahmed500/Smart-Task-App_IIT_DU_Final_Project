@@ -44,6 +44,7 @@ import {
   User,
 } from 'lucide-react'
 import { User as UserType } from '@/types/kanban'
+import { mentionToDisplayText } from '@/utils/mention'
 import {
   Select,
   SelectContent,
@@ -243,11 +244,11 @@ function SprintTaskCard({
             )}
           </div>
           <h4 className="text-sm font-medium line-clamp-2">{task.title}</h4>
-          {task.description && (
-            <p className="text-xs text-muted-text mt-0.5 line-clamp-1">
-              {task.description}
-            </p>
-          )}
+{task.description && (
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {mentionToDisplayText(task.description)}
+              </p>
+            )}
           <div className="flex items-center gap-3 mt-2 text-xs text-muted-text">
             {task.assignee ? (
               <Avatar className="size-5">

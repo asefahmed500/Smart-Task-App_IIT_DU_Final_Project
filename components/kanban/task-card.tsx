@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Calendar, MoreVertical, Paperclip, MessageSquare, CheckSquare } from 'lucide-react'
 import { cn } from '@/utils/utils'
+import { mentionToDisplayText } from '@/utils/mention'
 import { Task, ChecklistItem, Checklist } from '@/types/kanban'
 
 interface TaskCardProps {
@@ -96,7 +97,7 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
 
         {task.description && (
           <p className="text-xs text-muted-foreground line-clamp-2">
-            {task.description}
+            {mentionToDisplayText(task.description)}
           </p>
         )}
 

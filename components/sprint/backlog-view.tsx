@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBacklogTasks, assignTaskToSprint, getSprintsByBoard, updateTaskIssueFields, getEpicsByBoard } from '@/actions'
+import { mentionToDisplayText } from '@/utils/mention'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -312,9 +313,9 @@ export function BacklogView({
                     <h3 className="font-medium group-hover:text-primary transition-colors">
                       {task.title}
                     </h3>
-                    {task.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                        {task.description}
+{task.description && (
+                      <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
+                        {mentionToDisplayText(task.description)}
                       </p>
                     )}
                     <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-muted-foreground">

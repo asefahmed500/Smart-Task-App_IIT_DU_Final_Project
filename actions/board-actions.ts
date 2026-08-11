@@ -916,7 +916,12 @@ export async function undoLastAction(): Promise<ActionResult> {
             'ADD_COMMENT',
             'ADD_CHECKLIST_ITEM',
             'UPDATE_CHECKLIST_ITEM',
-            'ADD_ATTACHMENT'
+            'ADD_ATTACHMENT',
+            'ADD_CHECKLIST',
+            'DELETE_CHECKLIST',
+            'LOG_TIME',
+            'UPDATE_TIME_ENTRY',
+            'DELETE_TIME_ENTRY'
           ]
         }
       },
@@ -1329,6 +1334,59 @@ export async function undoLastAction(): Promise<ActionResult> {
 
       case 'LOG_TIME': {
         await prisma.timeEntry.delete({ where: { id: details.entryId } })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'DELETE_TIME_ENTRY': {
+        await prisma.timeEntry.create({
+          data: {
+            id: details.entryId,
+            duration: details.duration,
+            description: details.description ?? null,
+            userId: details.userId,
+            taskId: details.taskId,
+            createdAt: lastAction.createdAt
+          }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'UPDATE_TIME_ENTRY': {
+        await prisma.timeEntry.update({
+          where: { id: details.entryId },
+          data: {
+            duration: details.previousDuration,
+            description: details.previousDescription ?? null
+          }
+        })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'ADD_CHECKLIST': {
+        await prisma.checklist.delete({ where: { id: details.checklistId } })
+        emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
+        break
+      }
+
+      case 'DELETE_CHECKLIST': {
+        const items = Array.isArray(details.items) ? details.items : []
+        await prisma.checklist.create({
+          data: {
+            id: details.checklistId,
+            title: details.title,
+            taskId: details.taskId,
+            items: {
+              create: items.map((item: any) => ({
+                id: item.id,
+                content: item.content,
+                isCompleted: !!item.isCompleted
+              }))
+            }
+          }
+        })
         emitBoardEvent('task:updated', { boardId: details.boardId, taskId: details.taskId })
         break
       }

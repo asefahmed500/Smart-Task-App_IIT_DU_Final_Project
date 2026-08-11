@@ -75,6 +75,35 @@ export function TaskActivityTab({
         : 'completed'
       return `Review ${statusText}`
     }
+    if (action === 'ADD_CHECKLIST') {
+      return d.title ? `Added checklist: ${String(d.title)}` : 'Added a checklist'
+    }
+    if (action === 'DELETE_CHECKLIST') {
+      return d.title ? `Deleted checklist: ${String(d.title)}` : 'Deleted a checklist'
+    }
+    if (action === 'TOGGLE_CHECKLIST_ITEM') {
+      return d.isCompleted ? 'Checked off a checklist item' : 'Unchecked a checklist item'
+    }
+    if (action === 'ADD_CHECKLIST_ITEM') {
+      return 'Added a checklist item'
+    }
+    if (action === 'DELETE_CHECKLIST_ITEM') {
+      return 'Deleted a checklist item'
+    }
+    if (action === 'UPDATE_CHECKLIST_ITEM') {
+      return typeof d.content === 'string'
+        ? `Updated checklist item: ${mentionToDisplayText(d.content)}`
+        : 'Updated a checklist item'
+    }
+    if (action === 'LOG_TIME') {
+      return `Logged ${Number(d.duration) || 0} min`
+    }
+    if (action === 'UPDATE_TIME_ENTRY') {
+      return `Updated time entry to ${Number(d.duration) || 0} min`
+    }
+    if (action === 'DELETE_TIME_ENTRY') {
+      return `Deleted ${Number(d.duration) || 0} min time entry`
+    }
     if (action.includes('CREATED')) {
       return d.title ? `Created task: ${d.title}` : 'Task created'
     }
@@ -128,6 +157,14 @@ export function TaskActivityTab({
             'previousState',
             'updatedFields',
             'changes',
+            'entryId',
+            'itemId',
+            'checklistId',
+            'isCompleted',
+            'previousContent',
+            'parentId',
+            'epicId',
+            'sprintId',
           ].includes(k)
       )
       .filter(([, v]) => v !== null && v !== undefined && v !== '')
@@ -137,6 +174,7 @@ export function TaskActivityTab({
         value = value
           .replace(MENTION_REGEX, (_m, _id, name) => `@${(name || '').trim()}`)
           .replace(/\s*\(ID:\s*[a-z0-9]+\)/gi, '')
+          .replace(/\bc[a-z0-9]{24}\b/g, '…')
         return `${label}: ${value}`
       })
     return parts.length > 0 ? parts.join(' • ') : ''
