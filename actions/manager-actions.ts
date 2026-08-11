@@ -157,7 +157,7 @@ export async function getManagerAnalytics(): Promise<ActionResult> {
       value
     }))
 
-    // 3. Cycle Time & Lead Time — done-column tasks (handles done/completed/resolved/launch)
+    // 3. Cycle Time & Lead Time Ã¢â‚¬â€ done-column tasks (handles done/completed/resolved/launch)
     const completedTasksRaw = await prisma.task.findMany({
       where: { id: { in: taskIds } },
       select: { id: true, createdAt: true, updatedAt: true, column: { select: { name: true } } }
@@ -263,5 +263,80 @@ export async function getManagerAnalytics(): Promise<ActionResult> {
   } catch (error) {
     console.error('Analytics Error:', error)
     return { success: false, error: 'Failed to generate metrics' }
+  }
+}
+
+export async function getTeamMemberPerformance(): Promise<ActionResult> {
+  const auth = await checkManager()
+  if (!auth.success) return auth
+
+  try {
+    const boards = await prisma.board.findMany({
+      where: {
+        OR: [
+          { ownerId: auth.session!.id },
+          { members: { some: { id: auth.session!.id } } },
+        ],
+      },
+      select: { id: true, name: true, members: { select: { id: true } } },
+    })
+    const boardIds = boards.map((b) => b.id)
+
+    const memberIds = [...new Set(boards.flatMap((b) => b.members.map((m) => m.id)))]
+      .filter((id) => id !== auth.session!.id)
+
+    const members = await prisma.user.findMany({
+      where: { id: { in: memberIds } },
+      select: { id: true, name: true, email: true, role: true, image: true, createdAt: true },
+    })
+
+    const tasks = await prisma.task.findMany({
+      where: { assigneeId: { in: memberIds }, column: { boardId: { in: boardIds } } },
+      select: {
+        id: true,
+        title: true,
+        assigneeId: true,
+        dueDate: true,
+        priority: true,
+        updatedAt: true,
+        column: { select: { id: true, name: true, board: { select: { id: true, name: true } } } },
+        
+        sprint: { select: { id: true, name: true, status: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    const now = new Date()
+    const data = members.map((m) => {
+      const mTasks = tasks.filter((t) => t.assigneeId === m.id)
+      const done = mTasks.filter((t) => isDoneColumn(t.column?.name)).length
+      const inProgress = mTasks.filter((t) => isInProgressColumn(t.column?.name)).length
+      const overdue = mTasks.filter((t) => t.dueDate && t.dueDate < now && !isDoneColumn(t.column?.name)).length
+      const completionRate = mTasks.length > 0 ? Math.round((done / mTasks.length) * 100) : 0
+      return {
+        ...m,
+        stats: {
+          totalTasks: mTasks.length,
+          completedTasks: done,
+          inProgressTasks: inProgress,
+          overdueTasks: overdue,
+          completionRate,
+        },
+        tasks: mTasks.slice(0, 20).map((t) => ({
+          id: t.id,
+          title: t.title,
+          priority: t.priority,
+          dueDate: t.dueDate,
+          columnName: t.column?.name ?? 'Unknown',
+          boardName: t.column?.board?.name ?? 'Unknown',
+          sprintName: t.sprint?.name ?? null,
+        })),
+      }
+    })
+
+    return { success: true, data: data.sort((a, b) => b.stats.totalTasks - a.stats.totalTasks) }
+  } catch (error) {
+    console.error('Team Performance Error:', error)
+    return { success: false, error: 'Failed to load team performance' }
   }
 }
