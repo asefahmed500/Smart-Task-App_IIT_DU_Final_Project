@@ -1,24 +1,124 @@
 % ============================================================================
 % SmartTask — University of Dhaka, Institute of Information Technology (IIT)
-% Project Report (LaTeX content — paste into your report-class skeleton)
-%
-% Fill in [INSERT ...] placeholders with your personal details / figures.
+% Full compilable project report
 % ============================================================================
+\documentclass[12pt,a4paper]{report}
 
-% ----------------------------------------------------------------------------
-% FRONT MATTER (adjust to your skeleton's cover page)
-% ----------------------------------------------------------------------------
-% \chapter*{Acknowledgement}
-% ...
-% \chapter*{Declaration}
-% ...
-% \chapter*{Signature Page}
-% ...
+% ---------------------------------------------------------------------------
+% PACKAGES
+% ---------------------------------------------------------------------------
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{url}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{caption}
+\usepackage[hidelinks]{hyperref}
+
+\onehalfspacing
+\raggedbottom
+% Images live in the SAME folder as this .tex file (copy them alongside).
+\graphicspath{{./}}
+
+% Safe fallback so the document compiles even if an image is missing.
+\usepackage{xcolor}
+\newcommand{\placeholderfig}[1]{%
+  \fbox{\parbox[c][3cm][c]{0.95\linewidth}{\centering\footnotesize\itshape #1 not found --
+  replace with your screenshot/diagram}}%
+}
+
+\title{SmartTask -- Real-Time Collaborative Kanban Task Management System}
+\begin{document}
+
+% ---------------------------------------------------------------------------
+% TITLE PAGE
+% ---------------------------------------------------------------------------
+\begin{titlepage}
+\centering
+% \includegraphics[width=3cm]{du-crest} % uncomment once you have the crest image
+\vspace{0.5cm}
+{\Large\bfseries University of Dhaka\par}
+{\Large\bfseries Institute of Information Technology (IIT)\par}
+\vspace{1.5cm}
+{\large\itshape Project\par}
+{\large\itshape On\par}
+\vspace{0.5cm}
+{\Large\bfseries ``SmartTask -- Real-Time Collaborative Kanban Task Management System''\par}
+\vspace{2cm}
+{\itshape Submitted By\par}
+\vspace{0.3cm}
+\textbf{Name:} [INSERT YOUR NAME]\\
+\textbf{Exam Roll:} [INSERT ROLL]\\
+\textbf{ID:} [INSERT ID]\\
+\textbf{Batch:} [INSERT BATCH]\\
+\textbf{Session:} [INSERT SESSION]\par
+\vspace{1cm}
+{\itshape A project submitted to the Institute of Information Technology (IIT), DU\\
+for the partial fulfillment of the degree of [INSERT DEGREE NAME]\par}
+\vspace{2cm}
+{\itshape Supervised By\par}
+\vspace{0.3cm}
+\textbf{[INSERT SUPERVISOR NAME]}\\{}
+[INSERT SUPERVISOR DESIGNATION]\\{}
+\textbf{Institute of Information Technology (IIT)}\\
+\textbf{University of Dhaka}\par
+\vspace{1.5cm}
+\textbf{Date:} [INSERT SUBMISSION DATE]
+\end{titlepage}
+
+% ---------------------------------------------------------------------------
+% FRONT MATTER
+% ---------------------------------------------------------------------------
+\chapter*{Acknowledgement}
+I would like to express my sincere and heartfelt gratitude to my Project
+Supervisor, [INSERT SUPERVISOR NAME], [INSERT DESIGNATION], Institute of
+Information Technology (IIT), University of Dhaka, for the invaluable guidance,
+continuous support, and insightful suggestions throughout the development of the
+SmartTask system and the preparation of this report. [Add a sentence or two of
+your own.]
+
+\chapter*{Declaration}
+This is to declare that this project is my original work. No part of this work
+has been submitted elsewhere, partially or entirely, for the award of any other
+degree or diploma. All project-related information will remain confidential and
+shall not be disclosed without the formal consent of the project supervisor. The
+plagiarism policy, as stated by the supervisor, has been maintained.
+
+\vspace{1.5cm}
+\noindent Student's Name: [INSERT NAME]\\
+Student's Signature: \rule{5cm}{0.4pt}
+
+\chapter*{Signature Page}
+\begin{center}
+\begin{tabular}{l p{10cm}}
+Project & : SmartTask -- Real-Time Collaborative Kanban Task Management System \\
+Student Name & : [INSERT NAME] \\
+Exam Roll & : [INSERT ROLL] \\
+ID & : [INSERT ID] \\
+Batch & : [INSERT BATCH] \\
+Program & : [INSERT PROGRAM] \\
+Date of Submission & : [INSERT DATE] \\
+Supervised By & : [INSERT SUPERVISOR NAME], [INSERT DESIGNATION], \\
+ & \ \ IIT, University of Dhaka \\
+\end{tabular}
+\end{center}
+\vspace{1cm}
+\noindent Supervisor's Approval: \rule{6cm}{0.4pt}
+
+\tableofcontents
+\listoffigures
+\listoftables
 
 % ----------------------------------------------------------------------------
 % ABSTRACT
 % ----------------------------------------------------------------------------
-\begin{abstract}
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
 Task management in team-based software environments is frequently hindered by
 disconnected tools, delayed status propagation, and weak accountability. This
 project presents \textbf{SmartTask}, a real-time collaborative Kanban-based task
@@ -36,7 +136,9 @@ every request. The system was verified through extensive interactive browser-bas
 testing across all roles and services, and the resulting application is
 production-deployed on Vercel and Render. The report documents the complete
 analysis, design, implementation, and testing lifecycle of the system.
-\end{abstract}
+
+\noindent\textbf{Keywords:} SmartTask, Kanban, Task Management, Real-Time
+Collaboration, Role-Based Access Control, Next.js, PostgreSQL, Socket.IO.
 
 % ----------------------------------------------------------------------------
 % CHAPTER 1 — INTRODUCTION
@@ -336,19 +438,23 @@ persistent WebSocket connections for real-time collaboration and executes
 background jobs for due-date reminders and audit-log cleanup. Both servers access
 a shared PostgreSQL database through independent Prisma clients.
 
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/system-architecture}
+  \IfFileExists{system-architecture.png}
+    {\includegraphics[width=0.9\textwidth]{system-architecture}}
+    {\placeholderfig{system-architecture.png}}
   \caption{High-level system architecture showing the browser, the Next.js
   application server, the standalone Socket.IO server, and the shared PostgreSQL
   database.}
+  \label{fig:architecture}
 \end{figure}
-\noindent As shown in Figure~\ref{...}, the browser communicates with the Next.js
-server over HTTP for page rendering and server actions, and establishes a
-WebSocket connection to the Socket.IO server for real-time events. The Socket.IO
-server authenticates incoming connections using the same session token issued by
-the application server, and the two servers coordinate through an internal token
-that grants the application server the privilege to notify any user.
+\noindent As shown in Figure~\ref{fig:architecture}, the browser communicates
+with the Next.js server over HTTP for page rendering and server actions, and
+establishes a WebSocket connection to the Socket.IO server for real-time events.
+The Socket.IO server authenticates incoming connections using the same session
+token issued by the application server, and the two servers coordinate through an
+internal token that grants the application server the privilege to notify any
+user.
 
 \subsection{Role-Based System Architecture}
 The system is architected around three roles, each with a clearly bounded set of
@@ -377,12 +483,15 @@ defence: direct URL access and raw action invocation are both rejected for
 unauthorised roles, as verified during testing.
 
 \section{Use Case Diagram}
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.95\textwidth]{figures/use-case-diagram}
+  \IfFileExists{use-case-diagram.png}
+    {\includegraphics[width=0.95\textwidth]{use-case-diagram}}
+    {\placeholderfig{use-case-diagram.png}}
   \caption{Use case diagram showing the primary actors (Administrator, Manager,
   Member) and their interactions with boards, tasks, sprints, epics, reviews,
   notifications, and administrative functions.}
+  \label{fig:usecase}
 \end{figure}
 \noindent The Administrator is the only actor able to manage system users, roles,
 and global automation rules. The Manager inherits member capabilities and, within
@@ -391,10 +500,13 @@ Member is restricted to task-level collaboration on assigned boards and cannot
 alter board structure.
 
 \section{Class / ER Diagram}
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.95\textwidth]{figures/er-diagram}
+  \IfFileExists{er-diagram.png}
+    {\includegraphics[width=0.95\textwidth]{er-diagram}}
+    {\placeholderfig{er-diagram.png}}
   \caption{Entity--relationship diagram of the core database schema.}
+  \label{fig:erdiagram}
 \end{figure}
 \noindent The schema centres on the \texttt{User} entity, which relates to boards
 through ownership and membership relations. Each \texttt{Board} contains multiple
@@ -405,11 +517,14 @@ associate with boards and tasks. Audit, notification, and automation tables
 complete the schema. Twenty-one database models were implemented in total.
 
 \section{Sequence Diagram -- Task Movement with WIP Enforcement}
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.95\textwidth]{figures/sequence-task-move}
+  \IfFileExists{sequence-task-move.png}
+    {\includegraphics[width=0.95\textwidth]{sequence-task-move}}
+    {\placeholderfig{sequence-task-move.png}}
   \caption{Sequence diagram for moving a task between columns, including the WIP
   limit check performed inside a database transaction.}
+  \label{fig:sequence}
 \end{figure}
 \noindent When a user drags a task to another column, the client emits an
 optimistic update and invokes the \texttt{updateTaskStatus} server action. The
@@ -419,10 +534,13 @@ atomically, a version-conflict check is performed, an audit entry is written, an
 a real-time event is broadcast so that all viewers receive the change.
 
 \section{Activity Diagram -- Sprint Lifecycle}
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/activity-sprint-lifecycle}
+  \IfFileExists{activity-sprint-lifecycle.png}
+    {\includegraphics[width=0.9\textwidth]{activity-sprint-lifecycle}}
+    {\placeholderfig{activity-sprint-lifecycle.png}}
   \caption{Activity diagram of the sprint state machine.}
+  \label{fig:sprintlifecycle}
 \end{figure}
 \noindent Sprints transition from PLANNED to ACTIVE, then to COMPLETED or
 CANCELLED. Only one ACTIVE sprint may exist per board, enforced atomically. When a
@@ -451,175 +569,263 @@ to the backlog.
 \section{Project View}
 The following screenshots illustrate the principal interfaces of the application,
 organised by role and core module. Each figure corresponds to a real screen of the
-deployed application. [INSERT FIGURE]
+deployed application. All images are stored in the same folder as this report.
 
 \subsection{Authentication and Account Modules}
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-login}
-  \caption{Login screen. Authentication is handled by the application server,
+  \IfFileExists{screenshot-login.png}
+    {\includegraphics[width=\linewidth]{screenshot-login}}
+    {\placeholderfig{screenshot-login.png}}
+  \captionof{figure}{Login screen. Authentication is handled by the application server,
   which sets an HTTP-only session cookie.}
-\end{figure}
-
-\begin{figure}[h]
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-signup}
-  \caption{Sign-up screen. New users are created as members and receive a
+  \IfFileExists{screenshot-signup.png}
+    {\includegraphics[width=\linewidth]{screenshot-signup}}
+    {\placeholderfig{screenshot-signup.png}}
+  \captionof{figure}{Sign-up screen. New users are created as members and receive a
   welcome board automatically.}
+\end{minipage}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-profile}
-  \caption{Profile page for updating name, avatar, and password.}
-\end{figure}
-
-\begin{figure}[h]
+  \IfFileExists{screenshot-profile.png}
+    {\includegraphics[width=\linewidth]{screenshot-profile}}
+    {\placeholderfig{screenshot-profile.png}}
+  \captionof{figure}{Profile page for updating name, avatar, and password.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-notification-preferences}
-  \caption{Notification preferences page with per-event toggles and delivery
+  \IfFileExists{screenshot-notification-preferences.png}
+    {\includegraphics[width=\linewidth]{screenshot-notification-preferences}}
+    {\placeholderfig{screenshot-notification-preferences.png}}
+  \captionof{figure}{Notification preferences page with per-event toggles and delivery
   channels.}
+\end{minipage}
 \end{figure}
 
 \subsection{Board and Task Management Modules}
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-kanban}
-  \caption{Kanban board view showing columns, task cards, and column-level
+  \IfFileExists{screenshot-kanban.png}
+    {\includegraphics[width=\linewidth]{screenshot-kanban}}
+    {\placeholderfig{screenshot-kanban.png}}
+  \captionof{figure}{Kanban board view showing columns, task cards, and column-level
   actions.}
-\end{figure}
-
-\begin{figure}[h]
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-task-details}
-  \caption{Task details dialog exposing tabs for details, activity and comments,
+  \IfFileExists{screenshot-task-details.png}
+    {\includegraphics[width=\linewidth]{screenshot-task-details}}
+    {\placeholderfig{screenshot-task-details.png}}
+  \captionof{figure}{Task details dialog exposing tabs for details, activity and comments,
   and time tracking, together with review, checklist, attachment, and issue-link
   controls.}
+\end{minipage}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-task-comments}
-  \caption{Activity and comments tab showing a comment thread with mention
+  \IfFileExists{screenshot-task-comments.png}
+    {\includegraphics[width=\linewidth]{screenshot-task-comments}}
+    {\placeholderfig{screenshot-task-comments.png}}
+  \captionof{figure}{Activity and comments tab showing a comment thread with mention
   support.}
-\end{figure}
-
-\begin{figure}[h]
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-task-review}
-  \caption{Review panel with Approve, Request Changes, and Reject actions that
+  \IfFileExists{screenshot-task-review.png}
+    {\includegraphics[width=\linewidth]{screenshot-task-review}}
+    {\placeholderfig{screenshot-task-review.png}}
+  \captionof{figure}{Review panel with Approve, Request Changes, and Reject actions that
   move the task through the workflow automatically.}
+\end{minipage}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-board-members}
-  \caption{Manage members dialog for searching and inviting users to a board.}
-\end{figure}
-
-\begin{figure}[h]
+  \IfFileExists{screenshot-board-members.png}
+    {\includegraphics[width=\linewidth]{screenshot-board-members}}
+    {\placeholderfig{screenshot-board-members.png}}
+  \captionof{figure}{Manage members dialog for searching and inviting users to a board.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-board-analytics}
-  \caption{Board analytics dialog with flow and throughput charts.}
+  \IfFileExists{screenshot-board-analytics.png}
+    {\includegraphics[width=\linewidth]{screenshot-board-analytics}}
+    {\placeholderfig{screenshot-board-analytics.png}}
+  \captionof{figure}{Board analytics dialog with flow and throughput charts.}
+\end{minipage}
 \end{figure}
 
 \subsection{Sprint and Epic Modules}
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-sprint-list}
-  \caption{Sprint list showing planned, active, and completed sprints with the
+  \IfFileExists{screenshot-sprint-list.png}
+    {\includegraphics[width=\linewidth]{screenshot-sprint-list}}
+    {\placeholderfig{screenshot-sprint-list.png}}
+  \captionof{figure}{Sprint list showing planned, active, and completed sprints with the
   active sprint highlighted.}
-\end{figure}
-
-\begin{figure}[h]
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-sprint-planning}
-  \caption{Sprint planning board with a two-panel layout for assigning backlog
+  \IfFileExists{screenshot-sprint-planning.png}
+    {\includegraphics[width=\linewidth]{screenshot-sprint-planning}}
+    {\placeholderfig{screenshot-sprint-planning.png}}
+  \captionof{figure}{Sprint planning board with a two-panel layout for assigning backlog
   tasks to a sprint.}
+\end{minipage}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-sprint-board}
-  \caption{Sprint-filtered Kanban board with drag-and-drop support.}
+  \IfFileExists{screenshot-sprint-board.png}
+    {\includegraphics[width=\linewidth]{screenshot-sprint-board}}
+    {\placeholderfig{screenshot-sprint-board.png}}
+  \captionof{figure}{Sprint-filtered Kanban board with drag-and-drop support.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+  \centering
+  \IfFileExists{screenshot-sprint-calendar.png}
+    {\includegraphics[width=\linewidth]{screenshot-sprint-calendar}}
+    {\placeholderfig{screenshot-sprint-calendar.png}}
+  \captionof{figure}{Sprint calendar view displaying sprint bars by month.}
+\end{minipage}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-sprint-calendar}
-  \caption{Sprint calendar view displaying sprint bars by month.}
+  \IfFileExists{screenshot-sprint-burndown.png}
+    {\includegraphics[width=\linewidth]{screenshot-sprint-burndown}}
+    {\placeholderfig{screenshot-sprint-burndown.png}}
+  \captionof{figure}{Sprint burndown chart comparing ideal and actual completion.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+  \centering
+  \IfFileExists{screenshot-backlog.png}
+    {\includegraphics[width=\linewidth]{screenshot-backlog}}
+    {\placeholderfig{screenshot-backlog.png}}
+  \captionof{figure}{Backlog view listing unscheduled tasks available for sprint planning.}
+\end{minipage}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-sprint-burndown}
-  \caption{Sprint burndown chart comparing ideal and actual completion.}
-\end{figure}
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-backlog}
-  \caption{Backlog view listing unscheduled tasks available for sprint planning.}
-\end{figure}
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-epic-list}
-  \caption{Epic list with progress indicators.}
+  \IfFileExists{screenshot-epic-list.png}
+    {\includegraphics[width=\linewidth]{screenshot-epic-list}}
+    {\placeholderfig{screenshot-epic-list.png}}
+  \captionof{figure}{Epic list with progress indicators.}
+\end{minipage}
 \end{figure}
 
 \subsection{Administration and Analytics Modules}
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-admin-dashboard}
-  \caption{Administrator dashboard with system statistics and activity chart.}
-\end{figure}
-
-\begin{figure}[h]
+  \IfFileExists{screenshot-admin-dashboard.png}
+    {\includegraphics[width=\linewidth]{screenshot-admin-dashboard}}
+    {\placeholderfig{screenshot-admin-dashboard.png}}
+  \captionof{figure}{Administrator dashboard with system statistics and activity chart.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-admin-users}
-  \caption{User management page for creating users, changing roles, and managing
+  \IfFileExists{screenshot-admin-users.png}
+    {\includegraphics[width=\linewidth]{screenshot-admin-users}}
+    {\placeholderfig{screenshot-admin-users.png}}
+  \captionof{figure}{User management page for creating users, changing roles, and managing
   accounts.}
+\end{minipage}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-admin-audit}
-  \caption{System audit log viewer with filters and CSV export.}
+  \IfFileExists{screenshot-admin-audit.png}
+    {\includegraphics[width=\linewidth]{screenshot-admin-audit}}
+    {\placeholderfig{screenshot-admin-audit.png}}
+  \captionof{figure}{System audit log viewer with filters and CSV export.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+  \centering
+  \IfFileExists{screenshot-admin-automation.png}
+    {\includegraphics[width=\linewidth]{screenshot-admin-automation}}
+    {\placeholderfig{screenshot-admin-automation.png}}
+  \captionof{figure}{Automation rules page with active engines and execution statistics.}
+\end{minipage}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-admin-automation}
-  \caption{Automation rules page with active engines and execution statistics.}
-\end{figure}
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-manager-analytics}
-  \caption{Manager analytics with throughput, cycle time, and status
+  \IfFileExists{screenshot-manager-analytics.png}
+    {\includegraphics[width=\linewidth]{screenshot-manager-analytics}}
+    {\placeholderfig{screenshot-manager-analytics.png}}
+  \captionof{figure}{Manager analytics with throughput, cycle time, and status
   distribution charts.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+  \centering
+  \IfFileExists{screenshot-manager-team.png}
+    {\includegraphics[width=\linewidth]{screenshot-manager-team}}
+    {\placeholderfig{screenshot-manager-team.png}}
+  \captionof{figure}{Team members page with per-member workload statistics and a
+  task-view dialog for measuring each member's contribution.}
+\end{minipage}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-manager-team}
-  \caption{Team members page with per-member workload statistics (total,
-  completed, in-progress, overdue tasks and completion rate) and a task-view
-  dialog, letting the manager measure each member's contribution.}
-\end{figure}
-
-\begin{figure}[h]
+  \IfFileExists{screenshot-notifications.png}
+    {\includegraphics[width=\linewidth]{screenshot-notifications}}
+    {\placeholderfig{screenshot-notifications.png}}
+  \captionof{figure}{Notification bell and notification list.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
   \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-notifications}
-  \caption{Notification bell and notification list.}
-\end{figure}
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.9\textwidth]{figures/screenshot-mobile}
-  \caption{Mobile viewport of the application showing the responsive sidebar and
+  \IfFileExists{screenshot-mobile.png}
+    {\includegraphics[width=\linewidth]{screenshot-mobile}}
+    {\placeholderfig{screenshot-mobile.png}}
+  \captionof{figure}{Mobile viewport of the application showing the responsive sidebar and
   board layout.}
+\end{minipage}
 \end{figure}
 
 \section{Deployment}
@@ -633,6 +839,7 @@ is triggered through the Vercel CLI and continuous integration from the Git
 repository.
 
 \section{Database Schema}
+\begin{sloppypar}
 The database is defined in a single Prisma schema and consists of the following
 models: \texttt{User}, \texttt{Board}, \texttt{Column}, \texttt{Task},
 \texttt{Comment}, \texttt{Reaction}, \texttt{Attachment}, \texttt{FileBlob},
@@ -643,6 +850,7 @@ models: \texttt{User}, \texttt{Board}, \texttt{Column}, \texttt{Task},
 cascading: deleting a board removes its columns and tasks; deleting an attachment
 removes its stored file blob; and deleting a task removes its comments,
 checklists, time entries, and reviews.
+\end{sloppypar}
 
 \begin{center}
 \begin{tabular}{|l|p{9.5cm}|}
@@ -732,6 +940,8 @@ and cascaded correctly.
 
 \section{Unit Testing}
 \begin{center}
+\small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{|l|l|p{4.2cm}|p{3cm}|p{2.6cm}|c|}
 \hline
 \textbf{ID} & \textbf{Module} & \textbf{Description} & \textbf{Input} & \textbf{Expected Output} & \textbf{Status} \\
@@ -756,11 +966,14 @@ UT-09 & Review & Submit review, self-review & self as reviewer & Blocked & Pass 
 \hline
 UT-10 & User & Create user (admin) & valid data & User appears in list & Pass \\
 \hline
-\end{tabular}
+\end{tabular}%
+}
 \end{center}
 
 \section{Integration Testing}
 \begin{center}
+\small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{|l|p{3.5cm}|p{4.5cm}|p{4.5cm}|c|}
 \hline
 \textbf{ID} & \textbf{Modules} & \textbf{Description} & \textbf{Expected Output} & \textbf{Status} \\
@@ -781,11 +994,14 @@ IT-07 & Automation + Task & Create automation rule, trigger event & Rule execute
 \hline
 IT-08 & Audit + Undo & Perform action, view audit log & Entry recorded & Pass \\
 \hline
-\end{tabular}
+\end{tabular}%
+}
 \end{center}
 
 \section{Performance Testing}
 \begin{center}
+\small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{|l|l|p{4.5cm}|p{3.5cm}|c|}
 \hline
 \textbf{ID} & \textbf{Area} & \textbf{Description} & \textbf{Measured} & \textbf{Status} \\
@@ -802,7 +1018,8 @@ PT-05 & Responsive & 390px viewport & No horizontal overflow & Pass \\
 \hline
 PT-06 & Real-time & Socket event propagation & Live update within seconds & Pass \\
 \hline
-\end{tabular}
+\end{tabular}%
+}
 \end{center}
 
 \section{Testing Results Summary}
@@ -871,7 +1088,7 @@ Plausible directions for future development include:
 \begin{thebibliography}{9}
 \bibitem{trello} Trello. \emph{Trello: Manage Your Team's Projects From Anywhere.}
 Available at: \url{https://trello.com} (Accessed: 10 August 2026).
-\bibitem{jira} Atlassian. \emph{Jira Software: The #1 Software Development Tool.}
+\bibitem{jira} Atlassian. \emph{Jira Software: The \#1 Software Development Tool.}
 Available at: \url{https://www.atlassian.com/software/jira} (Accessed: 10 August 2026).
 \bibitem{asana} Asana. \emph{Asana: Work Management Platform.}
 Available at: \url{https://asana.com} (Accessed: 10 August 2026).
@@ -888,3 +1105,5 @@ Available at: \url{https://datatracker.ietf.org/doc/html/rfc7519} (Accessed: 10 
 \bibitem{supabase} Supabase. \emph{Supabase: The Open Source Firebase Alternative.}
 Available at: \url{https://supabase.com} (Accessed: 10 August 2026).
 \end{thebibliography}
+
+\end{document}
