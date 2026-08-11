@@ -34,3 +34,15 @@ export function extractMentions(content: string): MentionToken[] {
 export function buildMentionToken(userId: string, name: string): string {
   return `@[${userId}|${name}]`
 }
+
+/**
+ * Replace every `@[id|Name]` token in a string with just `@Name`.
+ *
+ * For plain-text contexts that cannot render React chips (audit logs, review
+ * feedback) so the user's raw id is never shown — e.g.
+ *   `@[cmp9dax...|Asef Ahmed]` → `@Asef Ahmed`
+ */
+export function mentionToDisplayText(content: string): string {
+  if (!content) return content
+  return content.replace(MENTION_REGEX, (_match, _userId, name) => `@${(name || '').trim()}`)
+}

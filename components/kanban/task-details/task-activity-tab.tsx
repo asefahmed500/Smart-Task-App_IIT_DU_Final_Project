@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select"
 import { History, Filter, Clock } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import { mentionToDisplayText } from '@/utils/mention'
 
 interface TaskActivityTabProps {
   activityLog: any[]
@@ -85,7 +86,7 @@ export function TaskActivityTab({
       return d.title ? `Deleted task: ${d.title}` : 'Task deleted'
     }
     if (action.includes('COMMENT')) {
-      return typeof d.content === 'string' ? d.content : 'Comment added'
+      return typeof d.content === 'string' ? mentionToDisplayText(d.content) : 'Comment added'
     }
     if (action.includes('ATTACHMENT')) {
       return d.name ? `Attached: ${d.name}` : 'Attachment added'

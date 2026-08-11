@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ShieldCheck, Send, CheckCircle2, AlertCircle, XCircle } from 'lucide-react'
 import { User, Task } from '@/types/kanban'
+import { mentionToDisplayText } from '@/utils/mention'
 
 interface TaskReviewsSectionProps {
   task: Task
@@ -194,7 +195,7 @@ export function TaskReviewsSection({
               </div>
               {review.feedback && (
                 <p className="text-[11px] text-muted-foreground bg-background/50 p-2 rounded border border-primary/5 leading-relaxed">
-                  {review.feedback}
+                  {mentionToDisplayText(review.feedback)}
                 </p>
               )}
             </div>
