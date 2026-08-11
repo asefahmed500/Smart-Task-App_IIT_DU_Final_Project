@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { getSprintDetail, getSprintMetrics, removeTaskFromSprint, updateTaskIssueFields } from '@/actions'
+import { getSprintDetail, getSprintMetrics, removeTaskFromSprint, updateTaskIssueFields, updateSprintStatus } from '@/actions'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,6 +33,9 @@ import {
   Trash2,
   MessageSquare,
   CheckSquare,
+  Play,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react'
 
 const ISSUE_TYPE_COLORS: Record<string, string> = {
@@ -153,6 +156,30 @@ export function SprintDetail({
     }
   }
 
+  async function handleStatusChange(status: string) {
+    const res = await updateSprintStatus({ id: sprintId, status })
+    if (res.success) {
+      toast.success(`Sprint ${status.toLowerCase()}`)
+      loadData()
+    } else {
+      toast.error(res.error || 'Failed to update status')
+    }
+  }
+
+  // One-click complete: if the sprint is still PLANNED, auto-start it first,
+  // then complete it — the manager shouldn't have to press two buttons.
+  async function handleComplete() {
+    if (!sprint) return
+    if (sprint.status === 'PLANNED') {
+      const start = await updateSprintStatus({ id: sprintId, status: 'ACTIVE' })
+      if (!start.success) {
+        toast.error(start.error || 'Failed to start sprint')
+        return
+      }
+    }
+    await handleStatusChange('COMPLETED')
+  }
+
   function openEditDialog(task: SprintTask) {
     setSelectedTask(task)
     setEditForm({
@@ -217,9 +244,36 @@ export function SprintDetail({
             )}
           </div>
         </div>
-        <Badge variant="secondary" className={STATUS_COLORS[sprint.status]}>
-          {sprint.status}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className={STATUS_COLORS[sprint.status]}>
+            {sprint.status}
+          </Badge>
+          {!readOnly && sprint.status === 'PLANNED' && (
+            <Button size="sm" onClick={() => handleStatusChange('ACTIVE')} className="gap-1.5">
+              <Play className="h-3.5 w-3.5" /> Start Sprint
+            </Button>
+          )}
+          {!readOnly && (sprint.status === 'ACTIVE' || sprint.status === 'PLANNED') && (
+            <Button size="sm" variant="outline" onClick={handleComplete} className="gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> Complete Sprint
+            </Button>
+          )}
+          {!readOnly && (sprint.status === 'PLANNED' || sprint.status === 'ACTIVE') && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={() => handleStatusChange('CANCELLED')}
+            >
+              <XCircle className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {!readOnly && sprint.status === 'CANCELLED' && (
+            <Button size="sm" variant="outline" onClick={() => handleStatusChange('PLANNED')}>
+              Reopen
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Nav tabs — Plan/Review/Retro are manager-only routes; hide them for

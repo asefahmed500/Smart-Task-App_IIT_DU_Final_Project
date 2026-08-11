@@ -253,7 +253,16 @@ export function SprintPlanningBoard({
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center justify-between">
               <span>Backlog ({backlogTasks.length})</span>
+              {sprint?.board?.name && (
+                <Badge variant="outline" className="text-[10px] font-normal bg-primary/5 border-primary/10 gap-1">
+                  <Layers className="h-3 w-3" />
+                  {sprint.board.name}
+                </Badge>
+              )}
             </CardTitle>
+            <p className="text-[11px] text-muted-text">
+              Unscheduled tasks on this board — add them to the sprint to plan.
+            </p>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-text" />
               <Input
