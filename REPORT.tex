@@ -201,7 +201,10 @@ offline-aware caching through a service worker. The system is delivered as a web
 application and is deployed for production use.
 
 \section{Core Modules of the System}
-\begin{center}
+\begin{table}[H]
+\centering
+\caption{Core modules of the SmartTask system.}
+\label{tab:modules}
 \begin{tabular}{|l|p{10.5cm}|}
 \hline
 \textbf{Module} & \textbf{Description} \\
@@ -263,7 +266,7 @@ Undo & 30-second undo window that reverses the most recent action. \\
 Offline Support & Service-worker caching and offline-aware behaviour. \\
 \hline
 \end{tabular}
-\end{center}
+\end{table}
 
 \section{Thesis Organisation}
 The remainder of this report is organised as follows. Chapter~\ref{ch:lit} reviews
@@ -852,7 +855,10 @@ removes its stored file blob; and deleting a task removes its comments,
 checklists, time entries, and reviews.
 \end{sloppypar}
 
-\begin{center}
+\begin{table}[H]
+\centering
+\caption{Database tables and their purpose.}
+\label{tab:schema}
 \begin{tabular}{|l|p{9.5cm}|}
 \hline
 \textbf{Table} & \textbf{Purpose} \\
@@ -897,7 +903,7 @@ AuditLog & Immutable log of user actions. \\
 PasswordResetToken & One-hour tokens for password recovery. \\
 \hline
 \end{tabular}
-\end{center}
+\end{table}
 
 \section{Key Implementation Decisions}
 \subsection{Authentication}
@@ -939,7 +945,10 @@ reload. Database state was inspected directly to confirm that operations persist
 and cascaded correctly.
 
 \section{Unit Testing}
-\begin{center}
+\begin{table}[H]
+\centering
+\caption{Unit test cases.}
+\label{tab:unit}
 \small
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{|l|l|p{4.2cm}|p{3cm}|p{2.6cm}|c|}
@@ -968,10 +977,13 @@ UT-10 & User & Create user (admin) & valid data & User appears in list & Pass \\
 \hline
 \end{tabular}%
 }
-\end{center}
+\end{table}
 
 \section{Integration Testing}
-\begin{center}
+\begin{table}[H]
+\centering
+\caption{Integration test cases.}
+\label{tab:integration}
 \small
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{|l|p{3.5cm}|p{4.5cm}|p{4.5cm}|c|}
@@ -996,10 +1008,13 @@ IT-08 & Audit + Undo & Perform action, view audit log & Entry recorded & Pass \\
 \hline
 \end{tabular}%
 }
-\end{center}
+\end{table}
 
 \section{Performance Testing}
-\begin{center}
+\begin{table}[H]
+\centering
+\caption{Performance test cases.}
+\label{tab:performance}
 \small
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{|l|l|p{4.5cm}|p{3.5cm}|c|}
@@ -1020,7 +1035,7 @@ PT-06 & Real-time & Socket event propagation & Live update within seconds & Pass
 \hline
 \end{tabular}%
 }
-\end{center}
+\end{table}
 
 \section{Testing Results Summary}
 All unit, integration, and performance test cases recorded above passed. The
