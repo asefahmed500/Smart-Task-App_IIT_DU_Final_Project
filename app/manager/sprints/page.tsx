@@ -34,10 +34,18 @@ export default async function ManagerSprintsPage({
     )
   }
 
-  // Default to the URL-selected board, otherwise the NEWEST board (the one the
-  // manager is most likely working on). Do NOT auto-jump to a board with
-  // sprints — that made new sprints always land on the first sprinted board.
-  const boardId = params.boardId || boards[0].id
+  // Default to the URL-selected board. Otherwise prefer the board with an
+  // ACTIVE sprint (so the active sprint is always visible), else the newest
+  // board — never auto-jump to a stale board like "Scrum Sprint1".
+  const boardId = params.boardId || (await defaultSprintBoard(boards))
 
   return <SprintList boardId={boardId} boards={boards} basePath="/manager" />
+}
+
+async function defaultSprintBoard(boards: { id: string; name: string }[]): Promise<string> {
+  const active = await prisma.sprint.findFirst({
+    where: { status: 'ACTIVE', boardId: { in: boards.map((b) => b.id) } },
+    select: { boardId: true },
+  })
+  return active?.boardId || boards[0].id
 }

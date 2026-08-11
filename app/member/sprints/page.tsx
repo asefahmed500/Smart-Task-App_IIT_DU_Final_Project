@@ -33,9 +33,17 @@ export default async function MemberSprintsPage({
     )
   }
 
-  // Default to the URL-selected board, otherwise the NEWEST board the member
-  // belongs to (no auto-jump to a sprinted board — use the clear selector).
-  const boardId = params.boardId || boards[0].id
+  // Default to the URL-selected board. Otherwise prefer the board with an
+  // ACTIVE sprint, else the newest board the member belongs to.
+  const boardId = params.boardId || (await defaultSprintBoard(boards))
 
   return <SprintList boardId={boardId} boards={boards} basePath="/member" readOnly />
+}
+
+async function defaultSprintBoard(boards: { id: string; name: string }[]): Promise<string> {
+  const active = await prisma.sprint.findFirst({
+    where: { status: 'ACTIVE', boardId: { in: boards.map((b) => b.id) } },
+    select: { boardId: true },
+  })
+  return active?.boardId || boards[0].id
 }

@@ -30,10 +30,11 @@ interface ColumnContainerProps {
   boardId: string
   boardMembers: User[]
   onTaskClick: (taskId: string) => void
+  onTaskCreated?: (task: Task) => void
   isDragging?: boolean
 }
 
-export function ColumnContainer({ column, tasks, currentUser, boardId, boardMembers, onTaskClick, isDragging: isBoardDragging }: ColumnContainerProps) {
+export function ColumnContainer({ column, tasks, currentUser, boardId, boardMembers, onTaskClick, onTaskCreated, isDragging: isBoardDragging }: ColumnContainerProps) {
   const tasksIds = useMemo(() => tasks.map((task) => task.id), [tasks])
   const router = useRouter()
 
@@ -75,14 +76,14 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, boardMemb
             const result = await undoLastAction()
             if (result.success) {
               toast.success('Column restored')
-              window.location.reload()
+              router.refresh()
             } else {
               toast.error(result.error || 'Failed to undo')
             }
           }
         }
       })
-      window.location.reload()
+      router.refresh()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to delete column'
       toast.error(message)
@@ -204,6 +205,7 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, boardMemb
         columnId={column.id}
         currentUser={currentUser}
         boardMembers={boardMembers}
+        onTaskCreated={onTaskCreated}
       />
 
       <SetWipLimitDialog

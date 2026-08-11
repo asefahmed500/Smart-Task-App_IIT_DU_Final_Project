@@ -26,7 +26,7 @@ import { toast } from 'sonner'
 import { undoLastAction } from '@/actions/board-actions'
 import { Loader2, CalendarDays, UserCircle } from 'lucide-react'
 import { useOfflineStore } from '@/lib/store/use-offline-store'
-import { User } from '@/types/kanban'
+import { User, Task } from '@/types/kanban'
 import { Priority } from '@/generated/prisma'
 
 interface AddTaskDialogProps {
@@ -35,9 +35,10 @@ interface AddTaskDialogProps {
   columnId: string
   currentUser: User
   boardMembers: User[]
+  onTaskCreated?: (task: Task) => void
 }
 
-export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMembers }: AddTaskDialogProps) {
+export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMembers, onTaskCreated }: AddTaskDialogProps) {
   const [loading, setLoading] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -104,7 +105,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
             const undoResult = await undoLastAction()
             if (undoResult.success) {
               toast.success('Task deleted')
-              window.location.reload()
+              router.refresh()
             } else {
               toast.error(undoResult.error || 'Failed to undo')
             }
@@ -115,7 +116,10 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
       setDescription('')
       setDueDate('')
       setAssigneeId('')
-      window.location.reload()
+      // Optimistically add the task to the board so it appears instantly
+      // (no full page reload). The socket 'task:created' event reconciles.
+      if (result.data) onTaskCreated?.(result.data as Task)
+      router.refresh()
       onClose()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to create task'

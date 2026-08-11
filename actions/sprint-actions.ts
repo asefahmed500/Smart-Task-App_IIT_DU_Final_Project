@@ -38,6 +38,9 @@ const updateSprintSchema = z.object({
 const sprintStatusSchema = z.object({
   id: z.string(),
   status: z.enum(['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED']),
+  // What to do with incomplete tasks when a sprint is COMPLETED.
+  // 'backlog' (default) | 'nextSprint' | 'keep'
+  incompleteAction: z.enum(['backlog', 'nextSprint', 'keep']).optional(),
 })
 
 const idSchema = z.string().cuid()
@@ -307,13 +310,38 @@ export async function updateSprintStatus(
 
         if (input.status === 'COMPLETED') {
           const doneColName = await findDoneColumnName(existing.boardId)
-          await tx.task.updateMany({
+          const incompleteTaskIds = await tx.task.findMany({
             where: {
               sprintId: input.id,
               column: { name: { not: doneColName } },
             },
-            data: { sprintId: null },
+            select: { id: true },
           })
+
+          const action = input.incompleteAction || 'backlog'
+
+          if (incompleteTaskIds.length > 0) {
+            if (action === 'keep') {
+              // Leave unfinished tasks attached to this (now completed) sprint.
+            } else if (action === 'nextSprint') {
+              // Move unfinished tasks to the next PLANNED sprint on the board.
+              const nextSprint = await tx.sprint.findFirst({
+                where: { boardId: existing.boardId, status: 'PLANNED', id: { not: input.id } },
+                orderBy: { startDate: 'asc' },
+                select: { id: true },
+              })
+              await tx.task.updateMany({
+                where: { id: { in: incompleteTaskIds.map((t) => t.id) } },
+                data: { sprintId: nextSprint?.id ?? null },
+              })
+            } else {
+              // default: return to backlog
+              await tx.task.updateMany({
+                where: { id: { in: incompleteTaskIds.map((t) => t.id) } },
+                data: { sprintId: null },
+              })
+            }
+          }
         }
       })
     } else {
@@ -588,6 +616,46 @@ export async function getSprintsByBoard(
       return { success: false, error: 'Validation failed', fieldErrors: error.flatten().fieldErrors }
     }
     console.error('[GET_SPRINTS_ERROR]', error)
+    return { success: false, error: 'Failed to fetch sprints' }
+  }
+}
+
+/**
+ * Returns ALL sprints across every board the caller owns or belongs to, each
+ * with its board info and task count. Used by the sprints list page so the
+ * manager always sees sprints from every board (no hunting via a board picker).
+ */
+export async function getSprintsForAllBoards(): Promise<ActionResult> {
+  try {
+    const session = await getSession()
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    const boards = await prisma.board.findMany({
+      where: {
+        OR: [{ ownerId: session.id }, { members: { some: { id: session.id } } }],
+      },
+      select: { id: true },
+    })
+
+    const sprints = await prisma.sprint.findMany({
+      where: { boardId: { in: boards.map((b) => b.id) } },
+      include: {
+        board: { select: { id: true, name: true } },
+        _count: { select: { tasks: true } },
+      },
+    })
+
+    // Order: ACTIVE first, then PLANNED, COMPLETED, CANCELLED; then by start date desc.
+    const order: Record<string, number> = { ACTIVE: 0, PLANNED: 1, COMPLETED: 2, CANCELLED: 3 }
+    sprints.sort((a, b) => {
+      const diff = (order[a.status] ?? 9) - (order[b.status] ?? 9)
+      if (diff !== 0) return diff
+      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+    })
+
+    return { success: true, data: sprints }
+  } catch (error) {
+    console.error('[GET_ALL_SPRINTS_ERROR]', error)
     return { success: false, error: 'Failed to fetch sprints' }
   }
 }

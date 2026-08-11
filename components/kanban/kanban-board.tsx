@@ -63,7 +63,8 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
     onDragEnd,
     handleRefresh,
     handleResolveConflict,
-    handleUndo
+    handleUndo,
+    addTaskOptimistic
   } = useKanbanBoard({ initialBoard, currentUser })
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -292,6 +293,7 @@ export function KanbanBoard({ board: initialBoard, currentUser }: KanbanBoardPro
                   boardMembers={board.members}
                   onTaskClick={(id) => setSelectedTaskId(id)}
                   isDragging={isDragging.current}
+                  onTaskCreated={addTaskOptimistic}
                 />
               ))}
             </SortableContext>

@@ -96,7 +96,7 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
             }
           }
         })
-        window.location.reload()
+        router.refresh()
         setSearch('')
         setSearchResults([])
       } else {
@@ -127,7 +127,7 @@ export function ManageMembersDialog({ isOpen, onClose, boardId, members }: Manag
             }
           }
         })
-        window.location.reload()
+        router.refresh()
       } else {
         toast.error(result.error || 'Failed to remove member')
       }

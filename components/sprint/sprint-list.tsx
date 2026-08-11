@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getSprintsByBoard, createSprint, updateSprintStatus, deleteSprint } from '@/actions'
+import { getSprintsForAllBoards, createSprint, updateSprintStatus, deleteSprint } from '@/actions'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
@@ -35,6 +35,7 @@ import {
   ArrowRight,
   Target,
   Clock,
+  Layers,
 } from 'lucide-react'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -67,6 +68,7 @@ interface Sprint {
   startDate: string
   endDate: string
   status: string
+  board?: { id: string; name: string } | null
   _count: { tasks: number }
 }
 
@@ -91,6 +93,10 @@ export function SprintList({
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Sprint | null>(null)
+  const [completeTarget, setCompleteTarget] = useState<Sprint | null>(null)
+  const [completeAction, setCompleteAction] = useState<'backlog' | 'nextSprint' | 'keep'>('backlog')
+  const [boardFilter, setBoardFilter] = useState('all')
+  const [createBoard, setCreateBoard] = useState(boards[0]?.id || '')
   const [createForm, setCreateForm] = useState({
     name: '',
     goal: '',
@@ -101,19 +107,23 @@ export function SprintList({
 
   useEffect(() => {
     loadSprints()
-  }, [boardId])
+  }, [])
 
   async function loadSprints() {
     setLoading(true)
-    const res = await getSprintsByBoard(boardId)
+    const res = await getSprintsForAllBoards()
     if (res.success) setSprints(res.data || [])
     setLoading(false)
   }
 
   async function handleCreate() {
+    if (!createBoard) {
+      toast.error('Select a board for the sprint')
+      return
+    }
     const res = await createSprint({
       ...createForm,
-      boardId,
+      boardId: createBoard,
     })
     if (res.success) {
       toast.success('Sprint created')
@@ -132,6 +142,22 @@ export function SprintList({
       loadSprints()
     } else {
       toast.error(res.error || 'Failed to update status')
+    }
+  }
+
+  async function handleCompleteConfirm() {
+    if (!completeTarget) return
+    const res = await updateSprintStatus({
+      id: completeTarget.id,
+      status: 'COMPLETED',
+      incompleteAction: completeAction,
+    })
+    if (res.success) {
+      toast.success('Sprint completed')
+      setCompleteTarget(null)
+      loadSprints()
+    } else {
+      toast.error(res.error || 'Failed to complete sprint')
     }
   }
 
@@ -154,7 +180,9 @@ export function SprintList({
     return `${days} day${days !== 1 ? 's' : ''}`
   }
 
-  const filteredSprints = (statusFilter === 'all' ? sprints : sprints.filter((s) => s.status === statusFilter))
+  const filteredSprints = sprints
+    .filter((s) => (boardFilter === 'all' ? true : s.board?.id === boardFilter))
+    .filter((s) => (statusFilter === 'all' ? true : s.status === statusFilter))
     .sort((a, b) => {
       const order = { ACTIVE: 0, PLANNED: 1, COMPLETED: 2, CANCELLED: 3 }
       return (order[a.status as keyof typeof order] ?? 99) - (order[b.status as keyof typeof order] ?? 99)
@@ -181,28 +209,24 @@ export function SprintList({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {boards.length > 1 && (
-            <Select
-              value={boardId}
-              onValueChange={(v) => router.push(`${basePath}/sprints?boardId=${v}`)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select board" />
-              </SelectTrigger>
-              <SelectContent>
-                {boards.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button variant="outline" size="sm" onClick={() => router.push(`${basePath}/backlog?boardId=${boardId}`)}>
+          <Select value={boardFilter} onValueChange={setBoardFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="All boards" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Boards</SelectItem>
+              {boards.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={() => router.push(`${basePath}/backlog?boardId=${boardFilter === 'all' ? boards[0]?.id : boardFilter}`)}>
             Backlog
           </Button>
           {!readOnly && (
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" onClick={() => { setCreateBoard(boards[0]?.id || ''); setCreateOpen(true) }}>
               <Plus className="h-4 w-4 mr-2" />
               New Sprint
             </Button>
@@ -232,7 +256,7 @@ export function SprintList({
             <h3 className="text-lg font-semibold">No sprints found</h3>
             <p className="text-muted-foreground text-sm mt-1 text-center max-w-sm">
               {sprints.length === 0
-                ? `No sprints on "${boards.find((b) => b.id === boardId)?.name || 'this board'}" yet. ${readOnly ? '' : 'Click "New Sprint" to create one for this board.'}`
+                ? `No sprints yet. ${readOnly ? '' : 'Click "New Sprint" to create one for any board.'}`
                 : 'No sprints match the selected filter.'}
             </p>
           </CardContent>
@@ -266,6 +290,14 @@ export function SprintList({
                       <Target className="h-3 w-3 inline mr-1" />
                       {sprint.goal}
                     </CardDescription>
+                  )}
+                  {sprint.board?.name && (
+                    <div className="mt-2">
+                      <Badge variant="outline" className="text-[10px] font-normal bg-primary/5 border-primary/10 gap-1">
+                        <Layers className="h-3 w-3" />
+                        {sprint.board.name}
+                      </Badge>
+                    </div>
                   )}
                 </CardHeader>
                 <CardContent className="pb-3">
@@ -328,7 +360,7 @@ export function SprintList({
                     <Button
                       size="sm"
                       className="flex-1"
-                      onClick={() => handleStatusChange(sprint.id, 'COMPLETED')}
+                      onClick={() => { setCompleteAction('backlog'); setCompleteTarget(sprint) }}
                     >
                       <CheckCircle className="h-3 w-3 mr-1" />
                       Complete
@@ -379,6 +411,21 @@ export function SprintList({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
+            {boards.length > 1 && (
+              <div className="space-y-2">
+                <Label>Board</Label>
+                <Select value={createBoard} onValueChange={setCreateBoard}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select board" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {boards.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Sprint Name</Label>
               <Input
@@ -464,6 +511,45 @@ export function SprintList({
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Complete Sprint dialog — what to do with unfinished tasks */}
+      <Dialog open={!!completeTarget} onOpenChange={() => setCompleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Sprint</DialogTitle>
+            <DialogDescription>
+              {completeTarget?.name} — unfinished tasks will be handled below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {(
+              [
+                { value: 'backlog', label: 'Return to backlog', desc: 'Unfinished tasks stay available for future sprints.' },
+                { value: 'nextSprint', label: 'Move to next sprint', desc: 'Assign them to the next planned sprint on this board.' },
+                { value: 'keep', label: 'Keep in this sprint', desc: 'Leave them attached to this completed sprint.' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setCompleteAction(opt.value)}
+                className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                  completeAction === opt.value ? 'border-accent bg-accent/5' : 'border-hairline hover:border-accent/40'
+                }`}
+              >
+                <div className="text-sm font-medium">{opt.label}</div>
+                <div className="text-xs text-muted-foreground">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCompleteConfirm}>Complete Sprint</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

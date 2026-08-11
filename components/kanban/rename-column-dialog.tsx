@@ -51,7 +51,7 @@ export function RenameColumnDialog({ isOpen, onClose, columnId, boardId, current
             }
           }
         })
-        window.location.reload()
+        router.refresh()
         onClose()
       } else {
         toast.error(result.error || 'Failed to rename column')

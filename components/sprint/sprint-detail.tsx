@@ -111,6 +111,8 @@ export function SprintDetail({
   const [metrics, setMetrics] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false)
+  const [completeAction, setCompleteAction] = useState<'backlog' | 'nextSprint' | 'keep'>('backlog')
   const [selectedTask, setSelectedTask] = useState<SprintTask | null>(null)
   const [editForm, setEditForm] = useState({ issueType: '', storyPoints: '' })
   const [taskFilter, setTaskFilter] = useState('all')
@@ -170,6 +172,18 @@ export function SprintDetail({
   // then complete it — the manager shouldn't have to press two buttons.
   async function handleComplete() {
     if (!sprint) return
+    const incomplete = (metrics?.totalTasks || 0) - (metrics?.completedTasks || 0)
+    // If there are unfinished tasks, ask what to do with them (Jira-style).
+    if (incomplete > 0) {
+      setCompleteAction('backlog')
+      setCompleteDialogOpen(true)
+      return
+    }
+    await doComplete('backlog')
+  }
+
+  async function doComplete(action: 'backlog' | 'nextSprint' | 'keep') {
+    if (!sprint) return
     if (sprint.status === 'PLANNED') {
       const start = await updateSprintStatus({ id: sprintId, status: 'ACTIVE' })
       if (!start.success) {
@@ -177,7 +191,14 @@ export function SprintDetail({
         return
       }
     }
-    await handleStatusChange('COMPLETED')
+    const res = await updateSprintStatus({ id: sprintId, status: 'COMPLETED', incompleteAction: action })
+    if (res.success) {
+      toast.success('Sprint completed')
+      setCompleteDialogOpen(false)
+      loadData()
+    } else {
+      toast.error(res.error || 'Failed to update status')
+    }
   }
 
   function openEditDialog(task: SprintTask) {
@@ -465,6 +486,50 @@ export function SprintDetail({
           ))}
         </div>
       )}
+
+      {/* Complete Sprint dialog — ask what to do with unfinished tasks */}
+      <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Sprint</DialogTitle>
+            <DialogDescription>
+              {(metrics?.totalTasks || 0) - (metrics?.completedTasks || 0)} unfinished task
+              {(metrics?.totalTasks || 0) - (metrics?.completedTasks || 0) !== 1 ? 's' : ''}. What should happen to them?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {(
+              [
+                { value: 'backlog', label: 'Return to backlog', desc: 'Unfinished tasks stay available for future sprints.' },
+                { value: 'nextSprint', label: 'Move to next sprint', desc: 'Assign them to the next planned sprint on this board.' },
+                { value: 'keep', label: 'Keep in this sprint', desc: 'Leave them attached to this completed sprint.' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setCompleteAction(opt.value)}
+                className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                  completeAction === opt.value
+                    ? 'border-accent bg-accent/5'
+                    : 'border-hairline hover:border-accent/40'
+                }`}
+              >
+                <div className="text-sm font-medium">{opt.label}</div>
+                <div className="text-xs text-muted-foreground">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => doComplete(completeAction)}>
+              Complete Sprint
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

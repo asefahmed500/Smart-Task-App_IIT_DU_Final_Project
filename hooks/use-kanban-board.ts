@@ -491,6 +491,18 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
     }
   }
 
+  // Optimistic add: immediately place a newly-created task into its column so
+  // the board updates instantly (no waiting for the socket round-trip). The
+  // socket 'task:created' event then reconciles if anything differs.
+  const addTaskOptimistic = useCallback((task: Task) => {
+    setBoard((prev: Board) => {
+      const newColumns = prev.columns.map((col: Column) =>
+        col.id === task.columnId ? { ...col, tasks: [...col.tasks, task] } : col
+      )
+      return { ...prev, columns: newColumns }
+    })
+  }, [])
+
   return {
     board,
     activeColumn,
@@ -510,6 +522,7 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
     onDragEnd,
     handleRefresh,
     handleResolveConflict,
-    handleUndo
+    handleUndo,
+    addTaskOptimistic
   }
 }
