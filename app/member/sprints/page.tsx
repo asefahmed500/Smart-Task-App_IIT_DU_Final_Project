@@ -32,7 +32,16 @@ export default async function MemberSprintsPage({
     )
   }
 
-  const boardId = params.boardId || boards[0].id
+  // Default to the first board that has sprints so the list is never empty
+  // on first load; fall back to the first board otherwise.
+  const sprintsByBoard = await prisma.sprint.findMany({
+    where: { boardId: { in: boards.map((b) => b.id) } },
+    select: { boardId: true },
+    distinct: ['boardId'],
+  })
+  const boardWithSprints = boards.find((b) => sprintsByBoard.some((s) => s.boardId === b.id))
+  const defaultBoardId = boardWithSprints?.id || boards[0].id
+  const boardId = params.boardId || defaultBoardId
 
   return <SprintList boardId={boardId} boards={boards} basePath="/member" readOnly />
 }

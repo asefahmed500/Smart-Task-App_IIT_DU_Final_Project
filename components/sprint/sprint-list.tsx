@@ -343,7 +343,7 @@ export function SprintList({
                       <XCircle className="h-3 w-3" />
                     </Button>
                   )}
-                  {!readOnly && (sprint.status === 'PLANNED' || sprint.status === 'CANCELLED') && (
+                  {!readOnly && sprint.status !== 'ACTIVE' && (
                     <Button
                       size="sm"
                       variant="outline"
