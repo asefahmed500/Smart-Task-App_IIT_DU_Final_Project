@@ -130,6 +130,7 @@ Student's Signature: \rule{5cm}{0.4pt}
 
 \chapter*{Signature Page}
 \begin{center}
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{l p{10cm}}
 Project & : SmartTask -- Real-Time Collaborative Kanban Task Management System \\
 Student Name & : [INSERT NAME] \\
@@ -140,7 +141,8 @@ Program & : [INSERT PROGRAM] \\
 Date of Submission & : [INSERT DATE] \\
 Supervised By & : [INSERT SUPERVISOR NAME], [INSERT DESIGNATION], \\
  & \ \ IIT, University of Dhaka \\
-\end{tabular}
+\end{tabular}%
+}
 \end{center}
 \vspace{1cm}
 \noindent Supervisor's Approval: \rule{6cm}{0.4pt}
@@ -240,6 +242,7 @@ application and is deployed for production use.
 \centering
 \caption{Core modules of the SmartTask system.}
 \label{tab:modules}
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{|l|p{10.5cm}|}
 \hline
 \textbf{Module} & \textbf{Description} \\
@@ -300,7 +303,8 @@ Undo & 30-second undo window that reverses the most recent action. \\
 \hline
 Offline Support & Service-worker caching and offline-aware behaviour. \\
 \hline
-\end{tabular}
+\end{tabular}%
+}
 \end{table}
 
 \section{Thesis Organisation}
@@ -894,6 +898,7 @@ checklists, time entries, and reviews.
 \centering
 \caption{Database tables and their purpose.}
 \label{tab:schema}
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{|l|p{9.5cm}|}
 \hline
 \textbf{Table} & \textbf{Purpose} \\
@@ -937,7 +942,8 @@ AuditLog & Immutable log of user actions. \\
 \hline
 PasswordResetToken & One-hour tokens for password recovery. \\
 \hline
-\end{tabular}
+\end{tabular}%
+}
 \end{table}
 
 \section{Key Implementation Decisions}
