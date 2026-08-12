@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { getSprintDetail, getSprintMetrics, removeTaskFromSprint, updateTaskIssueFields, updateSprintStatus } from '@/actions'
 import { mentionToDisplayText } from '@/utils/mention'
+import { useRealtimeReload } from '@/components/kanban/socket-hooks'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -101,10 +102,14 @@ export function SprintDetail({
   sprintId,
   basePath = '/manager',
   readOnly = false,
+  boardId,
+  currentUser,
 }: {
   sprintId: string
   basePath?: string
   readOnly?: boolean
+  boardId?: string
+  currentUser?: { id: string; name: string | null; image: string | null }
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -122,8 +127,26 @@ export function SprintDetail({
     loadData()
   }, [sprintId])
 
-  async function loadData() {
-    setLoading(true)
+  useRealtimeReload(
+    boardId,
+    currentUser,
+    [
+      'sprint:updated',
+      'sprint:statusChanged',
+      'task:sprintAssigned',
+      'task:sprintRemoved',
+      'task:moved',
+      'task:created',
+      'task:updated',
+      'task:deleted',
+      'task:issueFieldsUpdated',
+      'task:blockerToggled',
+    ],
+    () => loadData(true),
+  )
+
+  async function loadData(silent = false) {
+    if (!silent) setLoading(true)
     const [detailRes, metricsRes] = await Promise.all([
       getSprintDetail(sprintId),
       getSprintMetrics(sprintId),
@@ -372,6 +395,21 @@ export function SprintDetail({
         </Card>
       </div>
 
+      {(metrics?.totalTasks ?? 0) > 0 && (
+        <div>
+          <div className="h-2 bg-canvas-soft rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+              style={{ width: `${Math.min(metrics?.completionRate || 0, 100)}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {metrics?.completedTasks} of {metrics?.totalTasks} tasks done. When this sprint is
+            completed, unfinished tasks return to the backlog automatically.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 text-sm text-muted-foreground">
         <span className="flex items-center gap-1">
           <CalendarDays className="h-4 w-4" />
@@ -558,6 +596,17 @@ export function SprintDetail({
                   <SelectItem value="SUBTASK">Subtask</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Story Points</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={editForm.storyPoints}
+                onChange={(e) => setEditForm((f) => ({ ...f, storyPoints: e.target.value }))}
+                placeholder="e.g. 3"
+              />
             </div>
           </div>
           <DialogFooter>

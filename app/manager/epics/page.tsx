@@ -35,5 +35,5 @@ export default async function ManagerEpicsPage({
 
   const boardId = params.boardId || boards[0].id
 
-  return <EpicList boardId={boardId} boards={boards} basePath="/manager" />
+  return <EpicList boardId={boardId} boards={boards} basePath="/manager" currentUser={{ id: session.id, name: session.name, image: session.image }} />
 }

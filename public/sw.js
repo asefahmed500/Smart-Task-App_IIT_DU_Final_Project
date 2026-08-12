@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-task-v7';
+const CACHE_NAME = 'smart-task-v8';
 // NOTE: do NOT precache /globals.css, /manifest.json or /dashboard —
 // Next.js serves CSS from hashed /_next/static paths, there is no
 // app/manifest.ts, and /dashboard 302-redirects per role, so all three
@@ -51,9 +51,16 @@ self.addEventListener('fetch', (event) => {
   // NEVER intercept API, auth, or Next.js internal requests — these must
   // always hit the network (caching /api/auth/socket-token returned a stale
   // JWT from a previous session, breaking socket auth on role switch).
+  //
+  // /_next/ (JS/CSS/fonts/images) is ALSO bypassed: Next.js serves those with
+  // content-hashed, immutable URLs in production, so the SW caching them adds
+  // nothing but stale-chunk bugs in dev (Turbopack does not hash chunk URLs,
+  // so cache-first served old bundles after code changes — the
+  // "useRealtimeReload is not a function" errors). Letting the browser handle
+  // /_next/ natively means code changes never require a CACHE_NAME bump.
   if (
     url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/_next/data/') ||
+    url.pathname.startsWith('/_next/') ||
     url.pathname.includes('/auth/') ||
     url.pathname === '/manifest.json'
   ) {

@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/auth-server'
-import { redirect } from 'next/navigation'
+import { redirect, notFound } from 'next/navigation'
+import prisma from '@/lib/prisma'
 import { EpicDetail } from '@/components/sprint/epic-detail'
 
 export default async function EpicDetailPage({
@@ -10,14 +11,28 @@ export default async function EpicDetailPage({
   searchParams: Promise<{ boardId?: string }>
 }) {
   const session = await getSession()
-  if (!session) redirect('/login')
+  if (!session || !['ADMIN', 'MANAGER', 'MEMBER'].includes(session.role)) {
+    redirect('/login')
+  }
 
   const { id } = await params
-  const { boardId } = await searchParams
+  const { boardId: searchBoardId } = await searchParams
+
+  const epic = await prisma.epic.findUnique({
+    where: { id },
+    select: { id: true, boardId: true },
+  })
+  if (!epic) notFound()
 
   return (
     <div className="container mx-auto py-6 max-w-4xl">
-      <EpicDetail epicId={id} basePath="/member" readOnly />
+      <EpicDetail
+        epicId={id}
+        basePath="/member"
+        readOnly
+        boardId={searchBoardId || epic.boardId}
+        currentUser={{ id: session.id, name: session.name, image: session.image }}
+      />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getEpicDetail, updateEpic } from '@/actions'
 import { mentionToDisplayText } from '@/utils/mention'
+import { useRealtimeReload } from '@/components/kanban/socket-hooks'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -65,10 +66,14 @@ export function EpicDetail({
   epicId,
   basePath = '/manager',
   readOnly = false,
+  boardId,
+  currentUser,
 }: {
   epicId: string
   basePath?: string
   readOnly?: boolean
+  boardId?: string
+  currentUser?: { id: string; name: string | null; image: string | null }
 }) {
   const router = useRouter()
   const [epic, setEpic] = useState<EpicDetailData | null>(null)
@@ -79,6 +84,21 @@ export function EpicDetail({
   useEffect(() => {
     loadEpic()
   }, [epicId])
+
+  useRealtimeReload(
+    boardId,
+    currentUser,
+    [
+      'epic:updated',
+      'epic:deleted',
+      'task:moved',
+      'task:created',
+      'task:updated',
+      'task:deleted',
+      'task:issueFieldsUpdated',
+    ],
+    () => loadEpic(),
+  )
 
   async function loadEpic() {
     setLoading(true)

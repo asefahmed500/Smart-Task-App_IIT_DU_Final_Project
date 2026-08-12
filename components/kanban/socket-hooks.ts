@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { fetchSocketToken } from '@/utils/socket-auth'
 
@@ -184,6 +184,36 @@ export function getSocket() {
     socket = buildSocket()
   }
   return socket
+}
+
+/**
+ * Join a board room and reload local data whenever any of the listed socket
+ * events arrive. Lets sprint/backlog pages reflect changes made by another
+ * user (manager ↔ member) in real time instead of requiring a manual reload.
+ */
+export function useRealtimeReload(
+  boardId: string | undefined,
+  user: { id: string; name: string | null; image: string | null } | undefined,
+  events: string[],
+  onReload: () => void,
+) {
+  const presenceUser = useMemo<PresenceUser | undefined>(() => {
+    if (!user) return undefined
+    return { id: user.id, name: user.name || user.id, image: user.image }
+  }, [user])
+  const { socket, isConnected } = useSocket(boardId, presenceUser)
+  const onReloadRef = useRef(onReload)
+  onReloadRef.current = onReload
+
+  const handleEvent = useCallback(
+    (event: string) => {
+      if (events.includes(event)) onReloadRef.current()
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [events],
+  )
+
+  useBoardEvents(boardId ?? '', handleEvent, socket, isConnected)
 }
 
 export function emitTaskMoved(boardId: string, data: {

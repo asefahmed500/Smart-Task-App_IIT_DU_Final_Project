@@ -39,7 +39,7 @@ export default async function ManagerSprintsPage({
   // board — never auto-jump to a stale board like "Scrum Sprint1".
   const boardId = params.boardId || (await defaultSprintBoard(boards))
 
-  return <SprintList boardId={boardId} boards={boards} basePath="/manager" />
+  return <SprintList boardId={boardId} boards={boards} basePath="/manager" currentUser={{ id: session.id, name: session.name, image: session.image }} />
 }
 
 async function defaultSprintBoard(boards: { id: string; name: string }[]): Promise<string> {

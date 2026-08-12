@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getEpicsByBoard, createEpic, updateEpic, deleteEpic } from '@/actions'
 import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
+import { useRealtimeReload } from '@/components/kanban/socket-hooks'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
@@ -54,11 +55,13 @@ export function EpicList({
   boards,
   basePath = '/manager',
   readOnly = false,
+  currentUser,
 }: {
   boardId: string
   boards: Board[]
   basePath?: string
   readOnly?: boolean
+  currentUser?: { id: string; name: string | null; image: string | null }
 }) {
   const router = useRouter()
   const [epics, setEpics] = useState<Epic[]>([])
@@ -83,6 +86,13 @@ export function EpicList({
   useEffect(() => {
     loadEpics()
   }, [boardId])
+
+  useRealtimeReload(
+    boardId,
+    currentUser,
+    ['epic:created', 'epic:updated', 'epic:deleted'],
+    () => loadEpics(),
+  )
 
   async function loadEpics() {
     setLoading(true)

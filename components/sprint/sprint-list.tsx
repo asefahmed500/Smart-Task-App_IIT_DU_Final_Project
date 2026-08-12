@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSprintsForAllBoards, createSprint, updateSprintStatus, deleteSprint } from '@/actions'
 import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
+import { useRealtimeReload } from '@/components/kanban/socket-hooks'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
@@ -71,6 +72,7 @@ interface Sprint {
   status: string
   board?: { id: string; name: string } | null
   _count: { tasks: number }
+  doneCount?: number
 }
 
 interface Board {
@@ -83,11 +85,13 @@ export function SprintList({
   boards,
   basePath = '/manager',
   readOnly = false,
+  currentUser,
 }: {
   boardId: string
   boards: Board[]
   basePath?: string
   readOnly?: boolean
+  currentUser: { id: string; name: string | null; image: string | null }
 }) {
   const router = useRouter()
   const [sprints, setSprints] = useState<Sprint[]>([])
@@ -110,6 +114,13 @@ export function SprintList({
   useEffect(() => {
     loadSprints()
   }, [])
+
+  useRealtimeReload(
+    boardId,
+    currentUser,
+    ['sprint:created', 'sprint:updated', 'sprint:deleted', 'sprint:statusChanged'],
+    () => loadSprints(),
+  )
 
   async function loadSprints() {
     setLoading(true)
@@ -329,6 +340,22 @@ export function SprintList({
                       <ArrowRight className="h-4 w-4 shrink-0" />
                       <span>{sprint._count.tasks} task{sprint._count.tasks !== 1 ? 's' : ''}</span>
                     </div>
+                    {sprint.doneCount !== undefined && sprint._count.tasks > 0 && (
+                      <div className="pt-1">
+                        <div className="h-1.5 bg-canvas-soft rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                            style={{
+                              width: `${Math.round((sprint.doneCount / sprint._count.tasks) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          {sprint.doneCount} of {sprint._count.tasks} done (
+                          {Math.round((sprint.doneCount / sprint._count.tasks) * 100)}%)
+                        </p>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Clock className="h-4 w-4 shrink-0" />
                       <span>{getDuration(sprint.startDate, sprint.endDate)}</span>

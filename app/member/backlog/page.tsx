@@ -34,5 +34,5 @@ export default async function MemberBacklogPage({
 
   const boardId = params.boardId || boards[0].id
 
-  return <BacklogView boardId={boardId} boards={boards} basePath="/member" readOnly />
+  return <BacklogView boardId={boardId} boards={boards} basePath="/member" readOnly currentUser={{ id: session.id, name: session.name, image: session.image }} />
 }

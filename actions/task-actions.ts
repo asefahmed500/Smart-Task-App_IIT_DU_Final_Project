@@ -396,7 +396,9 @@ export async function updateTaskStatus(input: { taskId: string, columnId: string
         userId,
         type: 'TASK_STATUS_CHANGED',
         message: `Task "${task.title}" moved to ${newStatusName}`,
-        link: `/dashboard/board/${task.column.boardId}`,
+        link: task.sprintId
+          ? `/member/sprints/${task.sprintId}/board`
+          : `/dashboard/board/${task.column.boardId}`,
       })
     }
 

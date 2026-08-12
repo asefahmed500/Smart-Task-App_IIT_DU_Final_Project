@@ -50,10 +50,6 @@ export default function ReportsPage() {
     }
   }, [])
 
-  useState(() => {
-    loadData()
-  })
-
   useEffect(() => {
     loadData()
   }, [loadData])

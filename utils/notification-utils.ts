@@ -16,7 +16,9 @@ type NotifType =
   | 'BOARD_MEMBER_REMOVED'
   | 'SPRINT_STARTED'
   | 'SPRINT_COMPLETED'
+  | 'SPRINT_CREATED'
   | 'TASK_ADDED_TO_SPRINT'
+  | 'TASK_REMOVED_FROM_SPRINT'
   | 'EPIC_CREATED'
   | 'EPIC_UPDATED'
   | 'EPIC_DELETED'
@@ -45,7 +47,9 @@ const notifTypeToPrefKey: Partial<Record<NotifType, keyof Pick<
   BOARD_MEMBER_REMOVED: 'boardMemberRemoved',
   SPRINT_STARTED: 'sprintStarted',
   SPRINT_COMPLETED: 'sprintCompleted',
+  SPRINT_CREATED: 'sprintStarted',
   TASK_ADDED_TO_SPRINT: 'taskAddedToSprint',
+  TASK_REMOVED_FROM_SPRINT: 'taskAddedToSprint',
   EPIC_CREATED: 'epicUpdated',
   EPIC_UPDATED: 'epicUpdated',
   EPIC_DELETED: 'epicUpdated',

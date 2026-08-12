@@ -33,6 +33,7 @@ import { createPortal } from 'react-dom'
 import { BurndownChart } from './burndown-chart-lazy'
 import { TaskDetailsDialog } from '@/components/kanban/task-details-dialog'
 import { AddTaskDialog } from '@/components/kanban/add-task-dialog'
+import { useRealtimeReload } from '@/components/kanban/socket-hooks'
 import {
   ArrowLeft,
   MessageSquare,
@@ -336,8 +337,26 @@ export function SprintKanbanBoard({
     loadData()
   }, [sprintId])
 
-  async function loadData() {
-    setLoading(true)
+  useRealtimeReload(
+    boardId,
+    currentUser,
+    [
+      'task:moved',
+      'task:created',
+      'task:updated',
+      'task:deleted',
+      'task:sprintAssigned',
+      'task:sprintRemoved',
+      'task:issueFieldsUpdated',
+      'task:blockerToggled',
+      'sprint:updated',
+      'sprint:statusChanged',
+    ],
+    () => loadData(true),
+  )
+
+  async function loadData(silent = false) {
+    if (!silent) setLoading(true)
     const [detailRes, metricsRes, burndownRes] = await Promise.all([
       getSprintDetail(sprintId),
       getSprintMetrics(sprintId),

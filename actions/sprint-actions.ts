@@ -108,6 +108,27 @@ export async function createSprint(
       details: { sprintId: sprint.id, name: sprint.name, boardId: input.boardId },
     })
 
+    // Notify board members + owner that a new sprint was planned.
+    const boardForNotify = await prisma.board.findUnique({
+      where: { id: input.boardId },
+      include: { members: { select: { id: true } }, owner: { select: { id: true } } },
+    })
+    if (boardForNotify) {
+      const memberIds = [
+        ...boardForNotify.members.map((m) => m.id),
+        ...(boardForNotify.owner ? [boardForNotify.owner.id] : []),
+      ]
+      for (const uid of [...new Set(memberIds)]) {
+        if (uid === session.id) continue
+        await sendNotification({
+          userId: uid,
+          type: 'SPRINT_CREATED',
+          message: `Sprint "${sprint.name}" has been planned`,
+          link: `/member/sprints/${sprint.id}`,
+        })
+      }
+    }
+
     emitBoardEvent('sprint:created', { sprint, boardId: input.boardId })
 
     revalidatePath(`/manager/sprints`)
@@ -541,7 +562,10 @@ export async function removeTaskFromSprint(
 
     const task = await prisma.task.findUnique({
       where: { id: input.taskId },
-      include: { sprint: { include: { board: true } } },
+      include: {
+        sprint: { include: { board: true } },
+        assignee: { select: { id: true } },
+      },
     })
     if (!task || !task.sprint) return { success: false, error: 'Task not in sprint' }
 
@@ -561,6 +585,15 @@ export async function removeTaskFromSprint(
       action: 'TASK_REMOVED_FROM_SPRINT',
       details: { taskId: input.taskId, sprintId: task.sprintId },
     })
+
+    if (task.assignee && task.assignee.id !== session.id) {
+      await sendNotification({
+        userId: task.assignee.id,
+        type: 'TASK_REMOVED_FROM_SPRINT',
+        message: `Task "${task.title}" removed from sprint "${task.sprint.name}"`,
+        link: `/member/sprints/${task.sprintId}`,
+      })
+    }
 
     emitBoardEvent('task:sprintRemoved', {
       taskId: input.taskId,
@@ -642,18 +675,26 @@ export async function getSprintsForAllBoards(): Promise<ActionResult> {
       include: {
         board: { select: { id: true, name: true } },
         _count: { select: { tasks: true } },
+        tasks: { select: { id: true, column: { select: { name: true } } } },
       },
     })
 
+    // Count per-sprint "done" tasks using each task's live column name (the
+    // done-column token set is dynamic, so it must be evaluated per row).
+    const list = sprints.map((s) => ({
+      ...s,
+      doneCount: s.tasks.filter((t) => isDoneColumn(t.column?.name)).length,
+    }))
+
     // Order: ACTIVE first, then PLANNED, COMPLETED, CANCELLED; then by start date desc.
     const order: Record<string, number> = { ACTIVE: 0, PLANNED: 1, COMPLETED: 2, CANCELLED: 3 }
-    sprints.sort((a, b) => {
+    list.sort((a, b) => {
       const diff = (order[a.status] ?? 9) - (order[b.status] ?? 9)
       if (diff !== 0) return diff
       return new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
     })
 
-    return { success: true, data: sprints }
+    return { success: true, data: list }
   } catch (error) {
     console.error('[GET_ALL_SPRINTS_ERROR]', error)
     return { success: false, error: 'Failed to fetch sprints' }

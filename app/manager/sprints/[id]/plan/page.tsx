@@ -1,6 +1,7 @@
 import { getSession } from '@/lib/auth-server'
-import { redirect } from 'next/navigation'
-import { SprintPlanningBoard } from '@/components/sprint/sprint-planning-board'
+import { redirect, notFound } from 'next/navigation'
+import prisma from '@/lib/prisma'
+import { SprintPlanningBoard } from '@/components/sprint/sprint-planning-board-dynamic'
 
 export default async function ManagerSprintPlanPage({
   params,
@@ -13,5 +14,18 @@ export default async function ManagerSprintPlanPage({
   }
 
   const p = await params
-  return <SprintPlanningBoard sprintId={p.id} basePath="/manager" />
+  const sprint = await prisma.sprint.findUnique({
+    where: { id: p.id },
+    select: { id: true, boardId: true },
+  })
+  if (!sprint) notFound()
+
+  return (
+    <SprintPlanningBoard
+      sprintId={p.id}
+      basePath="/manager"
+      boardId={sprint.boardId}
+      currentUser={{ id: session.id, name: session.name, image: session.image }}
+    />
+  )
 }

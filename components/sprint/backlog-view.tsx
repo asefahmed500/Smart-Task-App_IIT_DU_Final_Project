@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBacklogTasks, assignTaskToSprint, getSprintsByBoard, updateTaskIssueFields, getEpicsByBoard } from '@/actions'
 import { mentionToDisplayText } from '@/utils/mention'
+import { useRealtimeReload } from '@/components/kanban/socket-hooks'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -85,11 +86,13 @@ export function BacklogView({
   boards,
   basePath = '/manager',
   readOnly = false,
+  currentUser,
 }: {
   boardId: string
   boards: Board[]
   basePath?: string
   readOnly?: boolean
+  currentUser?: { id: string; name: string | null; image: string | null }
 }) {
   const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>([])
@@ -108,6 +111,23 @@ export function BacklogView({
   useEffect(() => {
     loadData()
   }, [boardId])
+
+  useRealtimeReload(
+    boardId,
+    currentUser,
+    [
+      'sprint:created',
+      'sprint:updated',
+      'sprint:statusChanged',
+      'task:sprintAssigned',
+      'task:sprintRemoved',
+      'task:issueFieldsUpdated',
+      'task:created',
+      'task:updated',
+      'task:deleted',
+    ],
+    () => loadData(),
+  )
 
   async function loadData() {
     setLoading(true)
@@ -146,17 +166,21 @@ export function BacklogView({
       storyPoints: editForm.storyPoints ? parseInt(editForm.storyPoints) : null,
       epicId: editForm.epicId || null,
     })
+    if (!res.success) {
+      toast.error(res.error || 'Failed to update')
+      return
+    }
     // If a sprint was chosen in the edit dialog, also assign the task to it.
     if (editForm.sprintId) {
-      await assignTaskToSprint({ taskId: selectedTask.id, sprintId: editForm.sprintId })
+      const sprintRes = await assignTaskToSprint({ taskId: selectedTask.id, sprintId: editForm.sprintId })
+      if (!sprintRes.success) {
+        toast.error(sprintRes.error || 'Failed to assign sprint')
+        return
+      }
     }
-    if (res.success) {
-      toast.success('Task updated')
-      setEditDialogOpen(false)
-      loadData()
-    } else {
-      toast.error(res.error || 'Failed to update')
-    }
+    toast.success('Task updated')
+    setEditDialogOpen(false)
+    loadData()
   }
 
   function openEditDialog(task: Task) {
@@ -397,6 +421,17 @@ export function BacklogView({
               </Select>
             </div>
             <div>
+              <Label>Story Points</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={editForm.storyPoints}
+                onChange={(e) => setEditForm((f) => ({ ...f, storyPoints: e.target.value }))}
+                placeholder="e.g. 3"
+              />
+            </div>
+            <div>
               <Label className="flex items-center gap-1.5">
                 <Layers className="size-3" />
                 Epic
@@ -420,6 +455,29 @@ export function BacklogView({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Sprint</Label>
+              <Select
+                value={editForm.sprintId || '__none__'}
+                onValueChange={(v) => setEditForm((f) => ({ ...f, sprintId: v === '__none__' ? '' : v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sprint" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No sprint</SelectItem>
+                  {activeSprints.map((sprint) => (
+                    <SelectItem key={sprint.id} value={sprint.id}>
+                      {sprint.name}{' '}
+                      <span className="text-muted-foreground">({sprint.status.toLowerCase()})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Assigning to a sprint moves the task out of the backlog.
+              </p>
             </div>
           </div>
           <DialogFooter>

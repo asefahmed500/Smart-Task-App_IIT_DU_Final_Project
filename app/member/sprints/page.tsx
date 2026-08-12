@@ -37,7 +37,7 @@ export default async function MemberSprintsPage({
   // ACTIVE sprint, else the newest board the member belongs to.
   const boardId = params.boardId || (await defaultSprintBoard(boards))
 
-  return <SprintList boardId={boardId} boards={boards} basePath="/member" readOnly />
+  return <SprintList boardId={boardId} boards={boards} basePath="/member" readOnly currentUser={{ id: session.id, name: session.name, image: session.image }} />
 }
 
 async function defaultSprintBoard(boards: { id: string; name: string }[]): Promise<string> {
