@@ -134,6 +134,12 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
       if (data.task) {
         const newTask = data.task as Task
         setBoard((prev: Board) => {
+          // Guard against double-append: the actor gets an optimistic add AND
+          // the socket echo, which produced duplicate React keys / twin cards.
+          const alreadyExists = prev.columns.some((c: Column) =>
+            c.tasks.some((t: Task) => t.id === newTask.id)
+          )
+          if (alreadyExists) return prev
           const newColumns = prev.columns.map((col: Column) => {
             if (col.id === newTask.columnId) {
               return { ...col, tasks: [...col.tasks, newTask] }
@@ -496,6 +502,12 @@ export function useKanbanBoard({ initialBoard, currentUser }: UseKanbanBoardProp
   // socket 'task:created' event then reconciles if anything differs.
   const addTaskOptimistic = useCallback((task: Task) => {
     setBoard((prev: Board) => {
+      // Idempotent: the socket 'task:created' echo can race the optimistic add,
+      // so never push the same task id twice.
+      const exists = prev.columns.some((c: Column) =>
+        c.tasks.some((t: Task) => t.id === task.id)
+      )
+      if (exists) return prev
       const newColumns = prev.columns.map((col: Column) =>
         col.id === task.columnId ? { ...col, tasks: [...col.tasks, task] } : col
       )

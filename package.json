@@ -16,6 +16,9 @@
     "postinstall": "prisma generate",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "seed": "npx tsx -r dotenv/config prisma/seed.ts dotenv_config_path=.env.local"
   },
   "dependencies": {
@@ -56,6 +59,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.2.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^25.5.0",

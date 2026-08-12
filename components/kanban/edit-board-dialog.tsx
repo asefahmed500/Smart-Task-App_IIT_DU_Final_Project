@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { updateBoard, undoLastAction } from '@/actions/board-actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 
 interface EditBoardDialogProps {
   isOpen: boolean
@@ -33,6 +34,7 @@ export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps
   const [name, setName] = useState(board.name)
   const [description, setDescription] = useState(board.description || '')
   const [loading, setLoading] = useState(false)
+  const runWithLoading = useGlobalLoadingAction()
 
   useEffect(() => {
     setName(board.name)
@@ -45,7 +47,7 @@ export function EditBoardDialog({ isOpen, onClose, board }: EditBoardDialogProps
 
     setLoading(true)
     try {
-      const result = await updateBoard({ id: board.id, name, description })
+      const result = await runWithLoading(() => updateBoard({ id: board.id, name, description }), 'Saving board...')
       if (result.success) {
         toast.success('Board updated successfully', {
           action: {

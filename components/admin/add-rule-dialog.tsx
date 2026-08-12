@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createAutomationRule, getAllBoards } from '@/actions/admin-actions'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 import { toast } from "sonner"
 import { getAvailableTriggers, getAvailableConditions, getAvailableActions } from '@/utils/automation-utils'
 
@@ -33,6 +34,7 @@ interface BoardOption {
 export function AddRuleDialog() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const runWithLoading = useGlobalLoadingAction()
   const [boards, setBoards] = useState<BoardOption[]>([])
 
   const triggers = getAvailableTriggers()
@@ -65,7 +67,7 @@ export function AddRuleDialog() {
     }
 
     try {
-      const res = await createAutomationRule(data)
+      const res = await runWithLoading(() => createAutomationRule(data), 'Creating rule...')
       if (!res.success) {
         toast.error(res.error || "Failed to create rule")
         return

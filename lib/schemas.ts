@@ -9,7 +9,7 @@ export const prioritySchema = z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
 
 // Task Schemas
 export const createTaskSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(100),
+  title: z.string().trim().min(1, 'Title is required').max(100),
   description: z.string().max(1000).optional().nullable(),
   priority: prioritySchema.default('MEDIUM'),
   columnId: idSchema,
@@ -48,19 +48,19 @@ export const moveTaskSchema = z.object({
 
 // Board Schemas
 export const createBoardSchema = z.object({
-  name: z.string().min(1, 'Board name is required').max(50),
+  name: z.string().trim().min(1, 'Board name is required').max(50),
   description: z.string().max(255).optional().nullable(),
 });
 
 export const updateBoardSchema = z.object({
   id: idSchema,
-  name: z.string().min(1).max(50).optional(),
+  name: z.string().trim().min(1).max(50).optional(),
   description: z.string().max(255).optional().nullable(),
 });
 
 // Column Schemas
 export const createColumnSchema = z.object({
-  name: z.string().min(1).max(30),
+  name: z.string().trim().min(1).max(30),
   boardId: idSchema,
   wipLimit: z.number().int().min(0).default(0),
   order: z.number().int().min(0).optional(),
@@ -68,7 +68,7 @@ export const createColumnSchema = z.object({
 
 export const updateColumnSchema = z.object({
   id: idSchema,
-  name: z.string().min(1).max(30).optional(),
+  name: z.string().trim().min(1).max(30).optional(),
   wipLimit: z.number().int().min(0).optional(),
   order: z.number().int().min(0).optional(),
 });
@@ -167,12 +167,12 @@ export const updateAutomationRuleSchema = z.object({
 // Comment Schemas
 export const createCommentSchema = z.object({
   taskId: idSchema,
-  content: z.string().min(1, "Comment cannot be empty").max(1000),
+  content: z.string().trim().min(1, "Comment cannot be empty").max(1000),
 });
 
 export const editCommentSchema = z.object({
   id: idSchema,
-  content: z.string().min(1, "Comment cannot be empty").max(1000),
+  content: z.string().trim().min(1, "Comment cannot be empty").max(1000),
 });
 // Auth Schemas
 export const loginSchema = z.object({

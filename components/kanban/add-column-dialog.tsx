@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { createColumn, undoLastAction } from '@/actions/board-actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 
 interface AddColumnDialogProps {
   isOpen: boolean
@@ -25,6 +26,7 @@ interface AddColumnDialogProps {
 export function AddColumnDialog({ isOpen, onClose, boardId }: AddColumnDialogProps) {
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
+  const runWithLoading = useGlobalLoadingAction()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,7 +34,7 @@ export function AddColumnDialog({ isOpen, onClose, boardId }: AddColumnDialogPro
 
     setLoading(true)
     try {
-      const result = await createColumn({ boardId, name })
+      const result = await runWithLoading(() => createColumn({ boardId, name }), 'Adding column...')
       if (!result.success) throw new Error(result.error)
       toast.success('Column added successfully', {
         action: {

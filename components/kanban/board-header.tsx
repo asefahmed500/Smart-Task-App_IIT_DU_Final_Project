@@ -12,6 +12,7 @@ import { Board, User } from '@/types/kanban'
 import { deleteBoard } from '@/actions/board-actions'
 import { toast } from 'sonner'
 import { useOfflineStore } from '@/lib/store/use-offline-store'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 
 interface BoardHeaderProps {
   board: Board
@@ -24,6 +25,7 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
   const [isEditBoardOpen, setIsEditBoardOpen] = useState(false)
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false)
   const { isOnline } = useOfflineStore()
+  const runWithLoading = useGlobalLoadingAction()
 
   const isAdmin = currentUser.role === 'ADMIN'
   const isManager = currentUser.role === 'MANAGER'
@@ -93,7 +95,7 @@ export function BoardHeader({ board, currentUser }: BoardHeaderProps) {
                         return
                       }
                       if (!confirm('Are you sure you want to delete this board? All tasks and columns will be permanently removed.')) return
-                      const result = await deleteBoard({ boardId: board.id })
+                      const result = await runWithLoading(() => deleteBoard({ boardId: board.id }), 'Deleting board...')
                       if (result.success) {
                         toast.success('Board deleted')
                         const role = currentUser.role.toLowerCase()

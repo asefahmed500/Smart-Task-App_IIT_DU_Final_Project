@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { deleteColumn, undoLastAction } from '@/actions/board-actions'
 import { toast } from 'sonner'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 import { AddTaskDialog } from './add-task-dialog'
 import { SetWipLimitDialog } from './set-wip-limit-dialog'
 import { RenameColumnDialog } from './rename-column-dialog'
@@ -61,11 +62,12 @@ export function ColumnContainer({ column, tasks, currentUser, boardId, boardMemb
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
   const [isWipLimitOpen, setIsWipLimitOpen] = useState(false)
   const [isRenameOpen, setIsRenameOpen] = useState(false)
+  const runWithLoading = useGlobalLoadingAction()
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this column? Tasks will be moved to another column if available.')) return
     try {
-      const result = await deleteColumn({ columnId: column.id, boardId })
+      const result = await runWithLoading(() => deleteColumn({ columnId: column.id, boardId }), 'Deleting column...')
       if (!result.success) {
         throw new Error(result.error || 'Failed to delete column')
       }

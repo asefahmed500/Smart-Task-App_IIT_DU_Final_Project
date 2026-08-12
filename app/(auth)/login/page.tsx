@@ -41,7 +41,7 @@ export default function LoginPage() {
         setError(data.error || 'Invalid email or password')
       }
     } catch {
-      setError('An error occurred. Please try again.')
+      setError('Could not reach the server. Check your connection and try again.')
     } finally {
       setLoading(false)
     }

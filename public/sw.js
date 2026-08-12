@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-task-v6';
+const CACHE_NAME = 'smart-task-v7';
 // NOTE: do NOT precache /globals.css, /manifest.json or /dashboard —
 // Next.js serves CSS from hashed /_next/static paths, there is no
 // app/manifest.ts, and /dashboard 302-redirects per role, so all three

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getEpicsByBoard, createEpic, updateEpic, deleteEpic } from '@/actions'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
@@ -62,6 +63,7 @@ export function EpicList({
   const router = useRouter()
   const [epics, setEpics] = useState<Epic[]>([])
   const [loading, setLoading] = useState(true)
+  const runWithLoading = useGlobalLoadingAction()
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Epic | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Epic | null>(null)
@@ -90,10 +92,13 @@ export function EpicList({
   }
 
   async function handleCreate() {
-    const res = await createEpic({
-      ...createForm,
-      boardId,
-    })
+    const res = await runWithLoading(
+      () => createEpic({
+        ...createForm,
+        boardId,
+      }),
+      'Creating epic...'
+    )
     if (res.success) {
       toast.success('Epic created')
       setCreateOpen(false)
@@ -106,13 +111,16 @@ export function EpicList({
 
   async function handleEdit() {
     if (!editTarget) return
-    const res = await updateEpic({
-      id: editTarget.id,
-      name: editForm.name,
-      description: editForm.description,
-      color: editForm.color,
-      status: editForm.status as 'BACKLOG' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED',
-    })
+    const res = await runWithLoading(
+      () => updateEpic({
+        id: editTarget.id,
+        name: editForm.name,
+        description: editForm.description,
+        color: editForm.color,
+        status: editForm.status as 'BACKLOG' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED',
+      }),
+      'Saving epic...'
+    )
     if (res.success) {
       toast.success('Epic updated')
       setEditTarget(null)
@@ -124,7 +132,7 @@ export function EpicList({
 
   async function handleDelete() {
     if (!deleteTarget) return
-    const res = await deleteEpic(deleteTarget.id)
+    const res = await runWithLoading(() => deleteEpic(deleteTarget.id), 'Deleting epic...')
     if (res.success) {
       toast.success('Epic deleted')
       setDeleteTarget(null)

@@ -28,6 +28,7 @@ import { Loader2, CalendarDays, UserCircle } from 'lucide-react'
 import { useOfflineStore } from '@/lib/store/use-offline-store'
 import { User, Task } from '@/types/kanban'
 import { Priority } from '@/generated/prisma'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 
 interface AddTaskDialogProps {
   isOpen: boolean
@@ -47,6 +48,7 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
   const [assigneeId, setAssigneeId] = useState('')
   const { isOnline, addAction } = useOfflineStore()
   const router = useRouter()
+  const runWithLoading = useGlobalLoadingAction()
 
   const isMember = currentUser.role === 'MEMBER'
   const canAssign = currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER'
@@ -85,14 +87,17 @@ export function AddTaskDialog({ isOpen, onClose, columnId, currentUser, boardMem
         return
       }
 
-      const result = await createTask({
-        title,
-        description,
-        priority: priority as Priority,
-        columnId,
-        dueDate: dueDate || undefined,
-        assigneeId: canAssign ? (assigneeId || undefined) : undefined,
-      })
+      const result = await runWithLoading(
+        () => createTask({
+          title,
+          description,
+          priority: priority as Priority,
+          columnId,
+          dueDate: dueDate || undefined,
+          assigneeId: canAssign ? (assigneeId || undefined) : undefined,
+        }),
+        'Creating task...'
+      )
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to create task')

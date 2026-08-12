@@ -17,6 +17,7 @@ import { updateColumnWipLimit, undoLastAction } from '@/actions/board-actions'
 import { toast } from 'sonner'
 import { Loader2, WifiOff } from 'lucide-react'
 import { useOfflineStore } from '@/lib/store/use-offline-store'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 
 interface SetWipLimitDialogProps {
   isOpen: boolean
@@ -31,6 +32,7 @@ export function SetWipLimitDialog({ isOpen, onClose, columnId, boardId, currentL
   const [loading, setLoading] = useState(false)
   const [limit, setLimit] = useState(currentLimit.toString())
   const { isOnline } = useOfflineStore()
+  const runWithLoading = useGlobalLoadingAction()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,7 +45,7 @@ export function SetWipLimitDialog({ isOpen, onClose, columnId, boardId, currentL
 
     setLoading(true)
     try {
-      const result = await updateColumnWipLimit({ columnId, wipLimit: numLimit })
+      const result = await runWithLoading(() => updateColumnWipLimit({ columnId, wipLimit: numLimit }), 'Updating WIP limit...')
       if (result.success) {
         toast.success('WIP limit updated', {
           action: {

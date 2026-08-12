@@ -148,7 +148,8 @@ Member pages reuse the same sprint components at `/member/*` with `basePath="/me
 
 - **WIP limits:** Enforced for MEMBER only. Admin/manager override logged as `UPDATE_TASK_STATUS_OVERRIDE`. WIP check inside `$transaction`.
 - **Task version conflicts:** `version` field increments on every update. Pass `version: undefined` to force-overwrite.
-- **Undo:** 30-second window, deletes specific audit log entry.
+- **Undo:** 30-second window, deletes specific audit log entry. Covers checklist actions too (`ADD_CHECKLIST`, `DELETE_CHECKLIST`, `ADD/UPDATE/TOGGLE/DELETE_CHECKLIST_ITEM`) and time entries (`LOG_TIME`, `UPDATE_TIME_ENTRY`, `DELETE_TIME_ENTRY`). Undo-recreation data (e.g. deleted checklist items, time-entry `userId`/`description`, `previousDuration`) must be captured in the audit-log `details` — undo ONLY works if the creating action records what the undo switch rebuilds. When adding a new undoable action, add its `case` in `undoLastAction()` `actions/board-actions.ts` AND add the action name to the `action: { in: [...] }` allowlist.
+- **CUID leak prevention:** Never render raw DB ids in user-facing UI. The Activity tab (`task-activity-tab.tsx` `formatDetails`) has explicit cases for review (`SUBMIT_REVIEW`/`COMPLETE_REVIEW`), checklist, and time-entry actions, an exclusion list for `*Id` keys, `mentionToDisplayText()` for mention tokens, and `.replace(/\bc[a-z0-9]{24}\b/g, '…')` as a fallback CUID mask. Task descriptions rendered on cards/boards/backlog/epics (`task-card.tsx`, `sprint-kanban-board.tsx`, `sprint-detail.tsx`, `backlog-view.tsx`, `epic-detail.tsx`) pass through `mentionToDisplayText()`.
 - **Comment editing:** Admin/manager edit any comment. Others edit own within 5 minutes.
 - **Member assignment:** Can only assign to self. Admin/manager assign to anyone.
 - **Review auto-move:** APPROVED→last column, CHANGES_REQUESTED→second, REJECTED→first.
@@ -197,6 +198,7 @@ Member pages reuse the same sprint components at `/member/*` with `basePath="/me
 | Types | `types/kanban.ts` |
 | Team performance action | `actions/manager-actions.ts` (`getTeamMemberPerformance`) |
 | File upload route | `app/api/attachments/upload/route.ts` + `[id]/file` serve route |
+| Task activity/audit display | `components/kanban/task-details/task-activity-tab.tsx` (`formatDetails` — CUID-safe plain text + mention resolution) |
 
 ## Documentation & Report
 

@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { createBoard } from '@/actions/board-actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 
 interface CreateBoardDialogProps {
   isOpen: boolean
@@ -29,6 +30,7 @@ export function CreateBoardDialog({ isOpen, onClose, onSuccess }: CreateBoardDia
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const runWithLoading = useGlobalLoadingAction()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,7 +38,10 @@ export function CreateBoardDialog({ isOpen, onClose, onSuccess }: CreateBoardDia
 
     setLoading(true)
     try {
-      const result = await createBoard({ name, description: description || undefined })
+      const result = await runWithLoading(
+        () => createBoard({ name, description: description || undefined }),
+        'Creating board...'
+      )
       if (!result.success) {
         throw new Error(result.error || 'Failed to create board')
       }

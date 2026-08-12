@@ -46,7 +46,7 @@ export default function SignupPage() {
         setError(data.error || 'Something went wrong')
       }
     } catch {
-      setError('An error occurred. Please try again.')
+      setError('Could not reach the server. Check your connection and try again.')
     } finally {
       setLoading(false)
     }

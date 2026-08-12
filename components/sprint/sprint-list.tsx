@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSprintsForAllBoards, createSprint, updateSprintStatus, deleteSprint } from '@/actions'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
@@ -91,6 +92,7 @@ export function SprintList({
   const router = useRouter()
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [loading, setLoading] = useState(true)
+  const runWithLoading = useGlobalLoadingAction()
   const [createOpen, setCreateOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Sprint | null>(null)
   const [completeTarget, setCompleteTarget] = useState<Sprint | null>(null)
@@ -121,10 +123,13 @@ export function SprintList({
       toast.error('Select a board for the sprint')
       return
     }
-    const res = await createSprint({
-      ...createForm,
-      boardId: createBoard,
-    })
+    const res = await runWithLoading(
+      () => createSprint({
+        ...createForm,
+        boardId: createBoard,
+      }),
+      'Creating sprint...'
+    )
     if (res.success) {
       toast.success('Sprint created')
       setCreateOpen(false)
@@ -136,7 +141,7 @@ export function SprintList({
   }
 
   async function handleStatusChange(sprintId: string, newStatus: string) {
-    const res = await updateSprintStatus({ id: sprintId, status: newStatus })
+    const res = await runWithLoading(() => updateSprintStatus({ id: sprintId, status: newStatus }), 'Updating sprint...')
     if (res.success) {
       toast.success(`Sprint ${newStatus.toLowerCase()}`)
       loadSprints()
@@ -147,11 +152,14 @@ export function SprintList({
 
   async function handleCompleteConfirm() {
     if (!completeTarget) return
-    const res = await updateSprintStatus({
-      id: completeTarget.id,
-      status: 'COMPLETED',
-      incompleteAction: completeAction,
-    })
+    const res = await runWithLoading(
+      () => updateSprintStatus({
+        id: completeTarget.id,
+        status: 'COMPLETED',
+        incompleteAction: completeAction,
+      }),
+      'Completing sprint...'
+    )
     if (res.success) {
       toast.success('Sprint completed')
       setCompleteTarget(null)
@@ -163,7 +171,7 @@ export function SprintList({
 
   async function handleDelete() {
     if (!deleteTarget) return
-    const res = await deleteSprint(deleteTarget.id)
+    const res = await runWithLoading(() => deleteSprint(deleteTarget.id), 'Deleting sprint...')
     if (res.success) {
       toast.success('Sprint deleted')
       setDeleteTarget(null)

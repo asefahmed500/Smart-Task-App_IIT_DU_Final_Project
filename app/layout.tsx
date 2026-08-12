@@ -32,6 +32,8 @@ export const metadata: Metadata = {
 
 import { Toaster } from "sonner";
 import { OfflineProvider } from "@/components/providers/offline-provider";
+import { StaleStateRecovery } from "@/components/stale-state-recovery";
+import { GlobalLoadingOverlay } from "@/components/global-loading-overlay";
 
 export default function RootLayout({
   children,
@@ -44,6 +46,8 @@ export default function RootLayout({
         <OfflineProvider>
           {children}
         </OfflineProvider>
+        <GlobalLoadingOverlay />
+        <StaleStateRecovery />
         <Toaster position="top-right" richColors closeButton />
       </body>
     </html>

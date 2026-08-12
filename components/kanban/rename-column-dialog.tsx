@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { updateColumn, undoLastAction } from '@/actions/board-actions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { useGlobalLoadingAction } from '@/lib/use-global-loading-action'
 
 interface RenameColumnDialogProps {
   isOpen: boolean
@@ -29,6 +30,7 @@ export function RenameColumnDialog({ isOpen, onClose, columnId, boardId, current
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState(currentName)
+  const runWithLoading = useGlobalLoadingAction()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,7 +38,7 @@ export function RenameColumnDialog({ isOpen, onClose, columnId, boardId, current
 
     setLoading(true)
     try {
-      const result = await updateColumn({ id: columnId, name })
+      const result = await runWithLoading(() => updateColumn({ id: columnId, name }), 'Renaming column...')
       if (result.success) {
         toast.success('Column renamed', {
           action: {

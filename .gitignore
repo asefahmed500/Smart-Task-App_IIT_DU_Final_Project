@@ -58,3 +58,8 @@ artifacts/
 !.agents/
 .vercel
 .env*
+
+# test artifacts
+test-results/
+playwright-report/
+blob-report/
