@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Loader2,
   Zap,
+  Bug,
 } from "lucide-react"
 
 import {
@@ -86,6 +87,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
     { title: "Sprints", icon: CalendarDays, url: "/manager/sprints" },
     { title: "Sprint Calendar", icon: Calendar, url: "/manager/sprints/calendar" },
     { title: "Epics", icon: Layers, url: "/manager/epics" },
+    { title: "Issue Tracker", icon: Bug, url: "/manager/issues" },
     { title: "Team Members", icon: Users, url: "/manager/team" },
     { title: "Analytics", icon: BarChart3, url: "/manager/analytics" },
     { title: "Audit Logs", icon: History, url: "/manager/logs" },
@@ -98,6 +100,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps & React.Component
     { title: "Sprint Calendar", icon: Calendar, url: "/member/sprints/calendar" },
     { title: "My Backlog", icon: ListTodo, url: "/member/backlog" },
     { title: "Epics", icon: Layers, url: "/member/epics" },
+    { title: "Issue Tracker", icon: Bug, url: "/member/issues" },
     { title: "Reports", icon: BarChart3, url: "/member/reports" },
     { title: "My Activity", icon: History, url: "/member/logs" },
   ]

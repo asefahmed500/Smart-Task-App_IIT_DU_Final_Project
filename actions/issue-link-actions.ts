@@ -241,6 +241,49 @@ export async function searchBoardTasks(
   }
 }
 
+export async function getIssueTrackerData(
+  rawInput: { boardId?: string } = {}
+): Promise<ActionResult> {
+  try {
+    const session = await getSession()
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    const boards = await prisma.board.findMany({
+      where: {
+        OR: [{ ownerId: session.id }, { members: { some: { id: session.id } } }],
+      },
+      select: { id: true, name: true },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    const boardIds = rawInput.boardId
+      ? boards.filter((b) => b.id === rawInput.boardId).map((b) => b.id)
+      : boards.map((b) => b.id)
+
+    if (boardIds.length === 0) {
+      return { success: true, data: { tasks: [], boards } }
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: { column: { boardId: { in: boardIds } } },
+      include: {
+        assignee: { select: { id: true, name: true, image: true } },
+        column: {
+          select: { id: true, name: true, boardId: true },
+        },
+        sprint: { select: { id: true, name: true, status: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 500,
+    })
+
+    return { success: true, data: { tasks, boards } }
+  } catch (error) {
+    console.error('[GET_ISSUE_TRACKER_ERROR]', error)
+    return { success: false, error: 'Failed to fetch issue tracker data' }
+  }
+}
+
 export async function getTaskIssueLinks(
   rawInput: unknown
 ): Promise<ActionResult> {
