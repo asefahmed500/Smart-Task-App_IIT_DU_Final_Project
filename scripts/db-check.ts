@@ -1,13 +1,14 @@
 import pg from 'pg'
 import dotenv from 'dotenv'
 
+dotenv.config()
 dotenv.config({ path: '.env.local' })
 
 async function checkConnection() {
   const connectionString = process.env.DATABASE_URL
   
   if (!connectionString) {
-    console.error('❌ DATABASE_URL is not defined in .env.local')
+    console.error('❌ DATABASE_URL is not defined in .env or .env.local')
     process.exit(1)
   }
 
